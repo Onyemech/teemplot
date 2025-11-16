@@ -1,0 +1,77 @@
+services:
+  # Backend API Service
+  - type: web
+    name: teemplot-api
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRY
+        value: 15m
+      - key: JWT_REFRESH_EXPIRY
+        value: 7d
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        value: noreply@teemplot.com
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://teemplot.vercel.app
+      - key: CORS_ORIGIN
+        value: https://teemplot.vercel.app
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: RATE_LIMIT_WINDOW
+        value: 15m
+      - key: LOG_LEVEL
+        value: info
+      - key: ENABLE_AUTO_CLOCKIN
+        value: true
+      - key: ENABLE_AUTO_CLOCKOUT
+        value: true
+      - key: ENABLE_TASK_REVIEW
+        value: true
+    healthCheckPath: /api/health
+    autoDeploy: true
+    
+  # Frontend (if deploying on Render instead of Vercel)
+  # - type: web
+  #   name: teemplot-frontend
+  #   env: node
+  #   region: frankfurt
+  #   plan: free
+  #   buildCommand: cd client && npm install && npm run build
+  #   startCommand: cd client && npm start
+  #   envVars:
+  #     - key: NEXT_PUBLIC_API_URL
+  #       value: https://teemplot-api.onrender.com/api
+  #   autoDeploy: true
