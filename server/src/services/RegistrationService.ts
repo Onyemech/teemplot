@@ -2,7 +2,7 @@ import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { IDatabase } from '../infrastructure/database/IDatabase';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 export interface RegistrationData {
   email: string;
@@ -46,8 +46,8 @@ export class RegistrationService {
     const passwordHash = await bcrypt.hash(data.password, 12);
 
     // Generate IDs
-    const companyId = uuidv4();
-    const userId = uuidv4();
+    const companyId = randomUUID();
+    const userId = randomUUID();
     const slug = this.generateSlug(data.companyName);
 
     try {

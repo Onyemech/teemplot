@@ -43,6 +43,7 @@ Teemplot is a multi-tenant workforce management SaaS platform designed to handle
 - Task status updates
 - Priority levels
 - Task categories
+- Task reviews
 
 ### 6. Performance Metrics
 - Task completion rate
@@ -108,7 +109,7 @@ Teemplot is a multi-tenant workforce management SaaS platform designed to handle
 ## Technology Stack
 
 ### Frontend
-- React 18
+- Next
 - TypeScript
 - Vite
 - Tailwind CSS

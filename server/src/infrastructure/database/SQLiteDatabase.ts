@@ -42,7 +42,10 @@ export class SQLiteDatabase implements IDatabase {
 
   async insert<T = any>(table: string, data: Partial<T>): Promise<T> {
     const keys = Object.keys(data);
-    const values = Object.values(data);
+    // Convert booleans to 0/1 for SQLite
+    const values = Object.values(data).map(val => 
+      typeof val === 'boolean' ? (val ? 1 : 0) : val
+    );
     const placeholders = keys.map(() => '?').join(', ');
 
     const sql = `
@@ -75,7 +78,15 @@ export class SQLiteDatabase implements IDatabase {
       RETURNING *
     `;
 
-    const params = [...Object.values(data), ...Object.values(where)];
+    // Convert booleans to 0/1 for SQLite
+    const dataValues = Object.values(data).map(val => 
+      typeof val === 'boolean' ? (val ? 1 : 0) : val
+    );
+    const whereValues = Object.values(where).map(val => 
+      typeof val === 'boolean' ? (val ? 1 : 0) : val
+    );
+    
+    const params = [...dataValues, ...whereValues];
     const result = await this.query<T>(sql, params);
     return result.rows;
   }

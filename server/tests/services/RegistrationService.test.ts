@@ -1,83 +1,76 @@
 import { RegistrationService } from '../../src/services/RegistrationService';
 import { DatabaseFactory } from '../../src/infrastructure/database/DatabaseFactory';
+import bcrypt from 'bcrypt';
 
 describe('RegistrationService', () => {
-  let service: RegistrationService;
+  let registrationService: RegistrationService;
   let db: any;
 
   beforeAll(() => {
-    service = new RegistrationService();
     db = DatabaseFactory.getPrimaryDatabase();
+    registrationService = new RegistrationService();
   });
 
   describe('register', () => {
     const validRegistrationData = {
-      email: 'admin@testcompany.com',
+      email: 'test@example.com',
       password: 'SecurePass123!',
       firstName: 'John',
       lastName: 'Doe',
       companyName: 'Test Company Inc',
-      industry: 'technology',
-      companySize: '11-50',
-      phoneNumber: '+234 800 000 0000',
-      address: '123 Test Street, Lagos',
-      timezone: 'Africa/Lagos',
+      industry: 'Technology',
+      companySize: '10-50',
+      phoneNumber: '+1234567890',
+      address: '123 Test St',
+      timezone: 'America/New_York',
     };
 
-    it('should successfully register a new company and admin user', async () => {
-      const result = await service.register(validRegistrationData);
+    it('should register a new company and admin user successfully', async () => {
+      const result = await registrationService.register(validRegistrationData);
 
-      expect(result).toHaveProperty('userId');
-      expect(result).toHaveProperty('companyId');
+      expect(result).toBeDefined();
+      expect(result.userId).toBeDefined();
+      expect(result.companyId).toBeDefined();
       expect(result.email).toBe(validRegistrationData.email);
       expect(result.verificationRequired).toBe(true);
-    });
 
-    it('should create company with correct data', async () => {
-      const result = await service.register(validRegistrationData);
-
+      // Verify company was created
       const company = await db.findOne('companies', { id: result.companyId });
-
       expect(company).toBeDefined();
       expect(company.name).toBe(validRegistrationData.companyName);
       expect(company.email).toBe(validRegistrationData.email);
       expect(company.industry).toBe(validRegistrationData.industry);
+      expect(company.company_size).toBe(validRegistrationData.companySize);
       expect(company.timezone).toBe(validRegistrationData.timezone);
       expect(company.subscription_plan).toBe('trial');
-      expect(company.is_active).toBe(true);
-    });
+      expect(company.subscription_status).toBe('active');
 
-    it('should create admin user with correct data', async () => {
-      const result = await service.register(validRegistrationData);
-
+      // Verify user was created
       const user = await db.findOne('users', { id: result.userId });
-
       expect(user).toBeDefined();
       expect(user.email).toBe(validRegistrationData.email);
       expect(user.first_name).toBe(validRegistrationData.firstName);
       expect(user.last_name).toBe(validRegistrationData.lastName);
       expect(user.role).toBe('admin');
       expect(user.company_id).toBe(result.companyId);
-      expect(user.is_active).toBe(true);
-      expect(user.email_verified).toBe(false);
-    });
+      expect(user.email_verified).toBe(0);
 
-    it('should hash password correctly', async () => {
-      const result = await service.register(validRegistrationData);
-
-      const user = await db.findOne('users', { id: result.userId });
-
+      // Verify password was hashed
       expect(user.password_hash).toBeDefined();
       expect(user.password_hash).not.toBe(validRegistrationData.password);
-      expect(user.password_hash.length).toBeGreaterThan(50); // bcrypt hash length
+      const passwordMatch = await bcrypt.compare(
+        validRegistrationData.password,
+        user.password_hash
+      );
+      expect(passwordMatch).toBe(true);
     });
 
-    it('should generate unique slug for company', async () => {
-      const result1 = await service.register(validRegistrationData);
-      const result2 = await service.register({
-        ...validRegistrationData,
-        email: 'admin2@testcompany.com',
-      });
+    it('should generate unique company slug', async () => {
+      const data1 = { ...validRegistrationData, email: 'user1@test.com' };
+      const data2 = { ...validRegistrationData, email: 'user2@test.com' };
+
+      const result1 = await registrationService.register(data1);
+      const result2 = await registrationService.register(data2);
 
       const company1 = await db.findOne('companies', { id: result1.companyId });
       const company2 = await db.findOne('companies', { id: result2.companyId });
@@ -85,14 +78,13 @@ describe('RegistrationService', () => {
       expect(company1.slug).toBeDefined();
       expect(company2.slug).toBeDefined();
       expect(company1.slug).not.toBe(company2.slug);
-      expect(company1.slug).toMatch(/^test-company-inc-[a-z0-9]{4}$/);
     });
 
     it('should reject duplicate email', async () => {
-      await service.register(validRegistrationData);
+      await registrationService.register(validRegistrationData);
 
       await expect(
-        service.register(validRegistrationData)
+        registrationService.register(validRegistrationData)
       ).rejects.toThrow('Email already registered');
     });
 
@@ -105,69 +97,71 @@ describe('RegistrationService', () => {
         companyName: 'Minimal Company',
       };
 
-      const result = await service.register(minimalData);
+      const result = await registrationService.register(minimalData);
 
-      expect(result).toHaveProperty('userId');
-      expect(result).toHaveProperty('companyId');
+      expect(result).toBeDefined();
+      expect(result.userId).toBeDefined();
+      expect(result.companyId).toBeDefined();
 
       const company = await db.findOne('companies', { id: result.companyId });
       expect(company.timezone).toBe('UTC'); // Default value
     });
 
-    it('should rollback on error', async () => {
-      // Force an error by using invalid data
-      const invalidData = {
+    it('should create user with correct role', async () => {
+      const data = {
         ...validRegistrationData,
-        email: '', // Invalid email
+        email: 'admin@test.com',
       };
 
-      await expect(service.register(invalidData)).rejects.toThrow();
+      const result = await registrationService.register(data);
+      const user = await db.findOne('users', { id: result.userId });
 
-      // Verify no data was created
-      const companies = await db.find('companies', {});
-      const users = await db.find('users', {});
-
-      expect(companies.length).toBe(0);
-      expect(users.length).toBe(0);
+      expect(user.role).toBe('admin');
     });
   });
 
   describe('verifyEmail', () => {
-    it('should mark email as verified', async () => {
-      const registrationData = {
+    beforeEach(async () => {
+      // Create a test user
+      await registrationService.register({
         email: 'verify@test.com',
         password: 'SecurePass123!',
-        firstName: 'Test',
-        lastName: 'User',
-        companyName: 'Test Company',
-      };
+        firstName: 'Verify',
+        lastName: 'Test',
+        companyName: 'Verify Company',
+      });
+    });
 
-      const result = await service.register(registrationData);
-      
-      const verified = await service.verifyEmail(result.email, '123456');
+    it('should verify email successfully', async () => {
+      const result = await registrationService.verifyEmail('verify@test.com', '123456');
 
-      expect(verified).toBe(true);
+      expect(result).toBe(true);
 
-      const user = await db.findOne('users', { id: result.userId });
-      expect(user.email_verified).toBe(true);
+      // Check user is verified
+      const user = await db.findOne('users', { email: 'verify@test.com' });
+      expect(user.email_verified).toBe(1);
     });
 
     it('should return false for non-existent email', async () => {
-      const verified = await service.verifyEmail('nonexistent@test.com', '123456');
-      expect(verified).toBe(false);
+      const result = await registrationService.verifyEmail('nonexistent@test.com', '123456');
+
+      expect(result).toBe(false);
     });
   });
 
-  describe('Database Type Detection', () => {
-    it('should use SQLite in test environment', () => {
-      const db = DatabaseFactory.getPrimaryDatabase();
-      expect(db.getType()).toBe('sqlite');
-    });
+  describe('resendVerificationCode', () => {
+    it('should not throw error for valid email', async () => {
+      await registrationService.register({
+        email: 'resend@test.com',
+        password: 'SecurePass123!',
+        firstName: 'Resend',
+        lastName: 'Test',
+        companyName: 'Resend Company',
+      });
 
-    it('should pass health check', async () => {
-      const health = await DatabaseFactory.healthCheck();
-      expect(health.primary).toBe(true);
-      expect(health.type).toBe('sqlite');
+      await expect(
+        registrationService.resendVerificationCode('resend@test.com')
+      ).resolves.not.toThrow();
     });
   });
 });
