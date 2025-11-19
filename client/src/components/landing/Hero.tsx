@@ -39,9 +39,12 @@ export default function Hero() {
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform" />
             </span>
           </Link>
-          <button className="border-2 border-accent text-accent px-8 py-4 rounded-lg hover:bg-accent hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-glow">
+          <Link 
+            href="#contact"
+            className="border-2 border-accent text-accent px-8 py-4 rounded-lg hover:bg-accent hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-glow"
+          >
             Schedule Demo
-          </button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-16 max-w-3xl mx-auto">

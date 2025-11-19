@@ -19,9 +19,12 @@ export default function CTA() {
             Start Free Trial
             <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
           </Link>
-          <button className="border-2 border-primary text-primary px-8 py-4 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300">
+          <Link 
+            href="#contact"
+            className="border-2 border-primary text-primary px-8 py-4 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+          >
             Contact Sales
-          </button>
+          </Link>
         </div>
         <p className="text-sm text-muted-foreground pt-4">
           No credit card required · 14-day free trial · Cancel anytime

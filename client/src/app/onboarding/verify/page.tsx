@@ -64,10 +64,25 @@ function VerifyEmailContent() {
     setError('')
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      router.push('/onboarding/create-account')
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      
+      const response = await fetch(`${API_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        router.push('/dashboard')
+      } else {
+        setError(data.message || 'Invalid verification code. Please try again.')
+        setCode(['', '', '', '', '', ''])
+        inputRefs.current[0]?.focus()
+      }
     } catch (err) {
-      setError('Invalid verification code. Please try again.')
+      setError('Verification failed. Please try again.')
       setCode(['', '', '', '', '', ''])
       inputRefs.current[0]?.focus()
     } finally {
@@ -76,7 +91,20 @@ function VerifyEmailContent() {
   }
 
   const handleResend = async () => {
-    console.log('Resending code to:', email)
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      
+      await fetch(`${API_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      
+      // Show success message (you can add a toast notification here)
+      console.log('Verification code resent to:', email)
+    } catch (err) {
+      console.error('Failed to resend code:', err)
+    }
   }
 
   if (isVerifying) {

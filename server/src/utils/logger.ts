@@ -4,8 +4,8 @@ import fs from 'fs';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
-const isLocalhost = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+// Server-side: check if running on localhost
+const isLocalhost = process.env.HOST === 'localhost' || process.env.HOST === '127.0.0.1' || process.env.HOST === '0.0.0.0';
 
 // Ensure logs directory exists
 const logsDir = path.join(process.cwd(), 'logs');
