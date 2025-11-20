@@ -131,7 +131,7 @@ Complete redesign of the Teemplot onboarding flow to match documentation specifi
 **Company Fields:**
 - ✅ Company Name (min 2 chars)
 - ⚠️ Tax Identification Number (TIN)
-- ⚠️ Company Size (number, min 1)
+- ⚠️ Employee Count (manual number input, min 1) - NOT dropdown/range
 - ✅ Industry (optional)
 - ⚠️ Website (optional, valid URL)
 - ⚠️ Office Location (latitude/longitude via GPS)
@@ -154,30 +154,48 @@ Complete redesign of the Teemplot onboarding flow to match documentation specifi
 
 ---
 
-### FR-3: Role Assignment Logic
+### FR-3: Role Assignment & Employee Counting Logic
 
-**Description:** Automatically assign correct role based on ownership
+**Description:** Automatically assign correct role based on ownership and calculate employee count
 
 **Logic:**
 ```
+INITIAL: Registrant role = 'owner' (default)
+
 IF "Are you the company owner?" = YES
-  THEN role = 'owner'
-  AND skip owner details stage
-ELSE
-  THEN role = 'admin'
-  AND show owner details stage
-  AND collect owner information
+  THEN 
+    - Registrant role = 'owner' (keep)
+    - Employee count = 1
+    - Skip owner details stage
+    
+ELSE IF "Are you the company owner?" = NO
+  THEN
+    - Show owner details stage
+    - Collect owner information (email, name, phone, DOB)
+    
+    IF owner email ≠ registrant email
+      THEN
+        - Registrant role = 'admin' (change from owner)
+        - Create new user with role = 'owner' (actual owner)
+        - Employee count = 2 (registrant + owner)
+        - Send invitation email to owner
+      ELSE
+        - Registrant role = 'owner' (keep)
+        - Employee count = 1
+    END IF
 END IF
 ```
 
 **Requirements:**
-- Checkbox clearly labeled
+- Checkbox clearly labeled: "I am the company owner"
 - Helper text explains the difference
 - Role stored in database
-- Owner receives notification if different from registrant
+- Owner receives invitation email if different from registrant
+- Employee count automatically calculated
+- Registrant role updated based on ownership
 
 **Priority:** P0  
-**Complexity:** Low
+**Complexity:** Medium
 
 ---
 
