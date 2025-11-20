@@ -1,4 +1,4 @@
-import { UserPlus, ListChecks, CalendarDays, Smartphone, Wallet, TrendingUp } from 'lucide-react'
+import { UserPlus, ListChecks, CalendarDays, Smartphone, FileBarChart, TrendingUp } from 'lucide-react'
 
 const features = [
   {
@@ -26,9 +26,9 @@ const features = [
     color: 'primary',
   },
   {
-    icon: Wallet,
-    title: 'Automated Payroll',
-    description: 'Integrated calculations based on attendance, performance, and tasks with downloadable pay slips',
+    icon: FileBarChart,
+    title: 'Reporting & Analytics',
+    description: 'Comprehensive attendance and performance reports with audit logs and export functionality for data-driven decisions',
     color: 'accent',
   },
   {

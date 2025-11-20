@@ -1,8 +1,16 @@
 import { FastifyInstance } from 'fastify';
 import { registrationService } from '../services/RegistrationService';
+import { passwordResetService } from '../services/PasswordResetService';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
+import {
+  sanitizeInput,
+  validatePasswordStrength,
+  validateEmail,
+  logSecurityEvent,
+  detectSuspiciousActivity,
+} from '../middleware/security.middleware';
 
 const RegisterSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -207,5 +215,73 @@ export async function authRoutes(fastify: FastifyInstance) {
       success: true,
       message: 'Logged out successfully',
     });
+  });
+
+  // Forgot password - Send verification code
+  fastify.post('/forgot-password', async (request, reply) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(request.body);
+
+      await passwordResetService.sendResetCode(email);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'If an account exists with this email, a verification code has been sent.',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to send verification code',
+      });
+    }
+  });
+
+  // Verify reset code
+  fastify.post('/verify-reset-code', async (request, reply) => {
+    try {
+      const { email, code } = VerifyEmailSchema.parse(request.body);
+
+      const isValid = await passwordResetService.verifyResetCode(email, code);
+
+      if (!isValid) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Invalid or expired verification code',
+        });
+      }
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Code verified successfully',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Verification failed',
+      });
+    }
+  });
+
+  // Reset password
+  fastify.post('/reset-password', async (request, reply) => {
+    try {
+      const { email, code, password } = z.object({
+        email: z.string().email(),
+        code: z.string().length(6),
+        password: z.string().min(8, 'Password must be at least 8 characters'),
+      }).parse(request.body);
+
+      await passwordResetService.resetPassword(email, code, password);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Password reset successfully',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Password reset failed',
+      });
+    }
   });
 }

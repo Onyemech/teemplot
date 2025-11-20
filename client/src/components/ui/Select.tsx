@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useState, useRef, useEffect } from 'react'
 
 export interface SelectOption {
@@ -88,14 +86,14 @@ const Select: React.FC<SelectProps> = ({
 
   const getBorderColor = () => {
     if (error) return 'border-error focus-within:border-error'
-    return 'border-border-medium focus-within:border-primary-500'
+    return 'border-gray-300 focus-within:border-primary-500'
   }
 
   return (
     <div className={`relative ${fullWidth ? 'w-full' : ''}`} ref={selectRef}>
       {/* Label */}
       {label && (
-        <label className="block text-sm font-medium text-text-primary mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           {label}
           {required && <span className="text-error ml-1">*</span>}
         </label>
@@ -117,24 +115,24 @@ const Select: React.FC<SelectProps> = ({
           border
           ${getBorderColor()}
           rounded-lg
-          bg-bg-primary
+          bg-white
           text-left
           text-base
           transition-all
           duration-200
           outline-none
-          focus:ring-3
-          focus:ring-primary-500/10
+          focus:ring-2
+          focus:ring-primary-500/20
           disabled:bg-gray-100
-          disabled:text-text-disabled
+          disabled:text-gray-400
           disabled:cursor-not-allowed
-          ${isOpen ? 'ring-3 ring-primary-500/10' : ''}
+          ${isOpen ? 'ring-2 ring-primary-500/20' : ''}
         `}
       >
         {/* Selected Value or Placeholder */}
         <span
           className={`flex items-center gap-2 ${
-            selectedOption ? 'text-text-primary' : 'text-text-tertiary'
+            selectedOption ? 'text-gray-900' : 'text-gray-400'
           }`}
         >
           {selectedOption?.icon && <span>{selectedOption.icon}</span>}
@@ -143,7 +141,7 @@ const Select: React.FC<SelectProps> = ({
 
         {/* Arrow Icon */}
         <svg
-          className={`w-5 h-5 text-text-secondary transition-transform duration-200 ${
+          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
           }`}
           fill="none"
@@ -164,12 +162,12 @@ const Select: React.FC<SelectProps> = ({
         <div
           className="
             absolute
-            z-dropdown
+            z-50
             w-full
             mt-2
-            bg-bg-primary
+            bg-white
             border
-            border-border-light
+            border-gray-200
             rounded-lg
             shadow-lg
             overflow-hidden
@@ -178,7 +176,7 @@ const Select: React.FC<SelectProps> = ({
         >
           {/* Search Input */}
           {searchable && (
-            <div className="p-2 border-b border-border-light">
+            <div className="p-2 border-b border-gray-200">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -190,13 +188,13 @@ const Select: React.FC<SelectProps> = ({
                   px-3
                   py-2
                   border
-                  border-border-medium
+                  border-gray-300
                   rounded-md
                   text-sm
                   outline-none
                   focus:border-primary-500
                   focus:ring-2
-                  focus:ring-primary-500/10
+                  focus:ring-primary-500/20
                 "
               />
             </div>
@@ -227,7 +225,7 @@ const Select: React.FC<SelectProps> = ({
                       ${
                         isSelected
                           ? 'bg-primary-50 text-primary-700'
-                          : 'text-text-primary hover:bg-gray-50'
+                          : 'text-gray-900 hover:bg-gray-50'
                       }
                     `}
                   >
@@ -256,7 +254,7 @@ const Select: React.FC<SelectProps> = ({
                 )
               })
             ) : (
-              <div className="px-4 py-8 text-center text-text-secondary text-sm">
+              <div className="px-4 py-8 text-center text-gray-600 text-sm">
                 No options found
               </div>
             )}

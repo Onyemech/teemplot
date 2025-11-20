@@ -20,10 +20,12 @@ export interface User {
   lastName: string
   phoneNumber?: string
   avatarUrl?: string
-  role: 'admin' | 'staff'
+  role: 'owner' | 'admin' | 'staff'
   employeeId?: string
   departmentId?: string
   position?: string
+  dateOfBirth?: string
+  hireDate?: string
   isActive: boolean
   emailVerified: boolean
   createdAt: string
@@ -36,9 +38,32 @@ export interface Company {
   slug: string
   email: string
   phoneNumber?: string
+  address?: string
+  city?: string
+  stateProvince?: string
+  country?: string
+  postalCode?: string
   logoUrl?: string
-  subscriptionPlan: 'trial' | 'starter' | 'professional' | 'enterprise'
+  industry?: string
+  companySize?: string
+  employeeCount: number
+  subscriptionPlan: 'trial' | 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly'
   subscriptionStatus: 'active' | 'inactive' | 'cancelled' | 'expired'
+  subscriptionStartDate?: string
+  subscriptionEndDate?: string
+  trialStartDate?: string
+  trialEndDate?: string
+  taxIdentificationNumber?: string
+  website?: string
+  cacDocumentUrl?: string
+  proofOfAddressUrl?: string
+  companyPolicyUrl?: string
+  onboardingCompleted: boolean
+  ownerFirstName?: string
+  ownerLastName?: string
+  ownerEmail?: string
+  ownerPhone?: string
+  ownerDateOfBirth?: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -70,8 +95,7 @@ export interface Task {
   title: string
   description?: string
   assignedTo?: string
-  assignedBy?: string
-  priority: 'low' | 'medium' | 'high' | 'urgent'
+  assignedBy?: string: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   dueDate?: string
   completedAt?: string

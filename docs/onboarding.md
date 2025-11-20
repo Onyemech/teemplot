@@ -1,218 +1,84 @@
-Sure — here is the full, clean, well-structured Markdown version of your Teamplot Onboarding Overview.
-You can copy and paste it directly into your project or save it as an .md file.
-
-
----
-
-Teamplot Onboarding Overview (Markdown Version)
-
-1. Authentication
-
-Users can authenticate using Google or Email + Password.
-
-If email authentication is chosen:
-
-System sends a verification code to the user’s email.
-
-User must verify the code before proceeding.
-
-
-
-
----
-
-2. Company Setup — Stage 1
-
-Collect the following basic user/company-representative details:
-
-Legal First Name
-
-Legal Last Name
-
-Ownership Selection
-
-Checkbox: “Are you the company owner?”
-
-If selected → system assigns role = Owner.
-
-
-Email Address
-
-Phone Number
-
-Date of Birth
-
-
-Users click Continue to move forward.
-
-
----
-
-3. Company Owner Details — Stage 2
-
-Collect dedicated owner information:
-
-First Name
-
-Last Name
-
-Email Address
-
-Phone Number
-
-Date of Birth
-
-
-Users click Continue to proceed.
-
-
----
-
-4. Business Information — Stage 3
-
-Collect complete company data:
-
-Company Legal Name
-
-Tax Identification Number (TIN)
-
-Company Size
-
-Must be ≥ 1
-
-Number includes the user
-
-
-Website (optional)
-
-Head Office Location
-
-Automatically fetched via geolocation (geofencing)
-
-
-Company Logo (optional upload)
-
-
-Users click Continue.
-
-
----
-
-5. Document Upload — Stage 4
-
-Users must upload required legal documents:
-
-Document Type	Purpose	Format	Max Size
-
-CAC Document	Verify business details	PDF/PNG/JPEG	≤ 1 MB
-Proof of Address	Verify business address	PDF/PNG/JPEG	≤ 1 MB
-Company Policy Document	HR/operational policies	PDF/PNG/JPEG	≤ 1 MB
-
-
-The Continue button is only enabled when all required documents are uploaded.
-
-
----
-
-6. Review Page — Stage 5
-
-Users are shown a full summary of the data they provided:
-
-Sections displayed:
-
-Company Logo
-
-Tax Identification Number (TIN)
-
-Company Size
-
-Website (if provided)
-
-Head Office Address
-
-Company Owner Details
-
-Uploaded Documents
-
-
-Button styling:
-
-Label: “Agree and Continue”
-
-Background: Dark Grey or Dark Green
-
-Text: White
-
-
-On clicking, the user proceeds to plan selection.
-
-
----
-
-7. Plans & Pricing — Stage 6
-
-Pricing is loaded dynamically from ENV variables.
-Billing is per employee, meaning:
-
-Total Price = (Price per Employee) × (Company Size)
-
-
----
-
-Plans Offered
-
-Silver Monthly — 30 Days
-
-Attendance Management
-
-Leave Requests
-
-
-Silver Yearly — 365 Days
-
-Same features as Silver Monthly
-
-Long-term (yearly) duration
-
-
-
----
-
-Gold Monthly — 30 Days
-
-Includes everything in Silver plus:
-
-Performance Metrics
-
-Tax Assignments
-
-
-⭐ Includes FREE TRIAL for new companies
-After the 30-day trial ends:
-
-Access is restricted
-
-User must choose and pay for a plan to continue
-
-
-
----
-
-Gold Yearly — 365 Days
-
-All Gold Monthly features
-
-Yearly (longer duration)
-
-
-
----
-
-8. Completion → Redirect to Dashboard
-
-After choosing a plan (or starting the Gold free trial),
-the user is redirected to the Teemplot Dashboard.
-
-
----
-
+Navbar.tsx:42 
+ A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary loading={null}>
+      <HTTPAccessFallbackBoundary notFound={<SegmentViewNode>} forbidden={undefined} unauthorized={undefined}>
+        <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<SegmentViewNode>} forbidden={undefined} ...>
+          <RedirectBoundary>
+            <RedirectErrorBoundary router={{...}}>
+              <InnerLayoutRouter url="/" tree={[...]} cacheNode={{lazyData:null, ...}} segmentPath={[...]}>
+                <SegmentViewNode type="page" pagePath="/Saas/teem...">
+                  <SegmentTrieNode>
+                  <Home>
+                    <main className="min-h-screen">
+                      <Navbar>
+                        <nav className="fixed top-...">
+                          <div className="max-w-7xl ...">
+                            <div className="flex items...">
+                              <LinkComponent href="/" className="flex items...">
+                                <a
+                                  className="flex items-center space-x-2 group"
+                                  ref={function}
+                                  onClick={function onClick}
+                                  onMouseEnter={function onMouseEnter}
+                                  onTouchStart={function onTouchStart}
+                                  href="/"
+-                                 rtrvr-listeners="drag,dragend,dragstart"
+                                >
+                              <div className="hidden md:...">
+                                <a
+                                  href="#features"
+                                  className="text-foreground/80 hover:text-accent font-medium transition-all duration-..."
+-                                 rtrvr-listeners="drag,dragend,dragstart"
+                                >
+                                <a
+                                  href="#benefits"
+                                  className="text-foreground/80 hover:text-accent font-medium transition-all duration-..."
+-                                 rtrvr-listeners="drag,dragend,dragstart"
+                                >
+                                <a
+                                  href="#pricing"
+                                  className="text-foreground/80 hover:text-accent font-medium transition-all duration-..."
+-                                 rtrvr-listeners="drag,dragend,dragstart"
+                                >
+                                <a
+                                  href="#contact"
+                                  className="text-foreground/80 hover:text-accent font-medium transition-all duration-..."
+-                                 rtrvr-listeners="drag,dragend,dragstart"
+                                >
+                              <div className="hidden md:...">
+                                <LinkComponent href="/onboardin..." prefetch={true} className="text-foreg...">
+                                  <a
+                                    className="text-foreground hover:text-accent px-4 py-2 transition-colors"
+                                    ref={function}
+                                    onClick={function onClick}
+                                    onMouseEnter={function onMouseEnter}
+                                    onTouchStart={function onTouchStart}
+                                    href="/onboarding/register"
+-                                   rtrvr-listeners="drag,dragend,dragstart"
+                                  >
++                                   Sign In
+                                <LinkComponent href="/onboardin..." prefetch={true} className="bg-[#0F5D5...">
+                                  <a
+                                    className="bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:s..."
+                                    ref={function}
+                                    onClick={function onClick}
+                                    onMouseEnter={function onMouseEnter}
+                                    onTouchStart={function onTouchStart}
+                                    href="/onboarding/register"
+-                                   rtrvr-listeners="drag,dragend,dragstart"
+                                  >
++                                   Get Started
+Navbar.tsx:43 
+ Image with src "/logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.

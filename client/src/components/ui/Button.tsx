@@ -1,11 +1,10 @@
-'use client'
-
 import React, { ButtonHTMLAttributes, ReactNode } from 'react'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
+  loadingText?: string
   fullWidth?: boolean
   icon?: ReactNode
   iconPosition?: 'left' | 'right'
@@ -16,6 +15,7 @@ const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   loading = false,
+  loadingText,
   fullWidth = false,
   icon,
   iconPosition = 'left',
@@ -23,7 +23,7 @@ const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
-  // Base styles
+  // Base styles with blur animation when loading
   const baseStyles = `
     inline-flex
     items-center
@@ -32,34 +32,34 @@ const Button: React.FC<ButtonProps> = ({
     font-semibold
     rounded-lg
     transition-all
-    duration-200
+    duration-300
     outline-none
     focus:ring-3
     focus:ring-primary-500/20
-    disabled:opacity-50
     disabled:cursor-not-allowed
     disabled:transform-none
+    ${loading ? 'blur-[0.5px] opacity-90 cursor-wait' : ''}
     ${fullWidth ? 'w-full' : ''}
+    ${!loading && !disabled ? 'hover:scale-[1.02] active:scale-[0.98]' : ''}
   `
 
   // Variant styles
   const variantStyles = {
     primary: `
-      bg-gradient-to-r
-      from-primary-500
-      to-primary-600
+      bg-[#0F5D5D]
       text-white
-      hover:shadow-glow
-      hover:-translate-y-0.5
-      active:translate-y-0
+      hover:bg-[#093737]
+      hover:shadow-lg
+      active:bg-[#062424]
+      disabled:opacity-50
       disabled:hover:shadow-none
-      disabled:hover:translate-y-0
     `,
     secondary: `
       bg-gray-100
       text-gray-900
       hover:bg-gray-200
       active:bg-gray-300
+      disabled:opacity-50
     `,
     outline: `
       bg-transparent
@@ -68,12 +68,14 @@ const Button: React.FC<ButtonProps> = ({
       text-gray-700
       hover:bg-gray-50
       active:bg-gray-100
+      disabled:opacity-50
     `,
     ghost: `
       bg-transparent
-      text-primary-600
-      hover:bg-primary-50
-      active:bg-primary-100
+      text-[#0F5D5D]
+      hover:bg-gray-100
+      active:bg-gray-200
+      disabled:opacity-50
     `,
   }
 
@@ -87,7 +89,7 @@ const Button: React.FC<ButtonProps> = ({
   // Loading spinner
   const LoadingSpinner = () => (
     <svg
-      className="animate-spin h-5 w-5"
+      className="animate-spin h-5 w-5 flex-shrink-0"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -107,6 +109,14 @@ const Button: React.FC<ButtonProps> = ({
       />
     </svg>
   )
+
+  // Determine button text
+  const getButtonText = () => {
+    if (loading && loadingText) {
+      return loadingText
+    }
+    return children
+  }
 
   return (
     <button
@@ -128,7 +138,7 @@ const Button: React.FC<ButtonProps> = ({
       )}
 
       {/* Button Text */}
-      {children}
+      <span className={loading ? 'animate-pulse' : ''}>{getButtonText()}</span>
 
       {/* Right Icon */}
       {!loading && icon && iconPosition === 'right' && (

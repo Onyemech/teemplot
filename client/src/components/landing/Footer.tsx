@@ -1,42 +1,48 @@
 import { Facebook, Twitter, Linkedin, Instagram, Mail, MapPin, Phone } from 'lucide-react'
-import Image from 'next/image'
+
+
+const FOOTER_LINKS = {
+  product: [
+    { label: 'Features', href: '#features' },
+    { label: 'Pricing', href: '#pricing' },
+    { label: 'Security', href: '#security' },
+    { label: 'Roadmap', href: '#roadmap' },
+  ],
+  company: [
+    { label: 'About Us', href: '#about' },
+    { label: 'Careers', href: '#careers' },
+    { label: 'Blog', href: '#blog' },
+    { label: 'Press', href: '#press' },
+  ],
+  resources: [
+    { label: 'Documentation', href: '#docs' },
+    { label: 'API Reference', href: '#api' },
+    { label: 'Support', href: '#support' },
+    { label: 'Community', href: '#community' },
+  ],
+  legal: [
+    { label: 'Privacy Policy', href: '#privacy' },
+    { label: 'Terms of Service', href: '#terms' },
+    { label: 'Cookie Policy', href: '#cookies' },
+    { label: 'GDPR', href: '#gdpr' },
+  ],
+}
+
+const SOCIAL_LINKS = [
+  { icon: Facebook, href: '#', label: 'Facebook' },
+  { icon: Twitter, href: '#', label: 'Twitter' },
+  { icon: Linkedin, href: '#', label: 'LinkedIn' },
+  { icon: Instagram, href: '#', label: 'Instagram' },
+]
+
+const CONTACT_INFO = [
+  { icon: Mail, label: 'Email', value: 'contact@teemplot.com' },
+  { icon: Phone, label: 'Phone', value: '+234 815 802 5887' },
+  { icon: MapPin, label: 'Location', value: 'Lagos, Nigeria' },
+]
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
-
-  const footerLinks = {
-    product: [
-      { label: 'Features', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Security', href: '#security' },
-      { label: 'Roadmap', href: '#roadmap' },
-    ],
-    company: [
-      { label: 'About Us', href: '#about' },
-      { label: 'Careers', href: '#careers' },
-      { label: 'Blog', href: '#blog' },
-      { label: 'Press', href: '#press' },
-    ],
-    resources: [
-      { label: 'Documentation', href: '#docs' },
-      { label: 'API Reference', href: '#api' },
-      { label: 'Support', href: '#support' },
-      { label: 'Community', href: '#community' },
-    ],
-    legal: [
-      { label: 'Privacy Policy', href: '#privacy' },
-      { label: 'Terms of Service', href: '#terms' },
-      { label: 'Cookie Policy', href: '#cookies' },
-      { label: 'GDPR', href: '#gdpr' },
-    ],
-  }
-
-  const socialLinks = [
-    { icon: Facebook, href: '#', label: 'Facebook' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Linkedin, href: '#', label: 'LinkedIn' },
-    { icon: Instagram, href: '#', label: 'Instagram' },
-  ]
 
   return (
     <footer className="bg-primary text-primary-foreground relative overflow-hidden">
@@ -48,12 +54,15 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 mb-12">
           <div className="lg:col-span-2 space-y-4">
-            <Image src="/logo.png" alt="Teemplot" width={150} height={48} className="h-12 brightness-0 invert" />
+            <img src="/logo.png" 
+              alt="Teemplot"
+              className="h-16 w-auto transition-transform duration-300 group-hover:scale-110" 
+            />
             <p className="text-primary-foreground/70 text-sm leading-relaxed">
               Transform your HR management with our comprehensive HRMS platform. Streamline operations, boost productivity, and empower your workforce.
             </p>
             <div className="flex items-center space-x-4">
-              {socialLinks.map((social, index) => {
+              {SOCIAL_LINKS.map((social, index) => {
                 const Icon = social.icon
                 return (
                   <a
@@ -72,7 +81,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold text-accent">Product</h4>
             <ul className="space-y-3">
-              {footerLinks.product.map((link, index) => (
+              {FOOTER_LINKS.product.map((link, index) => (
                 <li key={index}>
                   <a href={link.href} className="text-primary-foreground/70 hover:text-accent text-sm transition-colors duration-300">
                     {link.label}
@@ -85,7 +94,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold text-accent">Company</h4>
             <ul className="space-y-3">
-              {footerLinks.company.map((link, index) => (
+              {FOOTER_LINKS.company.map((link, index) => (
                 <li key={index}>
                   <a href={link.href} className="text-primary-foreground/70 hover:text-accent text-sm transition-colors duration-300">
                     {link.label}
@@ -98,7 +107,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold text-accent">Resources</h4>
             <ul className="space-y-3">
-              {footerLinks.resources.map((link, index) => (
+              {FOOTER_LINKS.resources.map((link, index) => (
                 <li key={index}>
                   <a href={link.href} className="text-primary-foreground/70 hover:text-accent text-sm transition-colors duration-300">
                     {link.label}
@@ -111,7 +120,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h4 className="font-semibold text-accent">Legal</h4>
             <ul className="space-y-3">
-              {footerLinks.legal.map((link, index) => (
+              {FOOTER_LINKS.legal.map((link, index) => (
                 <li key={index}>
                   <a href={link.href} className="text-primary-foreground/70 hover:text-accent text-sm transition-colors duration-300">
                     {link.label}
@@ -123,33 +132,20 @@ export default function Footer() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8 border-t border-primary-foreground/10">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-              <Mail className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <p className="text-xs text-primary-foreground/50">Email</p>
-              <p className="text-sm text-primary-foreground/90">contact@teemplot.com</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-              <Phone className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <p className="text-xs text-primary-foreground/50">Phone</p>
-              <p className="text-sm text-primary-foreground/90">+234 815 802 5887</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <p className="text-xs text-primary-foreground/50">Location</p>
-              <p className="text-sm text-primary-foreground/90">Lagos, Nigeria</p>
-            </div>
-          </div>
+          {CONTACT_INFO.map((contact, index) => {
+            const Icon = contact.icon
+            return (
+              <div key={index} className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs text-primary-foreground/50">{contact.label}</p>
+                  <p className="text-sm text-primary-foreground/90">{contact.value}</p>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <div className="pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">

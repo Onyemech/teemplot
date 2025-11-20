@@ -1,5 +1,3 @@
-'use client'
-
 import React, { InputHTMLAttributes } from 'react'
 
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -17,7 +15,9 @@ const Checkbox: React.FC<CheckboxProps> = ({
   className = '',
   ...props
 }) => {
-  const checkboxId = props.id || `checkbox-${Math.random().toString(36).substr(2, 9)}`
+  // Use useId for stable IDs across server/client
+  const generatedId = React.useId()
+  const checkboxId = props.id || generatedId
 
   return (
     <div className={`${className}`}>

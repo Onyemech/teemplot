@@ -1,5 +1,3 @@
-'use client'
-
 import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react'
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -27,21 +25,23 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = props.id || `input-${Math.random().toString(36).substr(2, 9)}`
+    // Use useId for stable IDs across server/client
+    const generatedId = React.useId()
+    const inputId = props.id || generatedId
 
     // Determine border color based on state
     const getBorderColor = () => {
       if (error) return 'border-error focus:border-error'
       if (success) return 'border-success focus:border-success'
-      return 'border-border-medium focus:border-primary-500'
+      return 'border-gray-300 focus:border-primary-500'
     }
 
     // Determine icon color based on state
     const getIconColor = () => {
       if (error) return 'text-error'
       if (success) return 'text-success'
-      if (disabled) return 'text-text-disabled'
-      return 'text-text-secondary'
+      if (disabled) return 'text-gray-400'
+      return 'text-gray-500'
     }
 
     return (
@@ -50,7 +50,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-text-primary mb-2"
+            className="block text-sm font-medium text-gray-900 mb-2"
           >
             {label}
             {required && <span className="text-error ml-1">*</span>}
@@ -82,17 +82,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               border
               ${getBorderColor()}
               rounded-lg
-              bg-bg-primary
-              text-text-primary
+              bg-white
+              text-gray-900
               text-base
-              placeholder:text-text-tertiary
+              placeholder:text-gray-400
               transition-all
               duration-200
               outline-none
-              focus:ring-3
-              focus:ring-primary-500/10
+              focus:ring-2
+              focus:ring-primary-500/20
               disabled:bg-gray-100
-              disabled:text-text-disabled
+              disabled:text-gray-400
               disabled:cursor-not-allowed
               ${error ? 'pr-10' : ''}
               ${success ? 'pr-10' : ''}
@@ -144,7 +144,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {(helperText || error) && (
           <p
             className={`mt-2 text-sm ${
-              error ? 'text-error' : 'text-text-secondary'
+              error ? 'text-error' : 'text-gray-600'
             }`}
           >
             {error || helperText}

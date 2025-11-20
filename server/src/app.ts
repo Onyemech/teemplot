@@ -7,13 +7,21 @@ import { authRoutes } from './routes/auth.routes';
 import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
 import { logger } from './utils/logger';
+import { errorHandler, setupUncaughtExceptionHandler, setupUnhandledRejectionHandler } from './middleware/errorHandler.middleware';
 
 export async function buildApp() {
+  // Setup global error handlers
+  setupUncaughtExceptionHandler();
+  setupUnhandledRejectionHandler();
+
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL || 'info',
     },
   });
+
+  // Register global error handler
+  app.setErrorHandler(errorHandler);
 
   // Security plugins
   await app.register(helmet, {

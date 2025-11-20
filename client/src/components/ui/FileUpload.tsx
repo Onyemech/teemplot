@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react'
 
 export interface FileUploadProps {

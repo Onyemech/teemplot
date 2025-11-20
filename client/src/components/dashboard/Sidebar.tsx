@@ -1,8 +1,5 @@
-'use client'
-
 import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { Link, useLocation } from 'react-router-dom'
 import { 
   Home, 
   BarChart3, 
@@ -22,7 +19,7 @@ import {
 
 interface NavItem {
   label: string
-  href: string
+  to: string
   icon: any
   submenu?: NavItem[]
 }
@@ -79,7 +76,8 @@ const reporting: NavItem[] = [
 ]
 
 export default function Sidebar() {
-  const pathname = usePathname()
+  const location = useLocation()
+  const pathname = location.pathname
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance'])
 
   const toggleExpand = (label: string) => {
@@ -90,7 +88,7 @@ export default function Sidebar() {
     )
   }
 
-  const isActive = (href: string) => {
+  const isActive = (to: string) => {
     if (href === '/dashboard') {
       return pathname === href
     }
@@ -105,8 +103,7 @@ export default function Sidebar() {
 
     return (
       <div>
-        <Link
-          href={hasSubmenu ? '#' : item.href}
+        <Link to={hasSubmenu ? '#' : item.href}
           onClick={(e) => {
             if (hasSubmenu) {
               e.preventDefault()
@@ -177,8 +174,7 @@ export default function Sidebar() {
 
       {/* Bottom Actions */}
       <div className="p-4 border-t border-border space-y-1">
-        <Link
-          href="/dashboard/settings"
+        <Link to="/dashboard/settings"
           className={`
             flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
             ${isActive('/dashboard/settings')
@@ -191,8 +187,7 @@ export default function Sidebar() {
           <span>Settings</span>
         </Link>
 
-        <Link
-          href="/dashboard/help"
+        <Link to="/dashboard/help"
           className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-foreground/70 hover:bg-secondary hover:text-foreground transition-all duration-200"
         >
           <HelpCircle className="w-5 h-5" />

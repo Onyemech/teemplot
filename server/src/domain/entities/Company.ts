@@ -5,16 +5,34 @@ export interface Company {
   email: string;
   phoneNumber?: string;
   address?: string;
+  city?: string;
+  stateProvince?: string;
+  country?: string;
+  postalCode?: string;
   logoUrl?: string;
   industry?: string;
   companySize?: string;
+  employeeCount: number;
   timezone: string;
   subscriptionPlan: SubscriptionPlan;
   subscriptionStatus: SubscriptionStatus;
   subscriptionStartDate?: Date;
   subscriptionEndDate?: Date;
+  trialStartDate?: Date;
+  trialEndDate?: Date;
   isActive: boolean;
   settings?: CompanySettings;
+  taxIdentificationNumber?: string;
+  website?: string;
+  cacDocumentUrl?: string;
+  proofOfAddressUrl?: string;
+  companyPolicyUrl?: string;
+  onboardingCompleted: boolean;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  ownerDateOfBirth?: Date;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -22,9 +40,10 @@ export interface Company {
 
 export enum SubscriptionPlan {
   TRIAL = 'trial',
-  STARTER = 'starter',
-  PROFESSIONAL = 'professional',
-  ENTERPRISE = 'enterprise',
+  SILVER_MONTHLY = 'silver_monthly',
+  SILVER_YEARLY = 'silver_yearly',
+  GOLD_MONTHLY = 'gold_monthly',
+  GOLD_YEARLY = 'gold_yearly',
 }
 
 export enum SubscriptionStatus {

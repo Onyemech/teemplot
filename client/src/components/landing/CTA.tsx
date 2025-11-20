@@ -1,7 +1,15 @@
-import Link from 'next/link'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
 export default function CTA() {
+  const navigate = useNavigate()
+
+  // Prefetch onboarding page for instant navigation
+  useEffect(() => {
+    // prefetch: '/onboarding/register')
+  }, [router])
   return (
     <section className="py-24 px-6">
       <div className="max-w-4xl mx-auto text-center space-y-8 animate-fade-in">
@@ -12,16 +20,15 @@ export default function CTA() {
           Join thousands of companies already streamlining their HR processes with Teemplot
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-          <Link 
-            href="/onboarding"
-            className="bg-gradient-accent text-accent-foreground px-8 py-4 rounded-lg hover:shadow-glow transition-all duration-300 hover:scale-105 group flex items-center"
+          <Link to="/onboarding/register"
+            
+            className="bg-[#0F5D5D] text-white px-8 py-4 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105 group flex items-center"
           >
             Start Free Trial
             <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
           </Link>
-          <Link 
-            href="#contact"
-            className="border-2 border-primary text-primary px-8 py-4 rounded-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+          <Link to="#contact"
+            className="border-2 border-[#0F5D5D] text-[#0F5D5D] px-8 py-4 rounded-lg hover:bg-[#0F5D5D] hover:text-white transition-all duration-300"
           >
             Contact Sales
           </Link>

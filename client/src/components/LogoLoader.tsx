@@ -1,7 +1,5 @@
-'use client'
-
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
+
 
 interface LogoLoaderProps {
   progress?: number
@@ -23,13 +21,9 @@ export function LogoLoader({ progress, message }: LogoLoaderProps = {}) {
         {/* Animated Logo - Zoom in/out */}
         <div className="relative w-48 h-48 mx-auto">
           <div className="absolute inset-0 flex items-center justify-center animate-[pulse_2s_ease-in-out_infinite]">
-            <Image
-              src="/logo.png"
+            <img src="/logo.png"
               alt="Teemplot"
-              width={150}
-              height={150}
               className="drop-shadow-glow"
-              priority
             />
           </div>
         </div>

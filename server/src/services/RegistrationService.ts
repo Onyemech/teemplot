@@ -3,6 +3,8 @@ import { IDatabase } from '../infrastructure/database/IDatabase';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { emailService } from './EmailService';
+import { superAdminNotificationService } from './SuperAdminNotificationService';
 
 export interface RegistrationData {
   email: string;
@@ -91,6 +93,25 @@ export class RegistrationService {
         logger.error(`Failed to sync registration to backup: ${error?.message || 'Unknown error'}`);
       });
 
+      // Send verification email
+      try {
+        const code = await emailService.generateVerificationCode(data.email);
+        await emailService.sendVerificationEmail(data.email, data.firstName, code);
+        logger.info(`Verification email sent to ${data.email}`);
+      } catch (error: any) {
+        logger.error(`Failed to send verification email: ${error?.message || 'Unknown error'}`);
+        // Don't fail registration if email fails
+      }
+
+      // Notify superadmins of new company registration
+      superAdminNotificationService.notifyNewCompany(
+        companyId,
+        data.companyName,
+        data.email
+      ).catch(error => {
+        logger.error(`Failed to notify superadmin: ${error?.message || 'Unknown error'}`);
+      });
+
       logger.info(`Registration successful - User: ${userId}, Company: ${companyId}`);
 
       return {
@@ -169,8 +190,14 @@ export class RegistrationService {
    * Verify email with code
    */
   async verifyEmail(email: string, code: string): Promise<boolean> {
-    // TODO: Implement email verification logic
-    // For now, just mark as verified
+    // Verify code with email service
+    const isValid = await emailService.verifyCode(email, code);
+    
+    if (!isValid) {
+      return false;
+    }
+
+    // Mark user as verified
     const updated = await this.db.update(
       'users',
       { email_verified: true },
@@ -184,7 +211,17 @@ export class RegistrationService {
    * Resend verification code
    */
   async resendVerificationCode(email: string): Promise<void> {
-    // TODO: Implement email sending
+    // Get user to get first name
+    const user = await this.db.findOne('users', { email });
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Generate and send new code
+    const code = await emailService.generateVerificationCode(email);
+    await emailService.sendVerificationEmail(email, user.first_name, code);
+    
     logger.info(`Verification code resent to ${email}`);
   }
 }

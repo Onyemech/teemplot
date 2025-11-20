@@ -1,10 +1,16 @@
-'use client'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import Image from 'next/image'
-import Link from 'next/link'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Calendar, CheckCircle2, Users } from 'lucide-react'
 
 export default function Hero() {
+  const navigate = useNavigate()
+
+  // Prefetch onboarding page for instant navigation
+  useEffect(() => {
+    // prefetch: '/onboarding/register')
+  }, [router])
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center px-6 py-20 overflow-hidden">
       <div className="absolute inset-0 -z-10">
@@ -14,7 +20,7 @@ export default function Hero() {
       </div>
 
       <div className="mb-8 animate-scale-bounce">
-        <Image src="/logo.png" alt="Teemplot" width={200} height={80} className="h-16 md:h-20 drop-shadow-glow" />
+        <img src="/logo.png" alt="Teemplot" className="h-16 md:h-20 w-auto drop-shadow-glow" />
       </div>
 
       <div className="max-w-4xl mx-auto text-center space-y-6">
@@ -30,18 +36,17 @@ export default function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-6 animate-slide-up-fade" style={{ animationDelay: '0.4s' }}>
-          <Link 
-            href="/onboarding"
-            className="bg-gradient-accent text-white px-8 py-4 rounded-lg hover:shadow-glow-strong transition-all duration-300 hover:scale-110 group relative overflow-hidden flex items-center"
+          <Link to="/onboarding/register"
+            
+            className="bg-[#0F5D5D] text-white px-8 py-4 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-110 group relative overflow-hidden flex items-center"
           >
             <span className="relative z-10 flex items-center">
               Get Started
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform" />
             </span>
           </Link>
-          <Link 
-            href="#contact"
-            className="border-2 border-accent text-accent px-8 py-4 rounded-lg hover:bg-accent hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-glow"
+          <Link to="#contact"
+            className="border-2 border-[#FF5722] text-[#FF5722] px-8 py-4 rounded-lg hover:bg-[#FF5722] hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
           >
             Schedule Demo
           </Link>

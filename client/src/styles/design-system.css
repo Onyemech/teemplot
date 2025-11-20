@@ -268,9 +268,16 @@
   outline: none;
 }
 
-/* Smooth Scrolling */
-html {
+/* Smooth Scrolling - Future-proof for Next.js */
+html[data-scroll-behavior="smooth"] {
   scroll-behavior: smooth;
+}
+
+/* Fallback for browsers without data attribute support */
+@supports not (scroll-behavior: smooth) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Base Font */

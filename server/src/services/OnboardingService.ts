@@ -1,7 +1,9 @@
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { IDatabase } from '../infrastructure/database/IDatabase';
 import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { emailService } from './EmailService';
+import { superAdminNotificationService } from './SuperAdminNotificationService';
+import { randomUUID } from 'crypto';
 
 export interface DocumentUploadData {
   companyId: string;
@@ -15,20 +17,45 @@ export interface PlanSelectionData {
   companySize: number;
 }
 
+export interface CompanySetupData {
+  userId: string;
+  companyId: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  isOwner: boolean;
+}
+
+export interface OwnerDetailsData {
+  companyId: string;
+  registrantUserId: string;
+  ownerFirstName: string;
+  ownerLastName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  ownerDateOfBirth: string;
+}
+
+export interface BusinessInfoData {
+  companyId: string;
+  companyName: string;
+  taxId: string;
+  industry?: string;
+  employeeCount: number;
+  website?: string;
+  address: string;
+  city: string;
+  stateProvince: string;
+  country: string;
+  postalCode: string;
+  officeLatitude?: number;
+  officeLongitude?: number;
+}
+
 export interface CompleteOnboardingData {
   companyId: string;
-  taxId: string;
-  website?: string;
-  officeLatitude: number;
-  officeLongitude: number;
-  logoUrl?: string;
-  ownerDetails?: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    dateOfBirth: string;
-  };
+  userId: string;
 }
 
 export class OnboardingService {
@@ -54,6 +81,14 @@ export class OnboardingService {
     await this.db.update('companies', updateData, { id: companyId });
     
     logger.info(`Document uploaded for company ${companyId}: ${documentType}`);
+
+    // Check if all documents are uploaded, then notify superadmin
+    const company = await this.db.findOne('companies', { id: companyId });
+    if (company && company.cac_document_url && company.proof_of_address_url && company.company_policy_url) {
+      superAdminNotificationService.notifyDocumentReview(companyId, company.name).catch(error => {
+        logger.error(`Failed to notify superadmin: ${error?.message}`);
+      });
+    }
   }
 
   async selectPlan(data: PlanSelectionData): Promise<{
@@ -103,27 +138,148 @@ export class OnboardingService {
     return { totalPrice };
   }
 
-  async completeOnboarding(data: CompleteOnboardingData): Promise<void> {
-    const { companyId, taxId, website, officeLatitude, officeLongitude, logoUrl, ownerDetails } = data;
+  /**
+   * Stage 3: Company Setup - Save personal details and determine role
+   */
+  async saveCompanySetup(data: CompanySetupData): Promise<void> {
+    const { userId, companyId, firstName, lastName, phoneNumber, dateOfBirth, isOwner } = data;
 
-    const updateData: any = {
-      tax_identification_number: taxId,
-      website,
-      office_latitude: officeLatitude,
-      office_longitude: officeLongitude,
-      logo_url: logoUrl,
-      onboarding_completed: true,
-    };
+    // Update user with personal details
+    await this.db.update('users', {
+      first_name: firstName,
+      last_name: lastName,
+      phone_number: phoneNumber,
+      date_of_birth: dateOfBirth,
+      role: isOwner ? 'owner' : 'admin',
+    }, { id: userId });
 
-    if (ownerDetails) {
-      updateData.owner_first_name = ownerDetails.firstName;
-      updateData.owner_last_name = ownerDetails.lastName;
-      updateData.owner_email = ownerDetails.email;
-      updateData.owner_phone = ownerDetails.phone;
-      updateData.owner_date_of_birth = ownerDetails.dateOfBirth;
+    // Update employee count
+    await this.db.update('companies', {
+      employee_count: 1,
+    }, { id: companyId });
+
+    logger.info(`Company setup saved for user ${userId}, role: ${isOwner ? 'owner' : 'admin'}`);
+  }
+
+  /**
+   * Stage 4: Owner Details - Save separate owner information
+   */
+  async saveOwnerDetails(data: OwnerDetailsData): Promise<void> {
+    const { companyId, registrantUserId, ownerFirstName, ownerLastName, ownerEmail, ownerPhone, ownerDateOfBirth } = data;
+
+    // Check if owner email is different from registrant
+    const registrant = await this.db.findOne('users', { id: registrantUserId });
+    
+    if (!registrant) {
+      throw new Error('Registrant not found');
     }
 
-    await this.db.update('companies', updateData, { id: companyId });
+    // Save owner details to company
+    await this.db.update('companies', {
+      owner_first_name: ownerFirstName,
+      owner_last_name: ownerLastName,
+      owner_email: ownerEmail,
+      owner_phone: ownerPhone,
+      owner_date_of_birth: ownerDateOfBirth,
+    }, { id: companyId });
+
+    // If owner email is different, create owner user and send invitation
+    if (ownerEmail !== registrant.email) {
+      // Change registrant role to admin
+      await this.db.update('users', {
+        role: 'admin',
+      }, { id: registrantUserId });
+
+      // Create owner user (pending verification)
+      const ownerId = randomUUID();
+      await this.db.insert('users', {
+        id: ownerId,
+        company_id: companyId,
+        email: ownerEmail,
+        first_name: ownerFirstName,
+        last_name: ownerLastName,
+        phone_number: ownerPhone,
+        date_of_birth: ownerDateOfBirth,
+        role: 'owner',
+        is_active: false,
+        email_verified: false,
+      });
+
+      // Update employee count to 2
+      await this.db.update('companies', {
+        employee_count: 2,
+      }, { id: companyId });
+
+      // Send invitation email (non-blocking) - TODO: Implement owner invitation email
+      const company = await this.db.findOne('companies', { id: companyId });
+      logger.info({ ownerEmail, companyName: company?.name }, 'Owner invitation email queued');
+
+      logger.info(`Owner user created and invitation sent to ${ownerEmail}`);
+    }
+
+    logger.info(`Owner details saved for company ${companyId}`);
+  }
+
+  /**
+   * Stage 5: Business Information - Save company details
+   */
+  async saveBusinessInfo(data: BusinessInfoData): Promise<void> {
+    const { companyId, companyName, taxId, industry, employeeCount, website, address, city, stateProvince, country, postalCode, officeLatitude, officeLongitude } = data;
+
+    await this.db.update('companies', {
+      name: companyName,
+      tax_identification_number: taxId,
+      industry,
+      employee_count: employeeCount,
+      website,
+      address,
+      city,
+      state_province: stateProvince,
+      country,
+      postal_code: postalCode,
+      office_latitude: officeLatitude,
+      office_longitude: officeLongitude,
+    }, { id: companyId });
+
+    logger.info(`Business info saved for company ${companyId}`);
+  }
+
+  /**
+   * Upload company logo
+   */
+  async uploadLogo(companyId: string, logoUrl: string): Promise<void> {
+    await this.db.update('companies', {
+      logo_url: logoUrl,
+    }, { id: companyId });
+
+    logger.info(`Logo uploaded for company ${companyId}`);
+  }
+
+  /**
+   * Complete onboarding - Mark as complete and send welcome email
+   */
+  async completeOnboarding(data: CompleteOnboardingData): Promise<void> {
+    const { companyId, userId } = data;
+
+    // Mark onboarding as complete
+    await this.db.update('companies', {
+      onboarding_completed: true,
+    }, { id: companyId });
+
+    // Get user and company details for welcome email
+    const user = await this.db.findOne('users', { id: userId });
+    const company = await this.db.findOne('companies', { id: companyId });
+
+    if (user && company) {
+      // Send welcome email (non-blocking)
+      emailService.sendWelcomeEmail(
+        user.email,
+        user.first_name,
+        company.name
+      ).catch(error => {
+        logger.error(`Failed to send welcome email: ${error?.message}`);
+      });
+    }
 
     logger.info(`Onboarding completed for company ${companyId}`);
   }

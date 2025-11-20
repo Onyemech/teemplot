@@ -5,13 +5,25 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Environment variables
+# Environment variables - NEVER COMMIT THESE
 .env
 .env.local
 .env.*.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+!.env.example
+
+# Security & Secrets
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+.secrets/
+credentials.json
+service-account.json
 
 # Build outputs
 dist/
@@ -56,3 +68,7 @@ coverage/
 .cache/
 .temp/
 .tmp/
+
+.kiro
+docs
+*.md
