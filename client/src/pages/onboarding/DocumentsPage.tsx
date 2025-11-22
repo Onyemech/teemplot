@@ -7,6 +7,8 @@ import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
 import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
+import { uploadDocument, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 interface UploadedFile {
   file: File
@@ -21,6 +23,7 @@ interface DocumentState {
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const { saveProgress, getAuthData } = useOnboardingProgress()
   const [documents, setDocuments] = useState<DocumentState>({
     cac: null,
@@ -104,27 +107,43 @@ export default function DocumentsPage() {
     // Validate all documents uploaded
     if (!documents.cac || !documents.proofOfAddress || !documents.companyPolicies) {
       setError('Please upload all required documents')
+      toast.error('Please upload all required documents')
       return
     }
 
     setLoading(true)
 
     try {
-      // Store document info
+      // Get auth data
+      const authData = getOnboardingAuth()
+      
+      // Upload CAC document
+      await uploadDocument(authData.companyId, 'cac', documents.cac.file)
+      
+      // Upload proof of address
+      await uploadDocument(authData.companyId, 'proof_of_address', documents.proofOfAddress.file)
+      
+      // Upload company policies
+      await uploadDocument(authData.companyId, 'company_policy', documents.companyPolicies.file)
+      
+      // Store document info in session storage for reference
       sessionStorage.setItem('onboarding_documents', JSON.stringify({
         cac: documents.cac.file.name,
         proofOfAddress: documents.proofOfAddress.file.name,
         companyPolicies: documents.companyPolicies.file.name,
       }))
 
-      // Simulate quick save
-      await new Promise(resolve => setTimeout(resolve, 500))
+      toast.success('All documents uploaded successfully!')
 
       // Navigate to subscription
       navigate('/onboarding/subscription')
 
     } catch (err: any) {
-      setError(err.message || 'Failed to save documents')
+      console.error('Failed to upload documents:', err)
+      const errorMsg = err.message || 'Failed to save documents'
+      setError(errorMsg)
+      toast.error(errorMsg)
+    } finally {
       setLoading(false)
     }
   }

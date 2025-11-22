@@ -64,18 +64,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <img src="/logo.png"
-            alt="Teemplot"
-            className="h-12 w-auto mx-auto mb-3"
-          />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to continue to your dashboard</p>
-        </div>
-
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          {/* Logo at top of card */}
+          <div className="text-center mb-6">
+            <img src="/logo.png"
+              alt="Teemplot"
+              className="h-16 w-auto mx-auto mb-3"
+            />
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Welcome Back</h2>
+            <p className="text-sm text-gray-600">Sign in to continue to your dashboard</p>
+          </div>
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
               {error}

@@ -49,12 +49,12 @@ export default function Navbar() {
           : 'bg-transparent'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="max-w-7xl mx-auto px-6 py-3">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2 group">
             <img src="/logo.png" 
               alt="Teemplot"
-              className="h-16 w-auto transition-transform duration-300 group-hover:scale-110" 
+              className="h-12 w-auto transition-transform duration-300 group-hover:scale-110" 
             />
           </Link>
 

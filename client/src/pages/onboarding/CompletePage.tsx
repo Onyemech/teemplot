@@ -3,27 +3,44 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { LogoLoader } from '@/components/LogoLoader'
+import { completeOnboarding, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function OnboardingCompletePage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [isCompleting, setIsCompleting] = useState(true)
   const [showContent, setShowContent] = useState(false)
 
   useEffect(() => {
-    const completeOnboarding = async () => {
-      // Simulate completion process (API calls, setup, etc.)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Mark onboarding as complete
-      sessionStorage.setItem('onboarding_completed', 'true')
-      
-      setIsCompleting(false)
-      
-      // Trigger success animation
-      setTimeout(() => setShowContent(true), 100)
+    const completeOnboardingProcess = async () => {
+      try {
+        // Get auth data
+        const authData = getOnboardingAuth()
+        
+        // Call complete onboarding API
+        await completeOnboarding({
+          companyId: authData.companyId,
+          userId: authData.userId,
+        })
+        
+        // Mark onboarding as complete
+        sessionStorage.setItem('onboarding_completed', 'true')
+        
+        setIsCompleting(false)
+        
+        // Trigger success animation
+        setTimeout(() => setShowContent(true), 100)
+      } catch (error: any) {
+        console.error('Failed to complete onboarding:', error)
+        toast.error(error.message || 'Failed to complete onboarding')
+        // Still show success UI even if API fails (data is already saved)
+        setIsCompleting(false)
+        setTimeout(() => setShowContent(true), 100)
+      }
     }
 
-    completeOnboarding()
+    completeOnboardingProcess()
   }, [])
 
   const handleGoToDashboard = () => {

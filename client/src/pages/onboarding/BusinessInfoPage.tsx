@@ -7,9 +7,12 @@ import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
 import Select from '@/components/ui/Select'
+import { submitBusinessInfo, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function BusinessInfoPage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [formData, setFormData] = useState({
     companyName: '',
     taxId: '',
@@ -18,7 +21,7 @@ export default function BusinessInfoPage() {
     website: '',
     address: '',
     city: '',
-    state: '',
+    stateProvince: '',
     country: 'Nigeria',
     postalCode: '',
   })
@@ -86,8 +89,9 @@ export default function BusinessInfoPage() {
     // Validate required fields
     if (!formData.companyName || !formData.taxId || !formData.industry || 
         !formData.employeeCount || !formData.address || !formData.city || 
-        !formData.state || !formData.postalCode) {
+        !formData.stateProvince || !formData.postalCode) {
       setError('Please fill in all required fields')
+      toast.error('Please fill in all required fields')
       return
     }
 
@@ -95,18 +99,40 @@ export default function BusinessInfoPage() {
     const employeeCount = parseInt(formData.employeeCount)
     if (isNaN(employeeCount) || employeeCount < 1) {
       setError('Employee count must be at least 1')
+      toast.error('Employee count must be at least 1')
       return
     }
 
     if (!location) {
       setError('Location is required. Please enable location services and refresh the page.')
+      toast.error('Location is required')
       return
     }
 
     setLoading(true)
 
     try {
-      // Store business info
+      // Get auth data
+      const authData = getOnboardingAuth()
+      
+      // Submit to backend
+      await submitBusinessInfo({
+        companyId: authData.companyId,
+        companyName: formData.companyName,
+        taxId: formData.taxId,
+        industry: formData.industry,
+        employeeCount: employeeCount,
+        website: formData.website || undefined,
+        address: formData.address,
+        city: formData.city,
+        stateProvince: formData.stateProvince,
+        country: formData.country,
+        postalCode: formData.postalCode,
+        officeLatitude: location.latitude,
+        officeLongitude: location.longitude,
+      })
+      
+      // Store in session storage for reference
       sessionStorage.setItem('onboarding_business_info', JSON.stringify({
         ...formData,
         employeeCount: employeeCount,
@@ -114,6 +140,7 @@ export default function BusinessInfoPage() {
         longitude: location.longitude,
       }))
 
+      toast.success('Business information saved successfully!')
       setShowSuccess(true)
 
       setTimeout(() => {
@@ -121,7 +148,10 @@ export default function BusinessInfoPage() {
       }, 1500)
 
     } catch (err: any) {
-      setError(err.message || 'Failed to save business information')
+      console.error('Failed to save business info:', err)
+      const errorMsg = err.message || 'Failed to save business information'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -313,7 +343,7 @@ export default function BusinessInfoPage() {
                               ...formData,
                               address: data.address.road || data.display_name,
                               city: data.address.city || data.address.town || data.address.village || '',
-                              state: data.address.state || '',
+                              stateProvince: data.address.state || '',
                               postalCode: data.address.postcode || '',
                             })
                           }
@@ -343,8 +373,8 @@ export default function BusinessInfoPage() {
                     label="State/Province"
                     type="text"
                     required
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    value={formData.stateProvince}
+                    onChange={(e) => setFormData({ ...formData, stateProvince: e.target.value })}
                     placeholder="Enter state"
                     fullWidth
                   />

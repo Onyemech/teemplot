@@ -1,4 +1,8 @@
 import { UserPlus, ListChecks, CalendarDays, Smartphone, FileBarChart, TrendingUp } from 'lucide-react'
+import ScrollReveal from '../ui/ScrollReveal'
+import WaveRevealCard from '../ui/WaveRevealCard'
+import FluidWaveContainer from '../ui/FluidWaveContainer'
+import TypeWriter from '../ui/TypeWriter'
 
 const features = [
   {
@@ -48,22 +52,41 @@ export default function Features() {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16 space-y-4 animate-fade-in">
-          <div className="inline-block px-4 py-2 bg-accent/10 rounded-full mb-4">
-            <span className="text-accent font-semibold text-sm">FEATURES</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-            Everything You Need in{' '}
-            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              One Platform
-            </span>
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Comprehensive HR solutions designed for companies of all sizes, from startups to large enterprises
-          </p>
+        <div className="text-center mb-16 space-y-4">
+          <ScrollReveal direction="fade" delay={0.1}>
+            <div className="inline-block px-4 py-2 bg-accent/10 rounded-full mb-4">
+              <span className="text-accent font-semibold text-sm">FEATURES</span>
+            </div>
+          </ScrollReveal>
+          
+          <ScrollReveal direction="up" delay={0.2}>
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground">
+              <TypeWriter 
+                text="Everything You Need in "
+                speed={40}
+                delay={300}
+                cursor={false}
+              />
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                <TypeWriter 
+                  text="One Platform"
+                  speed={40}
+                  delay={1400}
+                  cursor={true}
+                  cursorChar="|"
+                />
+              </span>
+            </h2>
+          </ScrollReveal>
+          
+          <ScrollReveal direction="up" delay={0.3}>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Comprehensive HR solutions designed for companies of all sizes, from startups to large enterprises
+            </p>
+          </ScrollReveal>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <FluidWaveContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => {
             const Icon = feature.icon
             const iconColor = feature.color === 'accent' ? 'text-accent' : 'text-primary'
@@ -72,10 +95,10 @@ export default function Features() {
               : 'from-primary/20 to-primary/5'
             
             return (
-              <div 
+              <WaveRevealCard 
                 key={index}
-                className="group hover:shadow-glow transition-all duration-500 hover:-translate-y-4 border border-border/50 bg-card/80 backdrop-blur-sm animate-cinematic-rise hover:border-accent/50 relative overflow-hidden rounded-lg p-8 space-y-4"
-                style={{ animationDelay: `${index * 0.15}s` }}
+                index={index}
+                className="group hover:shadow-glow transition-all duration-500 border border-border/50 bg-card/80 backdrop-blur-sm hover:border-accent/50 relative overflow-hidden rounded-lg p-8 space-y-4"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-accent/0 via-accent/0 to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 
@@ -92,10 +115,10 @@ export default function Features() {
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-              </div>
+              </WaveRevealCard>
             )
           })}
-        </div>
+        </FluidWaveContainer>
       </div>
     </section>
   )

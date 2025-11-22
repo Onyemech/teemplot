@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import BackButton from '@/components/ui/BackButton'
+import { submitOwnerDetails, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 const ownerSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -17,6 +19,7 @@ type OwnerFormData = z.infer<typeof ownerSchema>;
 
 export default function OwnerDetailsPage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
   const {
@@ -30,11 +33,34 @@ export default function OwnerDetailsPage() {
   const onSubmit = async (data: OwnerFormData) => {
     setIsLoading(true)
     
-    // Store owner details in session storage
-    sessionStorage.setItem('ownerDetails', JSON.stringify(data))
-    
-    // Navigate to business info
-    navigate('/onboarding/business-info')
+    try {
+      // Get auth data
+      const authData = getOnboardingAuth()
+      
+      // Submit to backend
+      await submitOwnerDetails({
+        companyId: authData.companyId,
+        registrantUserId: authData.userId,
+        ownerFirstName: data.firstName,
+        ownerLastName: data.lastName,
+        ownerEmail: data.email,
+        ownerPhone: data.phone,
+        ownerDateOfBirth: data.dateOfBirth,
+      })
+      
+      // Store in session storage for reference
+      sessionStorage.setItem('onboarding_owner_details', JSON.stringify(data))
+      
+      toast.success('Owner details saved successfully!')
+      
+      // Navigate to business info
+      navigate('/onboarding/business-info')
+    } catch (error: any) {
+      console.error('Failed to save owner details:', error)
+      toast.error(error.message || 'Failed to save owner details')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

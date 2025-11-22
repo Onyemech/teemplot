@@ -50,21 +50,18 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link to="/login" className="inline-block mb-6">
-          <div className="text-center">
-            <img src="/logo.png"
-              alt="Teemplot"
-              className="h-12 w-auto mx-auto mb-3"
-            />
-          </div>
-        </Link>
-        
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Forgot Password?</h1>
-          <p className="text-gray-600">Enter your email to receive a verification code</p>
-        </div>
-
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          {/* Logo at top of card */}
+          <div className="text-center mb-6">
+            <Link to="/login" className="inline-block">
+              <img src="/logo.png"
+                alt="Teemplot"
+                className="h-16 w-auto mx-auto mb-3"
+              />
+            </Link>
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Forgot Password?</h2>
+            <p className="text-sm text-gray-600">Enter your email to receive a verification code</p>
+          </div>
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
               {error}

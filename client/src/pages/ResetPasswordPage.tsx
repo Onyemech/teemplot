@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
-import { Lock, Check, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { Lock, Check, Eye, EyeOff } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
@@ -236,21 +236,21 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Link to="/login" className="inline-block mb-6 w-full">
-            <div className="text-center">
-              <img src="/logo.png"
-                alt="Teemplot"
-                className="h-12 w-auto mx-auto mb-3"
-              />
-            </div>
-          </Link>
-
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <Link to="/login" className="inline-block mb-6 w-full">
+              <div className="text-center">
+                <img src="/logo.png"
+                  alt="Teemplot"
+                  className="h-16 w-auto mx-auto"
+                />
+              </div>
+            </Link>
+
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8 text-green-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Password Reset!</h1>
-            <p className="text-gray-600 mb-6">
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">Password Reset!</h1>
+            <p className="text-sm text-gray-600 mb-6">
               Your password has been successfully reset. Redirecting to login...
             </p>
           </div>
@@ -263,23 +263,22 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Link to="/forgot-password" className="inline-block mb-6 w-full">
-            <div className="text-center">
-              <img src="/logo.png"
-                alt="Teemplot"
-                className="h-12 w-auto mx-auto mb-3"
-              />
-            </div>
-          </Link>
-          
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Enter Verification Code</h1>
-            <p className="text-gray-600">
-              Enter the code we sent to <span className="font-medium">{email}</span>
-            </p>
-          </div>
-
           <div className="bg-white rounded-2xl shadow-xl p-8">
+            <Link to="/forgot-password" className="inline-block mb-6 w-full">
+              <div className="text-center">
+                <img src="/logo.png"
+                  alt="Teemplot"
+                  className="h-16 w-auto mx-auto"
+                />
+              </div>
+            </Link>
+            
+            <div className="text-center mb-6">
+              <h1 className="text-xl font-semibold text-gray-900 mb-2">Enter Verification Code</h1>
+              <p className="text-sm text-gray-600">
+                Enter the code we sent to <span className="font-medium">{email}</span>
+              </p>
+            </div>
             {error && (
               <p className="text-sm text-red-600 mb-4 text-center">{error}</p>
             )}
@@ -338,21 +337,20 @@ function ResetPasswordContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link to="/login" className="inline-block mb-6 w-full">
-          <div className="text-center">
-            <img src="/logo.png"
-              alt="Teemplot"
-              className="h-12 w-auto mx-auto mb-3"
-            />
-          </div>
-        </Link>
-        
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Password</h1>
-          <p className="text-gray-600">Enter your new password below</p>
-        </div>
-
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          <Link to="/login" className="inline-block mb-6 w-full">
+            <div className="text-center">
+              <img src="/logo.png"
+                alt="Teemplot"
+                className="h-16 w-auto mx-auto"
+              />
+            </div>
+          </Link>
+          
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">Create New Password</h1>
+            <p className="text-sm text-gray-600">Enter your new password below</p>
+          </div>
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
               {error}

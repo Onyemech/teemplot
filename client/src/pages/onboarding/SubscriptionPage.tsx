@@ -5,6 +5,8 @@ import { Check, ArrowRight, ArrowLeft } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
+import { submitPlanSelection, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 interface Plan {
   id: string
@@ -18,6 +20,7 @@ interface Plan {
 
 export default function SubscriptionPage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [selectedPlan, setSelectedPlan] = useState<string>('gold')
   const [loading, setLoading] = useState(false)
 
@@ -80,11 +83,34 @@ export default function SubscriptionPage() {
     setLoading(true)
 
     try {
-      // Store selected plan
+      // Get auth data
+      const authData = getOnboardingAuth()
+      
+      // Get business info for company size
+      const businessInfo = sessionStorage.getItem('onboarding_business_info')
+      const companySize = businessInfo ? JSON.parse(businessInfo).employeeCount : 1
+      
+      // Map plan to backend format
+      const planMap: Record<string, string> = {
+        'free': 'free',
+        'silver': 'silver_monthly',
+        'gold': 'gold_monthly',
+      }
+      
+      // Submit plan selection to backend
+      await submitPlanSelection({
+        companyId: authData.companyId,
+        plan: planMap[selectedPlan] as any,
+        companySize: parseInt(companySize),
+      })
+      
+      // Store selected plan in session storage for reference
       sessionStorage.setItem('onboarding_subscription', JSON.stringify({
         plan: selectedPlan,
         timestamp: new Date().toISOString(),
       }))
+
+      toast.success('Plan selected successfully!')
 
       // If free plan or gold with trial, skip payment
       if (selectedPlan === 'free' || selectedPlan === 'gold') {
@@ -93,8 +119,9 @@ export default function SubscriptionPage() {
         // For silver, go to payment
         navigate('/onboarding/payment')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving subscription:', err)
+      toast.error(err.message || 'Failed to select plan')
     } finally {
       setLoading(false)
     }
