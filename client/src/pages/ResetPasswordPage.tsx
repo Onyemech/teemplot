@@ -3,25 +3,72 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
-import { Lock, Check, ArrowLeft } from 'lucide-react'
+import { Lock, Check, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { useToast } from '@/contexts/ToastContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
+// Password validation helper
+const validatePassword = (password: string) => {
+  const requirements = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  }
+  
+  const errors = []
+  if (!requirements.length) errors.push('at least 8 characters')
+  if (!requirements.uppercase) errors.push('one uppercase letter')
+  if (!requirements.lowercase) errors.push('one lowercase letter')
+  if (!requirements.number) errors.push('one number')
+  if (!requirements.special) errors.push('one special character')
+  
+  return {
+    isValid: Object.values(requirements).every(Boolean),
+    errors,
+    requirements
+  }
+}
+
 function ResetPasswordContent() {
   const navigate = useNavigate()
-  const searchParams = useSearchParams()
+  const [searchParams] = useSearchParams()
   const email = searchParams.get('email')
+  const toast = useToast()
   
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
     password: '',
     confirmPassword: '',
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordValidation, setPasswordValidation] = useState({
+    isValid: false,
+    errors: [] as string[],
+    requirements: {
+      length: false,
+      uppercase: false,
+      lowercase: false,
+      number: false,
+      special: false,
+    }
+  })
   const [step, setStep] = useState<'code' | 'password'>('code')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Validate password on change
+  useEffect(() => {
+    if (formData.password) {
+      setPasswordValidation(validatePassword(formData.password))
+    }
+  }, [formData.password])
 
   useEffect(() => {
     if (step === 'code') {
@@ -84,14 +131,19 @@ function ResetPasswordContent() {
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Code verified! Now set your new password.')
         setStep('password')
       } else {
-        setError(data.message || 'Invalid verification code. Please try again.')
+        const errorMsg = data.message || 'Invalid verification code'
+        setError(errorMsg)
+        toast.error(errorMsg)
         setCode(['', '', '', '', '', ''])
         inputRefs.current[0]?.focus()
       }
-    } catch (err) {
-      setError('Verification failed. Please try again.')
+    } catch (err: any) {
+      const errorMsg = 'Verification failed. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
       setCode(['', '', '', '', '', ''])
       inputRefs.current[0]?.focus()
     } finally {
@@ -100,18 +152,28 @@ function ResetPasswordContent() {
   }
 
   const handleResendCode = async () => {
+    setResendLoading(true)
     try {
-      await fetch(`${API_URL}/auth/forgot-password`, {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
       
-      setError('')
-      setCode(['', '', '', '', '', ''])
-      inputRefs.current[0]?.focus()
-    } catch (err) {
-      console.error('Failed to resend code:', err)
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('New code sent! Check your email.')
+        setError('')
+        setCode(['', '', '', '', '', ''])
+        inputRefs.current[0]?.focus()
+      } else {
+        toast.error(data.message || 'Failed to resend code')
+      }
+    } catch (err: any) {
+      toast.error('Failed to resend code. Please try again.')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -119,13 +181,19 @@ function ResetPasswordContent() {
     e.preventDefault()
     setError('')
 
+    // Validate password match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+      const errorMsg = 'Passwords do not match'
+      setError(errorMsg)
+      toast.error(errorMsg)
       return
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters')
+    // Validate password strength
+    if (!passwordValidation.isValid) {
+      const errorMsg = `Password must have: ${passwordValidation.errors.join(', ')}`
+      setError(errorMsg)
+      toast.error(errorMsg)
       return
     }
 
@@ -145,15 +213,20 @@ function ResetPasswordContent() {
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Password reset successfully!')
         setSuccess(true)
         setTimeout(() => {
           navigate('/login')
         }, 2000)
       } else {
-        setError(data.message || 'Failed to reset password. Please try again.')
+        const errorMsg = data.message || 'Failed to reset password'
+        setError(errorMsg)
+        toast.error(errorMsg)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reset password. Please try again.')
+      const errorMsg = 'Failed to reset password. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -230,8 +303,12 @@ function ResetPasswordContent() {
 
             <p className="text-sm text-gray-600 mb-6 text-center">
               Didn't receive the code?{' '}
-              <button onClick={handleResendCode} className="text-[#1a5f3f] font-medium hover:underline">
-                Resend
+              <button 
+                onClick={handleResendCode} 
+                disabled={resendLoading}
+                className="text-[#1a5f3f] font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resendLoading ? 'Sending...' : 'Resend'}
               </button>
             </p>
 
@@ -283,27 +360,75 @@ function ResetPasswordContent() {
           )}
 
           <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <Input
-              type="password"
-              label="New Password"
-              placeholder="Min. 8 characters"
-              required
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              icon={<Lock className="w-5 h-5" />}
-              helperText="Must be at least 8 characters"
-            />
+            <div>
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  label="New Password"
+                  placeholder="Enter strong password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  icon={<Lock className="w-5 h-5" />}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              
+              {/* Password Requirements */}
+              {formData.password && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-medium text-gray-700">Password must contain:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`flex items-center gap-2 text-xs ${passwordValidation.requirements.length ? 'text-green-600' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${passwordValidation.requirements.length ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>8+ characters</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${passwordValidation.requirements.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${passwordValidation.requirements.uppercase ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>Uppercase letter</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${passwordValidation.requirements.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${passwordValidation.requirements.lowercase ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>Lowercase letter</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${passwordValidation.requirements.number ? 'text-green-600' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${passwordValidation.requirements.number ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>Number</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${passwordValidation.requirements.special ? 'text-green-600' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${passwordValidation.requirements.special ? 'opacity-100' : 'opacity-30'}`} />
+                      <span>Special character</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-            <Input
-              type="password"
-              label="Confirm Password"
-              placeholder="Re-enter password"
-              required
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              icon={<Lock className="w-5 h-5" />}
-              error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
-            />
+            <div className="relative">
+              <Input
+                type={showConfirmPassword ? 'text' : 'password'}
+                label="Confirm Password"
+                placeholder="Re-enter password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                icon={<Lock className="w-5 h-5" />}
+                error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
 
             <Button 
               type="submit" 
@@ -312,6 +437,7 @@ function ResetPasswordContent() {
               className="w-full" 
               loading={loading}
               loadingText="Resetting Password..."
+              disabled={!passwordValidation.isValid || formData.password !== formData.confirmPassword}
             >
               Reset Password
             </Button>

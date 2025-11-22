@@ -10,8 +10,10 @@
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watch",
     "test:coverage": "cross-env NODE_ENV=test jest --coverage",
+    "db:init": "tsx scripts/init-db.ts",
     "db:migrate": "node -r dotenv/config scripts/migrate.js",
     "db:seed": "node -r dotenv/config scripts/seed.js",
+    "test:registration": "tsx scripts/test-registration.ts",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"
   },

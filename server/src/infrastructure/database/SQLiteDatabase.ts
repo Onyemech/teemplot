@@ -71,9 +71,13 @@ export class SQLiteDatabase implements IDatabase {
       .map((key) => `${key} = ?`)
       .join(' AND ');
 
+    // Check if table has updated_at column
+    const hasUpdatedAt = await this.hasColumn(table, 'updated_at');
+    const updatedAtClause = hasUpdatedAt ? `, updated_at = datetime('now')` : '';
+
     const sql = `
       UPDATE ${table}
-      SET ${setClause}, updated_at = datetime('now')
+      SET ${setClause}${updatedAtClause}
       WHERE ${whereClause}
       RETURNING *
     `;
@@ -269,10 +273,12 @@ export class SQLiteDatabase implements IDatabase {
         logo_url TEXT,
         industry TEXT,
         company_size TEXT,
+        employee_count INTEGER DEFAULT 1,
         timezone TEXT DEFAULT 'UTC',
         subscription_plan TEXT DEFAULT 'trial',
         subscription_status TEXT DEFAULT 'active',
         is_active INTEGER DEFAULT 1,
+        onboarding_completed INTEGER DEFAULT 0,
         settings TEXT DEFAULT '{}',
         working_days TEXT DEFAULT '{"monday":true,"tuesday":true,"wednesday":true,"thursday":true,"friday":true,"saturday":false,"sunday":false}',
         work_start_time TEXT DEFAULT '09:00:00',
@@ -286,6 +292,11 @@ export class SQLiteDatabase implements IDatabase {
         require_geofence_for_clockin INTEGER DEFAULT 1,
         notify_early_departure INTEGER DEFAULT 1,
         early_departure_threshold_minutes INTEGER DEFAULT 30,
+        cac_document_url TEXT,
+        proof_of_address_url TEXT,
+        company_policy_url TEXT,
+        tax_identification_number TEXT,
+        website TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
         deleted_at TEXT
@@ -300,10 +311,12 @@ export class SQLiteDatabase implements IDatabase {
         last_name TEXT NOT NULL,
         phone_number TEXT,
         avatar_url TEXT,
-        role TEXT NOT NULL CHECK (role IN ('admin', 'staff')),
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'staff')),
         employee_id TEXT,
         department_id TEXT,
         position TEXT,
+        date_of_birth TEXT,
+        hire_date TEXT,
         is_active INTEGER DEFAULT 1,
         email_verified INTEGER DEFAULT 0,
         last_login_at TEXT,
@@ -314,6 +327,17 @@ export class SQLiteDatabase implements IDatabase {
         FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
         UNIQUE(company_id, email)
       )`,
+      
+      `CREATE TABLE IF NOT EXISTS email_verification_codes (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        verified_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`,
+      
+      `CREATE INDEX IF NOT EXISTS idx_email_verification_email ON email_verification_codes(email, code) WHERE verified_at IS NULL`,
     ];
 
     tables.forEach((sql) => {

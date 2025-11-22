@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { registrationService } from '../services/RegistrationService';
 import { passwordResetService } from '../services/PasswordResetService';
+import { googleAuthService } from '../services/GoogleAuthService';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
+import { logger } from '../utils/logger';
 import {
   sanitizeInput,
   validatePasswordStrength,
@@ -38,10 +40,65 @@ const LoginSchema = z.object({
 export async function authRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
 
-  // Register new company and admin
-  fastify.post('/register', async (request, reply) => {
+  // Test email endpoint (development only)
+  fastify.post('/test-email', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.code(403).send({ success: false, message: 'Not available in production' });
+    }
+
     try {
-      const data = RegisterSchema.parse(request.body);
+      const { email } = z.object({ email: z.string().email() }).parse(request.body);
+      
+      const { emailService } = await import('../services/EmailService');
+      const code = await emailService.generateVerificationCode(email);
+      const sent = await emailService.sendVerificationEmail(email, 'Test User', code);
+
+      return reply.code(200).send({
+        success: sent,
+        message: sent ? `Test email sent to ${email} with code: ${code}` : 'Failed to send email',
+        code: sent ? code : undefined,
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to send test email',
+        error: error.toString(),
+      });
+    }
+  });
+
+  // Register new company and admin
+  fastify.post('/register', {
+    config: {
+      rateLimit: {
+        max: 3,
+        timeWindow: '1 hour'
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const rawData = RegisterSchema.parse(request.body);
+      
+      // Sanitize inputs
+      const data = sanitizeInput(rawData);
+      
+      // Validate password strength
+      const passwordCheck = validatePasswordStrength(data.password);
+      if (!passwordCheck.valid) {
+        return reply.code(400).send({
+          success: false,
+          errors: passwordCheck.errors
+        });
+      }
+      
+      // Validate email
+      const emailCheck = validateEmail(data.email);
+      if (!emailCheck.valid) {
+        return reply.code(400).send({
+          success: false,
+          message: emailCheck.error
+        });
+      }
 
       const result = await registrationService.register(data);
 
@@ -104,14 +161,30 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Login
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes'
+      }
+    }
+  }, async (request, reply) => {
     try {
-      const { email, password } = LoginSchema.parse(request.body);
+      const rawData = LoginSchema.parse(request.body);
+      const { email, password } = sanitizeInput(rawData);
 
       // Find user
       const user = await db.findOne('users', { email });
 
       if (!user) {
+        // Log failed login
+        await logSecurityEvent({
+          type: 'failed_login',
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] || '',
+          details: { email, reason: 'user_not_found' }
+        });
+        
         return reply.code(401).send({
           success: false,
           message: 'Invalid credentials',
@@ -122,6 +195,15 @@ export async function authRoutes(fastify: FastifyInstance) {
       const validPassword = await bcrypt.compare(password, user.password_hash);
 
       if (!validPassword) {
+        // Log failed login
+        await logSecurityEvent({
+          type: 'failed_login',
+          userId: user.id,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] || '',
+          details: { email, reason: 'invalid_password' }
+        });
+        
         return reply.code(401).send({
           success: false,
           message: 'Invalid credentials',
@@ -137,6 +219,15 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Log successful login
+      await logSecurityEvent({
+        type: 'login',
+        userId: user.id,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] || '',
+        details: { email }
+      });
+
       // Generate JWT token
       const token = fastify.jwt.sign({
         userId: user.id,
@@ -146,7 +237,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       });
 
       // Update last login
-      await db.update('users', { last_login_at: new Date() }, { id: user.id });
+      await db.update('users', { last_login_at: new Date().toISOString() }, { id: user.id });
 
       return reply.code(200).send({
         success: true,
@@ -218,11 +309,27 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Forgot password - Send verification code
-  fastify.post('/forgot-password', async (request, reply) => {
+  fastify.post('/forgot-password', {
+    config: {
+      rateLimit: {
+        max: 3,
+        timeWindow: '15 minutes'
+      }
+    }
+  }, async (request, reply) => {
     try {
-      const { email } = z.object({ email: z.string().email() }).parse(request.body);
+      const rawData = z.object({ email: z.string().email() }).parse(request.body);
+      const { email } = sanitizeInput(rawData);
 
       await passwordResetService.sendResetCode(email);
+      
+      // Log password reset request
+      await logSecurityEvent({
+        type: 'password_reset',
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] || '',
+        details: { email }
+      });
 
       return reply.code(200).send({
         success: true,
@@ -281,6 +388,127 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({
         success: false,
         message: error.message || 'Password reset failed',
+      });
+    }
+  });
+
+  // ============================================
+  // GOOGLE OAUTH ROUTES
+  // ============================================
+
+  // Google OAuth callback - Handle Supabase token
+  fastify.post('/google/callback', async (request, reply) => {
+    try {
+      const { access_token } = z.object({
+        access_token: z.string(),
+      }).parse(request.body);
+
+      // Get user info from Supabase session
+      const googleUser = await googleAuthService.getUserFromSupabaseSession(access_token);
+
+      if (!googleUser) {
+        return reply.code(401).send({
+          success: false,
+          message: 'Invalid Google authentication',
+        });
+      }
+
+      // Handle authentication and check if onboarding needed
+      const result = await googleAuthService.handleGoogleAuth(googleUser);
+
+      // Generate JWT token
+      const token = fastify.jwt.sign({
+        userId: result.user.id,
+        companyId: result.user.company_id,
+        role: result.user.role,
+        email: result.user.email,
+      });
+
+      // Log successful login
+      await logSecurityEvent({
+        type: 'login',
+        userId: result.user.id,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] || '',
+        details: { 
+          email: result.user.email,
+          provider: 'google',
+          isNewUser: result.isNewUser
+        }
+      });
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          token,
+          user: {
+            id: result.user.id,
+            email: result.user.email,
+            firstName: result.user.first_name,
+            lastName: result.user.last_name,
+            role: result.user.role,
+            companyId: result.user.company_id,
+            avatarUrl: result.user.avatar_url,
+          },
+          isNewUser: result.isNewUser,
+          requiresOnboarding: result.requiresOnboarding,
+        },
+      });
+    } catch (error: any) {
+      logger.error({ err: error }, 'Google OAuth callback failed');
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Google authentication failed',
+      });
+    }
+  });
+
+  // Complete Google user onboarding
+  fastify.post('/google/complete-onboarding', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const userId = request.user.userId;
+      
+      const { companyName, industry, companySize, phoneNumber, address, timezone } = z.object({
+        companyName: z.string().min(1, 'Company name is required'),
+        industry: z.string().optional(),
+        companySize: z.string().optional(),
+        phoneNumber: z.string().optional(),
+        address: z.string().optional(),
+        timezone: z.string().default('UTC'),
+      }).parse(request.body);
+
+      const result = await googleAuthService.completeOnboarding(userId, {
+        companyName,
+        industry,
+        companySize,
+        phoneNumber,
+        address,
+        timezone,
+      });
+
+      // Generate new token with updated company ID
+      const user = await db.findOne('users', { id: userId });
+      const newToken = fastify.jwt.sign({
+        userId: user.id,
+        companyId: result.companyId,
+        role: user.role,
+        email: user.email,
+      });
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          token: newToken,
+          companyId: result.companyId,
+        },
+        message: 'Onboarding completed successfully',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Onboarding completion failed',
       });
     }
   });

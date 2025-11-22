@@ -95,7 +95,8 @@ export interface Task {
   title: string
   description?: string
   assignedTo?: string
-  assignedBy?: string: 'low' | 'medium' | 'high' | 'urgent'
+  assignedBy?: string
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   dueDate?: string
   completedAt?: string

@@ -8,8 +8,8 @@ export default function CTA() {
 
   // Prefetch onboarding page for instant navigation
   useEffect(() => {
-    // prefetch: '/onboarding/register')
-  }, [router])
+    // No prefetch needed in React Router
+  }, [navigate])
   return (
     <section className="py-24 px-6">
       <div className="max-w-4xl mx-auto text-center space-y-8 animate-fade-in">

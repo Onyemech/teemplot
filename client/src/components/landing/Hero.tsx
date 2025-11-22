@@ -7,10 +7,8 @@ import { ArrowRight, Calendar, CheckCircle2, Users } from 'lucide-react'
 export default function Hero() {
   const navigate = useNavigate()
 
-  // Prefetch onboarding page for instant navigation
   useEffect(() => {
-    // prefetch: '/onboarding/register')
-  }, [router])
+  }, [navigate])
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center px-6 py-20 overflow-hidden">
       <div className="absolute inset-0 -z-10">

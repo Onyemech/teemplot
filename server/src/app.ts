@@ -8,6 +8,12 @@ import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
 import { logger } from './utils/logger';
 import { errorHandler, setupUncaughtExceptionHandler, setupUnhandledRejectionHandler } from './middleware/errorHandler.middleware';
+import { 
+  securityHeaders, 
+  requestLogger, 
+  detectSuspiciousActivity,
+  logSecurityEvent 
+} from './middleware/security.middleware';
 
 export async function buildApp() {
   // Setup global error handlers
@@ -22,6 +28,27 @@ export async function buildApp() {
 
   // Register global error handler
   app.setErrorHandler(errorHandler);
+
+  // Register security middleware
+  app.addHook('onRequest', securityHeaders);
+  app.addHook('onRequest', requestLogger);
+
+  // Add suspicious activity detection
+  app.addHook('preHandler', async (request, reply) => {
+    const suspicious = detectSuspiciousActivity(request);
+    if (suspicious.suspicious) {
+      await logSecurityEvent({
+        type: 'suspicious_activity',
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] || '',
+        details: { reason: suspicious.reason, url: request.url }
+      });
+      return reply.code(403).send({
+        success: false,
+        message: 'Suspicious activity detected'
+      });
+    }
+  });
 
   // Security plugins
   await app.register(helmet, {

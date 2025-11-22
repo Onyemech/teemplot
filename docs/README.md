@@ -1,5 +1,24 @@
 # Teemplot Documentation Index
 
+## 🚨 CRITICAL: AUDIT REPORTS (November 22, 2025)
+
+**⚠️ READ THESE FIRST - SYSTEM NOT PRODUCTION READY**
+
+### 📋 Complete Audit Report
+**Location:** [`audit-2025-11-22/`](audit-2025-11-22/)
+
+**Quick Links:**
+- **[Audit Overview](audit-2025-11-22/README.md)** - ⭐ START HERE
+- **[AUDIT_INDEX.md](audit-2025-11-22/AUDIT_INDEX.md)** - Complete document index
+- **[QUICK_FIX_CHECKLIST.md](audit-2025-11-22/QUICK_FIX_CHECKLIST.md)** - Trackable P0 fixes
+- **[CODE_FIXES_READY_TO_APPLY.md](audit-2025-11-22/CODE_FIXES_READY_TO_APPLY.md)** - Copy-paste fixes
+
+**Status:** 🔴 23 Issues Found | ⚠️ Schema verification needed | ⏱️ 2-3 weeks to fix
+
+**Important:** This audit was based on code analysis. **Verify actual Supabase schema first** before applying fixes. See [verification script](audit-2025-11-22/README.md#-verification-script).
+
+---
+
 ## 📚 Documentation Structure
 
 ### 🗄️ Database Documentation (`db_docs/`)

@@ -2,17 +2,28 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { LogoLoader } from '@/components/LogoLoader'
 
 export default function OnboardingCompletePage() {
   const navigate = useNavigate()
+  const [isCompleting, setIsCompleting] = useState(true)
   const [showContent, setShowContent] = useState(false)
 
   useEffect(() => {
-    // Trigger animation after mount
-    setTimeout(() => setShowContent(true), 100)
+    const completeOnboarding = async () => {
+      // Simulate completion process (API calls, setup, etc.)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Mark onboarding as complete
+      sessionStorage.setItem('onboarding_completed', 'true')
+      
+      setIsCompleting(false)
+      
+      // Trigger success animation
+      setTimeout(() => setShowContent(true), 100)
+    }
 
-    // Mark onboarding as complete
-    sessionStorage.setItem('onboarding_completed', 'true')
+    completeOnboarding()
   }, [])
 
   const handleGoToDashboard = () => {
@@ -26,6 +37,10 @@ export default function OnboardingCompletePage() {
     
     // Navigate to dashboard
     navigate('/dashboard')
+  }
+
+  if (isCompleting) {
+    return <LogoLoader message="Completing your setup..." />
   }
 
   return (

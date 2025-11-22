@@ -29,7 +29,7 @@ export class PasswordResetService {
       const code = await emailService.generateVerificationCode(email);
       
       // Send reset email
-      await emailService.sendVerificationEmail(email, user.first_name, code);
+      await emailService.sendPasswordResetEmail(email, user.first_name, code);
       
       logger.info(`Password reset code sent to ${email}`);
       return true;
@@ -46,11 +46,7 @@ export class PasswordResetService {
     return await emailService.verifyCode(email, code);
   }
 
-  /**
-   * Reset password with verified code
-   */
   async resetPassword(email: string, code: string, newPassword: string): Promise<boolean> {
-    // Verify code first
     const isValid = await this.verifyResetCode(email, code);
     
     if (!isValid) {

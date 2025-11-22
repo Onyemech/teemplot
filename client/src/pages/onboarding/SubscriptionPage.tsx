@@ -24,7 +24,7 @@ export default function SubscriptionPage() {
   // Prefetch next page
   useEffect(() => {
     // prefetch not needed in React Router: '/onboarding/complete')
-  }, [router])
+  }, [])
 
   const plans: Plan[] = [
     {

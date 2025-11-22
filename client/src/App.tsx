@@ -6,6 +6,9 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 
+// Auth Pages
+import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
+
 // Onboarding Pages
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
@@ -24,6 +27,9 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      
+      {/* Auth Callback Routes */}
+      <Route path="/auth/callback" element={<GoogleCallbackPage />} />
 
       {/* Onboarding Routes */}
       <Route path="/onboarding">

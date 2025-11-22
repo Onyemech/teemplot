@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-
-import { Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
-import { ArrowLeft, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
+import { useToast } from '@/contexts/ToastContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
@@ -21,7 +21,6 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      // TODO: Implement actual API call to send verification code
       const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,13 +30,18 @@ export default function ForgotPasswordPage() {
       const data = await response.json()
 
       if (data.success) {
+        toast.success('Verification code sent! Check your email.')
         // Redirect to reset password page with email
-        navigate(`/reset-password?email=${encodeURIComponent(email)}`)
+        setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}`), 500)
       } else {
-        setError(data.message || 'Failed to send verification code. Please try again.')
+        const errorMsg = data.message || 'Failed to send verification code'
+        setError(errorMsg)
+        toast.error(errorMsg)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send verification code. Please try again.')
+      const errorMsg = 'Failed to send verification code. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }

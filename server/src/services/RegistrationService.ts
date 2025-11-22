@@ -39,13 +39,12 @@ export class RegistrationService {
    * Register new company and admin user
    */
   async register(data: RegistrationData): Promise<RegistrationResult> {
-    logger.info(`Starting registration for ${data.email}`);
-
     // Validate email doesn't exist
     await this.validateEmail(data.email);
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    // Hash password (10 rounds = ~150ms, still secure)
+    const bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS || '10');
+    const passwordHash = await bcrypt.hash(data.password, bcryptRounds);
 
     // Generate IDs
     const companyId = randomUUID();
@@ -93,26 +92,24 @@ export class RegistrationService {
         logger.error(`Failed to sync registration to backup: ${error?.message || 'Unknown error'}`);
       });
 
-      // Send verification email
-      try {
-        const code = await emailService.generateVerificationCode(data.email);
-        await emailService.sendVerificationEmail(data.email, data.firstName, code);
-        logger.info(`Verification email sent to ${data.email}`);
-      } catch (error: any) {
-        logger.error(`Failed to send verification email: ${error?.message || 'Unknown error'}`);
-        // Don't fail registration if email fails
-      }
-
-      // Notify superadmins of new company registration
-      superAdminNotificationService.notifyNewCompany(
-        companyId,
-        data.companyName,
-        data.email
-      ).catch(error => {
-        logger.error(`Failed to notify superadmin: ${error?.message || 'Unknown error'}`);
+      // Send verification email (non-blocking for faster response)
+      setImmediate(async () => {
+        try {
+          const code = await emailService.generateVerificationCode(data.email);
+          await emailService.sendVerificationEmail(data.email, data.firstName, code);
+          logger.info({ email: data.email }, 'Verification email sent');
+        } catch (error: any) {
+          logger.error({ err: error, email: data.email }, 'Failed to send verification email');
+        }
       });
 
-      logger.info(`Registration successful - User: ${userId}, Company: ${companyId}`);
+      // Notify superadmins (non-blocking)
+      setImmediate(() => {
+        superAdminNotificationService.notifyNewCompany(companyId, data.companyName, data.email)
+          .catch(error => logger.error({ err: error }, 'Failed to notify superadmin'));
+      });
+
+      logger.info({ userId, companyId, email: data.email }, 'Registration complete');
 
       return {
         userId,

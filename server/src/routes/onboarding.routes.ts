@@ -3,6 +3,7 @@ import { onboardingService } from '../services/OnboardingService';
 import { fileUploadService } from '../services/FileUploadService';
 import { z } from 'zod';
 import multipart from '@fastify/multipart';
+import { validateFileUpload, sanitizeInput } from '../middleware/security.middleware';
 
 const UploadDocumentSchema = z.object({
   companyId: z.string().uuid(),
@@ -70,7 +71,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const data = CompanySetupSchema.parse(request.body);
+      const rawData = CompanySetupSchema.parse(request.body);
+      const data = sanitizeInput(rawData);
       await onboardingService.saveCompanySetup(data);
 
       return reply.code(200).send({
@@ -90,7 +92,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const data = OwnerDetailsSchema.parse(request.body);
+      const rawData = OwnerDetailsSchema.parse(request.body);
+      const data = sanitizeInput(rawData);
       await onboardingService.saveOwnerDetails(data);
 
       return reply.code(200).send({
@@ -110,7 +113,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const data = BusinessInfoSchema.parse(request.body);
+      const rawData = BusinessInfoSchema.parse(request.body);
+      const data = sanitizeInput(rawData);
       await onboardingService.saveBusinessInfo(data);
 
       return reply.code(200).send({
@@ -139,15 +143,51 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Basic validation using security middleware
+      const basicValidation = validateFileUpload({
+        filename: data.filename,
+        mimetype: data.mimetype,
+        size: data.file.bytesRead || 0
+      });
+
+      if (!basicValidation.valid) {
+        return reply.code(400).send({
+          success: false,
+          message: basicValidation.error
+        });
+      }
+
+      // Get file buffer
       const buffer = await data.toBuffer();
       const companyId = request.user.companyId;
 
-      const logoUrl = await fileUploadService.uploadLogo(buffer, companyId);
-      await onboardingService.uploadLogo(companyId, logoUrl);
+      // Extract file extension
+      const extension = data.filename.includes('.') 
+        ? `.${data.filename.split('.').pop()?.toLowerCase()}` 
+        : '';
+
+      // Prepare metadata for enhanced validation
+      const metadata = {
+        filename: data.filename,
+        mimetype: data.mimetype,
+        size: buffer.length,
+        extension
+      };
+
+      // Upload with comprehensive validation
+      const result = await fileUploadService.uploadLogo(buffer, companyId, metadata);
+      
+      // Save to database
+      await onboardingService.uploadLogo(companyId, result.url);
 
       return reply.code(200).send({
         success: true,
-        data: { logoUrl },
+        data: { 
+          logoUrl: result.url,
+          publicId: result.publicId,
+          size: result.size,
+          format: result.format
+        },
         message: 'Logo uploaded successfully',
       });
     } catch (error: any) {
@@ -166,12 +206,18 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       const parts = request.parts();
       let fileBuffer: Buffer | null = null;
       let documentType: string | null = null;
+      let filename: string = '';
+      let mimetype: string = '';
+      let fileSize: number = 0;
       const companyId = request.user.companyId;
 
       // Process all parts (fields and file)
       for await (const part of parts) {
         if (part.type === 'file') {
+          filename = part.filename;
+          mimetype = part.mimetype;
           fileBuffer = await part.toBuffer();
+          fileSize = fileBuffer.length;
         } else {
           // It's a field
           if (part.fieldname === 'documentType') {
@@ -194,21 +240,57 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const documentUrl = await fileUploadService.uploadDocument(
+      // Basic validation using security middleware
+      const basicValidation = validateFileUpload({
+        filename,
+        mimetype,
+        size: fileSize
+      });
+
+      if (!basicValidation.valid) {
+        return reply.code(400).send({
+          success: false,
+          message: basicValidation.error
+        });
+      }
+
+      // Extract file extension
+      const extension = filename.includes('.') 
+        ? `.${filename.split('.').pop()?.toLowerCase()}` 
+        : '';
+
+      // Prepare metadata for enhanced validation
+      const metadata = {
+        filename,
+        mimetype,
+        size: fileSize,
+        extension
+      };
+
+      // Upload with comprehensive validation
+      const result = await fileUploadService.uploadDocument(
         fileBuffer, 
         companyId, 
-        documentType as 'cac' | 'proof_of_address' | 'company_policy'
+        documentType as 'cac' | 'proof_of_address' | 'company_policy',
+        metadata
       );
       
+      // Save to database
       await onboardingService.uploadDocument({
         companyId,
         documentType: documentType as 'cac' | 'proof_of_address' | 'company_policy',
-        url: documentUrl,
+        url: result.url,
       });
 
       return reply.code(200).send({
         success: true,
-        data: { documentUrl },
+        data: { 
+          documentUrl: result.url,
+          publicId: result.publicId,
+          size: result.size,
+          format: result.format,
+          checksum: result.checksum
+        },
         message: 'Document uploaded successfully',
       });
     } catch (error: any) {
@@ -277,6 +359,67 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({
         success: false,
         message: error.message || 'Failed to get onboarding status',
+      });
+    }
+  });
+
+  // Save onboarding progress
+  fastify.post('/save-progress', async (request, reply) => {
+    try {
+      const { userId, companyId, currentStep, completedSteps, formData } = request.body as any;
+
+      if (!userId || !companyId || currentStep === undefined) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Missing required fields: userId, companyId, currentStep',
+        });
+      }
+
+      const { onboardingProgressService } = await import('../services/OnboardingProgressService');
+      
+      await onboardingProgressService.saveProgress({
+        userId,
+        companyId,
+        currentStep,
+        completedSteps,
+        formData,
+      });
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Progress saved successfully',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to save progress',
+      });
+    }
+  });
+
+  // Get onboarding progress
+  fastify.get('/progress/:userId', async (request, reply) => {
+    try {
+      const { userId } = request.params as any;
+
+      const { onboardingProgressService } = await import('../services/OnboardingProgressService');
+      const progress = await onboardingProgressService.getProgress(userId);
+
+      if (!progress) {
+        return reply.code(404).send({
+          success: false,
+          message: 'No progress found',
+        });
+      }
+
+      return reply.code(200).send({
+        success: true,
+        data: progress,
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to get progress',
       });
     }
   });

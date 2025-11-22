@@ -55,7 +55,7 @@ export default function BusinessInfoPage() {
     } else {
       setLocationError('Geolocation is not supported by this browser.')
     }
-  }, [router])
+  }, [navigate])
 
   const industries = [
     { value: 'technology', label: 'Technology' },

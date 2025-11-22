@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 
-import { FileText, Image as ImageIcon, Trash2, Upload, Check, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react'
+import { FileText, Image as ImageIcon, Trash2, Upload, Check, AlertCircle, ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
+import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
+import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 
 interface UploadedFile {
   file: File
@@ -19,6 +21,7 @@ interface DocumentState {
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
+  const { saveProgress, getAuthData } = useOnboardingProgress()
   const [documents, setDocuments] = useState<DocumentState>({
     cac: null,
     proofOfAddress: null,
@@ -37,7 +40,7 @@ export default function DocumentsPage() {
     if (!businessInfo) {
       navigate('/onboarding/business-info')
     }
-  }, [router])
+  }, [navigate])
 
   const handleFileSelect = async (
     documentType: keyof DocumentState,
@@ -114,12 +117,14 @@ export default function DocumentsPage() {
         companyPolicies: documents.companyPolicies.file.name,
       }))
 
+      // Simulate quick save
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // Navigate to subscription
       navigate('/onboarding/subscription')
 
     } catch (err: any) {
       setError(err.message || 'Failed to save documents')
-    } finally {
       setLoading(false)
     }
   }
@@ -216,22 +221,31 @@ export default function DocumentsPage() {
     )
   }
 
+  const handleSaveProgress = async () => {
+    const authData = getAuthData()
+    if (!authData?.userId || !authData?.companyId) {
+      throw new Error('Authentication data not found')
+    }
+
+    await saveProgress({
+      userId: authData.userId,
+      companyId: authData.companyId,
+      currentStep: 6,
+      completedSteps: [1, 2, 3, 4, 5], // Previous steps completed
+      formData: {
+        documents: {
+          cac: documents.cac?.file.name,
+          proofOfAddress: documents.proofOfAddress?.file.name,
+          companyPolicies: documents.companyPolicies?.file.name,
+        }
+      },
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Teemplot" className="h-16 w-auto" />
-            <div className="text-sm text-gray-700 font-medium">
-              Step 6 of 9
-            </div>
-          </div>
-          <div className="text-sm font-medium text-primary-600">
-            Documents
-          </div>
-        </div>
-      </div>
+      <OnboardingNavbar currentStep={6} totalSteps={9} onSave={handleSaveProgress} />
 
       {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
@@ -308,7 +322,7 @@ export default function DocumentsPage() {
                 iconPosition="right"
                 disabled={!documents.cac || !documents.proofOfAddress || !documents.companyPolicies}
               >
-                {loading ? 'Saving...' : 'Continue'}
+                Continue
               </Button>
             </div>
           </Card>

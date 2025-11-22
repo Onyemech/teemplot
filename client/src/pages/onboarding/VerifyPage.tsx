@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogoLoader } from '@/components/LogoLoader'
+import BackButton from '@/components/ui/BackButton'
+import Button from '@/components/ui/Button'
 
 function VerifyEmailContent() {
   const navigate = useNavigate()
-  const searchParams = useSearchParams()
+  const [searchParams] = useSearchParams()
   const email = searchParams.get('email')
   
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)
+  const [isResending, setIsResending] = useState(false)
   const [error, setError] = useState('')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -16,7 +19,7 @@ function VerifyEmailContent() {
     inputRefs.current[0]?.focus()
     // Prefetch next page for instant navigation
     // prefetch not needed in React Router: '/onboarding/company-setup')
-  }, [router])
+  }, [])
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) {
@@ -92,30 +95,39 @@ function VerifyEmailContent() {
   }
 
   const handleResend = async () => {
+    setIsResending(true)
+    setError('')
+    
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
       
-      await fetch(`${API_URL}/auth/resend-verification`, {
+      const response = await fetch(`${API_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      
-      // Show success message (you can add a toast notification here)
-      console.log('Verification code resent to:', email)
-    } catch (err) {
-      console.error('Failed to resend code:', err)
-    }
-  }
 
-  if (isVerifying) {
-    return <LogoLoader />
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to resend code')
+      }
+      
+      // Show success message
+      alert('✅ Verification code sent! Check your email.')
+      console.log('Verification code resent to:', email)
+    } catch (err: any) {
+      console.error('Failed to resend code:', err)
+      setError(err.message || 'Failed to resend code. Please try again.')
+    } finally {
+      setIsResending(false)
+    }
   }
 
   return (
     <div className="min-h-screen flex">
       {/* Left side - Dark teal branded section */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#0F5D5D] relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-2/5 bg-[#0F5D5D] relative overflow-hidden">
         {/* Decorative circles */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 right-20 w-72 h-72 bg-[#FF5722] rounded-full blur-3xl" />
@@ -124,7 +136,7 @@ function VerifyEmailContent() {
 
         <div className="relative z-10 p-12 flex flex-col justify-center text-white">
           <div className="mb-12">
-            <img src="/logo.png" alt="Teemplot" className="h-16 w-auto" />
+            <img src="/logo.png" alt="Teemplot" className="h-32 w-auto" />
           </div>
 
           <div className="space-y-8">
@@ -153,7 +165,7 @@ function VerifyEmailContent() {
       </div>
 
       {/* Right side - Form section */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+      <div className="w-full lg:w-3/5 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
           <BackButton className="mb-6" />
 
@@ -185,18 +197,24 @@ function VerifyEmailContent() {
 
             <p className="text-sm text-gray-600 mb-6">
               Didn't receive the code?{' '}
-              <button onClick={handleResend} className="text-primary font-medium hover:underline">
-                Resend
+              <button 
+                onClick={handleResend} 
+                disabled={isResending}
+                className="text-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResending ? 'Sending...' : 'Resend'}
               </button>
             </p>
 
-            <button
+            <Button
               onClick={() => handleVerify(code.join(''))}
               disabled={code.some(d => !d) || isVerifying}
-              className="w-full bg-primary hover:bg-primary-dark text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              loading={isVerifying}
+              variant="primary"
+              fullWidth
             >
               {isVerifying ? 'Verifying...' : 'Verify'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 
-import { Check, X, HelpCircle } from 'lucide-react'
+import { Check } from 'lucide-react'
+import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
+import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 
 type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 
 export default function CompanySetupPage() {
   const navigate = useNavigate()
+  const { saveProgress, getAuthData } = useOnboardingProgress()
   const [currentStep, setCurrentStep] = useState<Step>('details')
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     // Company details
     companyLogo: null as File | null,
@@ -44,19 +48,36 @@ export default function CompanySetupPage() {
   useEffect(() => {
     // prefetch not needed in React Router: '/onboarding/business-info')
     // prefetch not needed in React Router: '/onboarding/owner-details')
-  }, [router])
+  }, [])
 
-  const handleNext = () => {
-    const stepOrder: Step[] = ['details', 'owner', 'documents', 'review', 'payment']
-    const currentIndex = stepOrder.indexOf(currentStep)
-    if (currentIndex < stepOrder.length - 1) {
-      setCurrentStep(stepOrder[currentIndex + 1])
+  const handleNext = async () => {
+    setLoading(true)
+    
+    try {
+      // If this is the first step (details) and user is from Google auth, complete onboarding
+      const authData = getAuthData()
+      if (currentStep === 'details' && authData?.isGoogleAuth) {
+        await completeGoogleOnboarding()
+      }
+      
+      // Simulate quick save
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      const stepOrder: Step[] = ['details', 'owner', 'documents', 'review', 'payment']
+      const currentIndex = stepOrder.indexOf(currentStep)
+      if (currentIndex < stepOrder.length - 1) {
+        setCurrentStep(stepOrder[currentIndex + 1])
+      }
+    } catch (error) {
+      console.error('Failed to proceed:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    handleNext()
+    await handleNext()
   }
 
   const renderStepContent = () => {
@@ -69,21 +90,27 @@ export default function CompanySetupPage() {
                 Company logo
               </label>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border">
                   {formData.companyLogo ? (
-                    <img src={URL.createObjectURL(formData.companyLogo)} alt="Logo" className="rounded-lg" />
+                    <img src={URL.createObjectURL(formData.companyLogo)} alt="Logo" className="w-full h-full object-contain rounded-lg" />
                   ) : (
-                    <span className="text-4xl">🌳</span>
+                    <img src="/logo.png" alt="Default Logo" className="w-full h-full object-contain opacity-50" />
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <label className="px-4 py-2 border border-border rounded-lg cursor-pointer hover:bg-secondary transition-colors">
-                    <span className="text-sm">Change logo</span>
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => setFormData({ ...formData, companyLogo: e.target.files?.[0] || null })} />
+                  <label className="px-4 py-2 border border-border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors bg-white">
+                    <span className="text-sm font-medium">Change logo</span>
+                    <input type="file" className="hidden" accept="image/png,image/jpeg,image/jpg" onChange={(e) => setFormData({ ...formData, companyLogo: e.target.files?.[0] || null })} />
                   </label>
-                  <button type="button" className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    Remove
-                  </button>
+                  {formData.companyLogo && (
+                    <button 
+                      type="button" 
+                      onClick={() => setFormData({ ...formData, companyLogo: null })}
+                      className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">PNG, JPG files up to 2MB. Recommended size of 256 x 256px</p>
@@ -121,9 +148,11 @@ export default function CompanySetupPage() {
                 required
                 value={formData.industry}
                 onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-gray-50 appearance-none cursor-pointer"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")", backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
               >
-                <option value="">Software</option>
+                <option value="">Select industry</option>
+                <option value="software">Software</option>
                 <option value="technology">Technology</option>
                 <option value="finance">Finance</option>
                 <option value="healthcare">Healthcare</option>
@@ -135,21 +164,33 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Company size</label>
-              <select
+              <label className="block text-sm font-medium text-foreground mb-2">Company size (Number of employees)</label>
+              <input
+                type="text"
                 required
                 value={formData.companySize}
-                onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">1 - 10</option>
-                <option value="1-10">1 - 10</option>
-                <option value="11-50">11 - 50</option>
-                <option value="51-200">51 - 200</option>
-                <option value="201-500">201 - 500</option>
-                <option value="500+">500+</option>
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">This represents the number of employees at your company. It helps us determine how best to provide a suitable subscription plan for your company</p>
+                onChange={(e) => {
+                  const value = e.target.value
+                  // Allow empty string (for backspace/delete)
+                  if (value === '') {
+                    setFormData({ ...formData, companySize: '' })
+                    return
+                  }
+                  // Only allow positive numbers (no letters, no negative, no decimals)
+                  if (/^\d+$/.test(value) && parseInt(value) > 0) {
+                    setFormData({ ...formData, companySize: value })
+                  }
+                }}
+                onKeyDown={(e) => {
+                  // Prevent minus, plus, decimal point, and 'e'
+                  if (['-', '+', '.', 'e', 'E'].includes(e.key)) {
+                    e.preventDefault()
+                  }
+                }}
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                placeholder="e.g., 25"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Enter the total number of employees at your company. This helps us determine the best subscription plan for you.</p>
             </div>
 
             <div>
@@ -182,9 +223,10 @@ export default function CompanySetupPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors"
+              disabled={loading}
+              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Continue
+              {loading ? 'Saving...' : 'Continue'}
             </button>
           </form>
         )
@@ -247,7 +289,9 @@ export default function CompanySetupPage() {
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Phone number</label>
               <div className="flex gap-2">
-                <select className="w-32 px-3 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                <select className="w-32 px-3 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-gray-50 appearance-none cursor-pointer"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")", backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                >
                   <option>🇳🇬 +234</option>
                 </select>
                 <input
@@ -255,7 +299,7 @@ export default function CompanySetupPage() {
                   required
                   value={formData.ownerPhone}
                   onChange={(e) => setFormData({ ...formData, ownerPhone: e.target.value })}
-                  className="flex-1 px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   placeholder="901 234 5678"
                 />
               </div>
@@ -274,9 +318,10 @@ export default function CompanySetupPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors"
+              disabled={loading}
+              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Continue
+              {loading ? 'Saving...' : 'Continue'}
             </button>
           </form>
         )
@@ -319,9 +364,10 @@ export default function CompanySetupPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors"
+              disabled={loading}
+              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Continue
+              {loading ? 'Saving...' : 'Continue'}
             </button>
           </form>
         )
@@ -334,26 +380,73 @@ export default function CompanySetupPage() {
     }
   }
 
+  const handleSaveProgress = async () => {
+    const authData = getAuthData()
+    if (!authData?.userId || !authData?.companyId) {
+      throw new Error('Authentication data not found')
+    }
+
+    await saveProgress({
+      userId: authData.userId,
+      companyId: authData.companyId,
+      currentStep: 2,
+      completedSteps: [1], // Registration completed
+      formData: formData,
+    })
+  }
+
+  // Handle Google auth onboarding completion
+  const completeGoogleOnboarding = async () => {
+    const authData = getAuthData()
+    if (!authData?.isGoogleAuth) {
+      return // Not a Google auth user
+    }
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const token = localStorage.getItem('auth_token')
+      
+      const response = await fetch(`${API_URL}/auth/google/complete-onboarding`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          companyName: formData.companyName,
+          industry: formData.industry,
+          companySize: formData.companySize,
+          phoneNumber: formData.ownerPhone,
+          address: formData.headOffice,
+          timezone: 'UTC',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to complete onboarding')
+      }
+
+      // Update token and user data
+      localStorage.setItem('auth_token', data.data.token)
+      
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      user.companyId = data.data.companyId
+      localStorage.setItem('user', JSON.stringify(user))
+
+      // Clear onboarding auth data
+      sessionStorage.removeItem('onboarding_auth')
+    } catch (error) {
+      console.error('Failed to complete Google onboarding:', error)
+      throw error
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Teemplot" className="h-16 w-auto" />
-            <div className="text-sm text-gray-700 font-medium">Step 2 of 9</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <HelpCircle className="w-4 h-4" />
-              Help & support
-            </button>
-            <button className="text-sm text-muted-foreground hover:text-foreground">
-              Save & exit
-            </button>
-          </div>
-        </div>
-      </div>
+      <OnboardingNavbar currentStep={2} totalSteps={9} onSave={handleSaveProgress} />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-8">
