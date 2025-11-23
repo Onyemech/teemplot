@@ -10,8 +10,8 @@ interface OnboardingNavbarProps {
   onSave?: () => Promise<void>
 }
 
-export default function OnboardingNavbar({ 
-  currentStep, 
+export default function OnboardingNavbar({
+  currentStep,
   totalSteps = 9,
   showSteps = true,
   onSave
@@ -22,21 +22,23 @@ export default function OnboardingNavbar({
 
   const handleSaveAndExit = async () => {
     setSaving(true)
-    
+
     try {
       // Call the onSave callback if provided
       if (onSave) {
         await onSave()
       }
-      
+
       toast.success('Progress saved successfully!')
-      
+
       // Wait a moment for toast to show
       setTimeout(() => {
         navigate('/')
       }, 1000)
     } catch (error: any) {
-      toast.error('Failed to save progress. Please try again.')
+      console.error('Save error:', error)
+      const message = error.message || 'Failed to save progress. Please try again.'
+      toast.error(message)
       setSaving(false)
     }
   }
@@ -47,10 +49,10 @@ export default function OnboardingNavbar({
         <div className="flex items-center justify-between">
           {/* Left side - Logo and step indicator */}
           <div className="flex items-center gap-6">
-            <img 
-              src="/logo.png" 
-              alt="Teemplot" 
-              className="h-12 w-auto cursor-pointer" 
+            <img
+              src="/logo.png"
+              alt="Teemplot"
+              className="h-12 w-auto cursor-pointer"
               onClick={() => navigate('/')}
             />
             {showSteps && currentStep && (
@@ -62,13 +64,12 @@ export default function OnboardingNavbar({
                   {Array.from({ length: totalSteps }).map((_, index) => (
                     <div
                       key={index}
-                      className={`h-1.5 w-8 rounded-full transition-colors ${
-                        index < currentStep
+                      className={`h-1.5 w-8 rounded-full transition-colors ${index < currentStep
                           ? 'bg-primary-600'
                           : index === currentStep - 1
-                          ? 'bg-primary-400'
-                          : 'bg-gray-200'
-                      }`}
+                            ? 'bg-primary-400'
+                            : 'bg-gray-200'
+                        }`}
                     />
                   ))}
                 </div>
@@ -78,14 +79,14 @@ export default function OnboardingNavbar({
 
           {/* Right side - Actions */}
           <div className="flex items-center gap-4">
-            <button 
+            <button
               className="hidden sm:flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors"
               onClick={() => window.open('mailto:support@teemplot.com', '_blank')}
             >
               <HelpCircle className="w-4 h-4" />
               <span>Help & support</span>
             </button>
-            <button 
+            <button
               className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSaveAndExit}
               disabled={saving}

@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
+import { useOnboardingProgress } from './useOnboardingProgress';
 
 export const useGoogleAuth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { resumeOnboarding } = useOnboardingProgress();
 
   const signInWithGoogle = async () => {
     setLoading(true);
-    
+
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -82,12 +84,13 @@ export const useGoogleAuth = () => {
         }));
 
         toast.success('Welcome! Let\'s set up your company.');
-        
+
         // Navigate to company setup (skip email verification)
         navigate('/onboarding/company-setup');
       } else {
         toast.success('Welcome back!');
-        navigate('/dashboard');
+        const redirectPath = await resumeOnboarding(data.data.user.id);
+        navigate(redirectPath);
       }
 
       return data;

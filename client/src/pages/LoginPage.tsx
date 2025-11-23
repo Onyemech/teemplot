@@ -5,6 +5,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
+import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 import { Mail, Lock } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { signInWithGoogle, loading: googleLoading } = useGoogleAuth()
+  const { resumeOnboarding } = useOnboardingProgress()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
@@ -35,15 +37,18 @@ export default function LoginPage() {
         // Store token
         localStorage.setItem('token', response.data.data.token)
         localStorage.setItem('user', JSON.stringify(response.data.data.user))
-        
+
         toast.success('Login successful! Redirecting...')
-        
-        // Redirect to dashboard
-        setTimeout(() => navigate('/dashboard'), 500)
+
+        // Determine redirect path
+        const redirectPath = await resumeOnboarding(response.data.data.user.id)
+
+        // Redirect
+        setTimeout(() => navigate(redirectPath), 500)
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Login failed. Please try again.'
-      
+
       if (err.response?.data?.requiresVerification) {
         toast.warning('Please verify your email first')
         setTimeout(() => navigate(`/onboarding/verify?email=${encodeURIComponent(formData.email)}`), 1000)
@@ -155,11 +160,11 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button 
-              type="submit" 
-              variant="primary" 
-              size="lg" 
-              className="w-full" 
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="w-full"
               loading={loading}
               loadingText="Signing In..."
             >
