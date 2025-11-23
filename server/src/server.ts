@@ -18,12 +18,12 @@ export async function buildServer(): Promise<FastifyInstance> {
     logger: {
       transport: config_env.isDevelopment
         ? {
-            target: 'pino-pretty',
-            options: {
-              translateTime: 'HH:MM:ss Z',
-              ignore: 'pid,hostname',
-            },
-          }
+          target: 'pino-pretty',
+          options: {
+            translateTime: 'HH:MM:ss Z',
+            ignore: 'pid,hostname',
+          },
+        }
         : undefined,
     },
     requestIdLogLabel: 'reqId',
@@ -43,6 +43,16 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(rateLimit, {
     max: config_env.rateLimit.max,
     timeWindow: config_env.rateLimit.timeWindow,
+    errorResponseBuilder: (request, context) => {
+      return {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded. You have 0 requests remaining. Please retry in ${context.after}.`,
+        remaining: 0,
+        limit: context.max,
+        retryAfter: context.after
+      };
+    },
   });
 
   await server.register(jwt, {

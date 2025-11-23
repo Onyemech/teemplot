@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { Check, FileText, Image as ImageIcon, Upload } from 'lucide-react'
+import { Check, FileText, Image as ImageIcon, Trash2, Edit2 } from 'lucide-react'
 import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 import Dropdown from '@/components/ui/Dropdown'
 import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
+import PaymentStep from '@/components/onboarding/PaymentStep'
 
 type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 
@@ -365,127 +366,193 @@ export default function CompanySetupPage() {
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">C.A.C document</label>
               <p className="text-xs text-muted-foreground mb-3">This is used to verify the business detail you provided</p>
-              <div
-                className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const file = e.dataTransfer.files?.[0]
-                  if (file) {
-                    if (file.size > 2 * 1024 * 1024) {
-                      alert('File size must be less than 2MB')
-                      return
-                    }
-                    if (file.type !== 'application/pdf') {
-                      alert('Only PDF files are allowed')
-                      return
-                    }
-                    setFormData({ ...formData, cacDocument: file })
-                  }
-                }}
-              >
-                <label className="cursor-pointer block">
-                  <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
-                    const file = e.target.files?.[0]
+
+              {formData.cacDocument ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{formData.cacDocument.name}</p>
+                      <p className="text-xs text-gray-500">{formData.cacDocument.size ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, cacDocument: null })}
+                    className="text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const file = e.dataTransfer.files?.[0]
                     if (file) {
                       if (file.size > 2 * 1024 * 1024) {
                         alert('File size must be less than 2MB')
                         return
                       }
+                      if (file.type !== 'application/pdf') {
+                        alert('Only PDF files are allowed')
+                        return
+                      }
                       setFormData({ ...formData, cacDocument: file })
                     }
-                  }} />
-                  <div className="flex justify-center mb-2">
-                    {formData.cacDocument ? <Check className="w-8 h-8 text-green-600" /> : <FileText className="w-8 h-8 text-muted-foreground" />}
-                  </div>
-                  <p className="text-sm font-medium">{formData.cacDocument ? formData.cacDocument.name : 'Click or drag to upload cac_document.pdf'}</p>
-                  <p className="text-xs text-muted-foreground">PDF up to 2MB</p>
-                </label>
-              </div>
+                  }}
+                >
+                  <label className="cursor-pointer block">
+                    <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert('File size must be less than 2MB')
+                          return
+                        }
+                        setFormData({ ...formData, cacDocument: file })
+                      }
+                    }} />
+                    <div className="flex justify-center mb-2">
+                      <FileText className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">Click or drag to upload cac_document.pdf</p>
+                    <p className="text-xs text-muted-foreground">PDF up to 2MB</p>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Proof of address</label>
               <p className="text-xs text-muted-foreground mb-3">This is used to verify the business address</p>
-              <div
-                className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const file = e.dataTransfer.files?.[0]
-                  if (file) {
-                    if (file.size > 2 * 1024 * 1024) {
-                      alert('File size must be less than 2MB')
-                      return
-                    }
-                    if (!file.type.startsWith('image/')) {
-                      alert('Only image files are allowed')
-                      return
-                    }
-                    setFormData({ ...formData, proofOfAddress: file })
-                  }
-                }}
-              >
-                <label className="cursor-pointer block">
-                  <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0]
+
+              {formData.proofOfAddress ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
+                      <ImageIcon className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{formData.proofOfAddress.name}</p>
+                      <p className="text-xs text-gray-500">{formData.proofOfAddress.size ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, proofOfAddress: null })}
+                    className="text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const file = e.dataTransfer.files?.[0]
                     if (file) {
                       if (file.size > 2 * 1024 * 1024) {
                         alert('File size must be less than 2MB')
                         return
                       }
+                      if (!file.type.startsWith('image/')) {
+                        alert('Only image files are allowed')
+                        return
+                      }
                       setFormData({ ...formData, proofOfAddress: file })
                     }
-                  }} />
-                  <div className="flex justify-center mb-2">
-                    {formData.proofOfAddress ? <Check className="w-8 h-8 text-green-600" /> : <ImageIcon className="w-8 h-8 text-muted-foreground" />}
-                  </div>
-                  <p className="text-sm font-medium">{formData.proofOfAddress ? formData.proofOfAddress.name : 'Click or drag to upload proof_of_address.png'}</p>
-                  <p className="text-xs text-muted-foreground">Image up to 2MB</p>
-                </label>
-              </div>
+                  }}
+                >
+                  <label className="cursor-pointer block">
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert('File size must be less than 2MB')
+                          return
+                        }
+                        setFormData({ ...formData, proofOfAddress: file })
+                      }
+                    }} />
+                    <div className="flex justify-center mb-2">
+                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">Click or drag to upload proof_of_address.png</p>
+                    <p className="text-xs text-muted-foreground">Image up to 2MB</p>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Company policies document</label>
               <p className="text-xs text-muted-foreground mb-3">This is to ensure that your company adhere to standard company practices</p>
-              <div
-                className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const file = e.dataTransfer.files?.[0]
-                  if (file) {
-                    if (file.size > 2 * 1024 * 1024) {
-                      alert('File size must be less than 2MB')
-                      return
-                    }
-                    if (file.type !== 'application/pdf') {
-                      alert('Only PDF files are allowed')
-                      return
-                    }
-                    setFormData({ ...formData, companyPolicies: file })
-                  }
-                }}
-              >
-                <label className="cursor-pointer block">
-                  <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
-                    const file = e.target.files?.[0]
+
+              {formData.companyPolicies ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{formData.companyPolicies.name}</p>
+                      <p className="text-xs text-gray-500">{formData.companyPolicies.size ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, companyPolicies: null })}
+                    className="text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const file = e.dataTransfer.files?.[0]
                     if (file) {
                       if (file.size > 2 * 1024 * 1024) {
                         alert('File size must be less than 2MB')
                         return
                       }
+                      if (file.type !== 'application/pdf') {
+                        alert('Only PDF files are allowed')
+                        return
+                      }
                       setFormData({ ...formData, companyPolicies: file })
                     }
-                  }} />
-                  <div className="flex justify-center mb-2">
-                    {formData.companyPolicies ? <Check className="w-8 h-8 text-green-600" /> : <FileText className="w-8 h-8 text-muted-foreground" />}
-                  </div>
-                  <p className="text-sm font-medium">{formData.companyPolicies ? formData.companyPolicies.name : 'Click or drag to upload company_policies.pdf'}</p>
-                  <p className="text-xs text-muted-foreground">PDF up to 2MB</p>
-                </label>
-              </div>
+                  }}
+                >
+                  <label className="cursor-pointer block">
+                    <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert('File size must be less than 2MB')
+                          return
+                        }
+                        setFormData({ ...formData, companyPolicies: file })
+                      }
+                    }} />
+                    <div className="flex justify-center mb-2">
+                      <FileText className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">Click or drag to upload company_policies.pdf</p>
+                    <p className="text-xs text-muted-foreground">PDF up to 2MB</p>
+                  </label>
+                </div>
+              )}
             </div>
 
             <button
@@ -496,6 +563,161 @@ export default function CompanySetupPage() {
               {loading ? 'Saving...' : 'Continue'}
             </button>
           </form>
+        )
+
+      case 'review':
+        return (
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground font-semibold mb-6">Please take a moment to review your information.</p>
+
+            {/* Company Details */}
+            <div className="border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Company details</h3>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep('details')}
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Company name</p>
+                  <p className="text-sm font-medium text-foreground">{formData.companyName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Tax identification number</p>
+                  <p className="text-sm font-medium text-foreground">{formData.tin || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Industry</p>
+                  <p className="text-sm font-medium text-foreground capitalize">{formData.industry || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Company size</p>
+                  <p className="text-sm font-medium text-foreground">{formData.companySize || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Website</p>
+                  <p className="text-sm font-medium text-foreground">{formData.website ? `http://${formData.website}` : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Head office</p>
+                  <p className="text-sm font-medium text-foreground">{formData.headOffice || '-'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-1">Full address</p>
+                  <p className="text-sm font-medium text-foreground">{formData.address || '-'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Company Owner Details */}
+            <div className="border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Company owner details</h3>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep('owner')}
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">First name</p>
+                  <p className="text-sm font-medium text-foreground">{formData.ownerFirstName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Last name</p>
+                  <p className="text-sm font-medium text-foreground">{formData.ownerLastName || '-'}</p>
+                </div>
+                {!formData.isOwner && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Email address</p>
+                    <p className="text-sm font-medium text-foreground">{formData.ownerEmail || '-'}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Phone number</p>
+                  <p className="text-sm font-medium text-foreground">{formData.ownerPhone ? `+234 ${formData.ownerPhone}` : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Date of birth</p>
+                  <p className="text-sm font-medium text-foreground">{formData.ownerDOB || '-'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Company Documents */}
+            <div className="border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Company documents</h3>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep('documents')}
+                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">C.A.C document</p>
+                  {formData.cacDocument ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="w-4 h-4 text-red-600" />
+                      <span className="font-medium">{formData.cacDocument.name}</span>
+                      {formData.cacDocument.size && <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Proof of address</p>
+                  {formData.proofOfAddress ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <ImageIcon className="w-4 h-4 text-green-600" />
+                      <span className="font-medium">{formData.proofOfAddress.name}</span>
+                      {formData.proofOfAddress.size && <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Company policies</p>
+                  {formData.companyPolicies ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="w-4 h-4 text-red-600" />
+                      <span className="font-medium">{formData.companyPolicies.name}</span>
+                      {formData.companyPolicies.size && <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={loading}
+              className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Saving...' : 'Agree & continue'}
+            </button>
+          </div>
         )
 
       case 'payment':
@@ -572,7 +794,11 @@ export default function CompanySetupPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <OnboardingNavbar currentStep={2} totalSteps={5} onSave={handleSaveProgress} />
+      <OnboardingNavbar
+        currentStep={steps.findIndex(s => s.id === currentStep) + 1}
+        totalSteps={steps.length}
+        onSave={handleSaveProgress}
+      />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-8">
@@ -630,96 +856,3 @@ export default function CompanySetupPage() {
   )
 }
 
-// Payment Step Component
-function PaymentStep({ companySize, onComplete }: { companySize: string; onComplete: () => void }) {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
-
-  // Determine plan based on company size
-  const getPlan = () => {
-    const size = parseInt(companySize.split('-')[0]) || 1
-    if (size <= 50) return 'silver'
-    return 'gold'
-  }
-
-  const plan = getPlan()
-
-  const plans = {
-    silver: {
-      name: 'Silver Plan',
-      monthly: 5000,
-      yearly: 50000,
-      features: ['Up to 50 employees', 'Basic attendance tracking', 'Task management', 'Email support']
-    },
-    gold: {
-      name: 'Gold Plan',
-      monthly: 15000,
-      yearly: 150000,
-      features: ['51+ employees', 'Advanced attendance', 'Performance metrics', 'Priority support', 'Custom integrations']
-    }
-  }
-
-  const selectedPlan = plans[plan]
-  const price = billingCycle === 'monthly' ? selectedPlan.monthly : selectedPlan.yearly
-
-  return (
-    <div className="space-y-6">
-      {/* Billing Toggle */}
-      <div className="flex items-center justify-center gap-4 p-1 bg-secondary rounded-lg w-fit mx-auto">
-        <button
-          onClick={() => setBillingCycle('monthly')}
-          className={`px-6 py-2 rounded-md transition-colors ${billingCycle === 'monthly' ? 'bg-white shadow-sm' : ''
-            }`}
-        >
-          Monthly
-        </button>
-        <button
-          onClick={() => setBillingCycle('yearly')}
-          className={`px-6 py-2 rounded-md transition-colors ${billingCycle === 'yearly' ? 'bg-white shadow-sm' : ''
-            }`}
-        >
-          Yearly <span className="text-green-600 text-xs ml-1">(Save 17%)</span>
-        </button>
-      </div>
-
-      {/* Plan Card */}
-      <div className="border-2 border-accent rounded-xl p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-foreground">{selectedPlan.name}</h3>
-            <p className="text-sm text-muted-foreground">Recommended for your company size</p>
-          </div>
-          <div className="px-3 py-1 bg-accent/10 text-accent text-sm font-medium rounded-full">
-            Recommended
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold">Γéª{price.toLocaleString()}</span>
-            <span className="text-muted-foreground">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
-          </div>
-        </div>
-
-        <ul className="space-y-3 mb-6">
-          {selectedPlan.features.map((feature, index) => (
-            <li key={index} className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-green-600" />
-              <span className="text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-
-        <button
-          onClick={onComplete}
-          className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          Continue to Payment
-        </button>
-      </div>
-
-      <p className="text-center text-xs text-muted-foreground">
-        14-day free trial ΓÇó No credit card required ΓÇó Cancel anytime
-      </p>
-    </div>
-  )
-}

@@ -8,11 +8,11 @@ import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
 import { logger } from './utils/logger';
 import { errorHandler, setupUncaughtExceptionHandler, setupUnhandledRejectionHandler } from './middleware/errorHandler.middleware';
-import { 
-  securityHeaders, 
-  requestLogger, 
+import {
+  securityHeaders,
+  requestLogger,
   detectSuspiciousActivity,
-  logSecurityEvent 
+  logSecurityEvent
 } from './middleware/security.middleware';
 
 export async function buildApp() {
@@ -70,6 +70,16 @@ export async function buildApp() {
   await app.register(rateLimit, {
     max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
+    errorResponseBuilder: (request, context) => {
+      const retryAfter = Math.ceil(context.after / 1000 / 60);
+      return {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: `Too many attempts. Please try again in ${retryAfter} minute${retryAfter > 1 ? 's' : ''}.`,
+        retryAfter: context.after,
+        success: false
+      };
+    }
   });
 
   // JWT plugin
@@ -89,7 +99,7 @@ export async function buildApp() {
   // Health check
   app.get('/health', async () => {
     const dbHealth = await DatabaseFactory.healthCheck();
-    
+
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -103,11 +113,11 @@ export async function buildApp() {
 
   // Routes
   await app.register(authRoutes, { prefix: '/api/auth' });
-  
+
   // Import and register onboarding routes
   const { onboardingRoutes } = await import('./routes/onboarding.routes');
   await app.register(onboardingRoutes, { prefix: '/api/onboarding' });
-  
+
   // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
   await app.register(superAdminRoutes, { prefix: '/api/superadmin' });

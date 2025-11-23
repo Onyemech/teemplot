@@ -85,13 +85,18 @@ export class EmailService {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     const { randomUUID } = await import('crypto');
 
-    await this.db.insert('email_verification_codes', {
-      id: randomUUID(),
-      email,
-      code,
-      expires_at: expiresAt.toISOString(),
-      created_at: new Date().toISOString(),
-    });
+    try {
+      await this.db.insert('email_verification_codes', {
+        id: randomUUID(),
+        email,
+        code,
+        expires_at: expiresAt.toISOString(),
+        created_at: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      logger.error({ err: error, email }, 'Failed to insert verification code into database');
+      throw new Error(`Failed to generate verification code: ${error.message}`);
+    }
 
     return code;
   }

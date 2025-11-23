@@ -30,6 +30,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
 
     // Validate password strength
@@ -42,7 +43,7 @@ export default function RegisterPage() {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-      
+
       // Call backend registration API
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -73,7 +74,7 @@ export default function RegisterPage() {
 
       // Show success toast
       toast.success('Account created! Check your email for verification code.')
-      
+
       // Navigate to verification page
       navigate(`/onboarding/verify?email=${encodeURIComponent(formData.email)}`)
     } catch (err: any) {

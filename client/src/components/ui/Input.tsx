@@ -1,4 +1,5 @@
-import React, { forwardRef, InputHTMLAttributes, ReactNode } from 'react'
+import React, { forwardRef, InputHTMLAttributes, ReactNode, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string
@@ -21,6 +22,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       className = '',
       disabled,
       required,
+      type = 'text',
       ...props
     },
     ref
@@ -28,6 +30,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     // Use useId for stable IDs across server/client
     const generatedId = React.useId()
     const inputId = props.id || generatedId
+    const [showPassword, setShowPassword] = useState(false)
+    const isPassword = type === 'password'
 
     // Determine border color based on state
     const getBorderColor = () => {
@@ -72,6 +76,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            type={isPassword ? (showPassword ? 'text' : 'password') : type}
             disabled={disabled}
             required={required}
             className={`
@@ -94,15 +99,29 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               disabled:bg-gray-100
               disabled:text-gray-400
               disabled:cursor-not-allowed
-              ${error ? 'pr-10' : ''}
-              ${success ? 'pr-10' : ''}
+              ${error || success || isPassword ? 'pr-12' : ''}
               ${className}
             `}
             {...props}
           />
 
-          {/* Success Icon */}
-          {success && !error && (
+          {/* Password Toggle */}
+          {isPassword && !disabled && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+            >
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          )}
+
+          {/* Success Icon (only show if not password field to avoid overlap) */}
+          {success && !error && !isPassword && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-success">
               <svg
                 className="w-5 h-5"
@@ -120,8 +139,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
 
-          {/* Error Icon */}
-          {error && (
+          {/* Error Icon (only show if not password field to avoid overlap) */}
+          {error && !isPassword && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-error">
               <svg
                 className="w-5 h-5"
@@ -143,9 +162,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {/* Helper Text or Error Message */}
         {(helperText || error) && (
           <p
-            className={`mt-2 text-sm ${
-              error ? 'text-error' : 'text-gray-600'
-            }`}
+            className={`mt-2 text-sm ${error ? 'text-error' : 'text-gray-600'
+              }`}
           >
             {error || helperText}
           </p>

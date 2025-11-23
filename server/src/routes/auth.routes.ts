@@ -48,7 +48,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     try {
       const { email } = z.object({ email: z.string().email() }).parse(request.body);
-      
+
       const { emailService } = await import('../services/EmailService');
       const code = await emailService.generateVerificationCode(email);
       const sent = await emailService.sendVerificationEmail(email, 'Test User', code);
@@ -78,10 +78,10 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const rawData = RegisterSchema.parse(request.body);
-      
+
       // Sanitize inputs
       const data = sanitizeInput(rawData);
-      
+
       // Validate password strength
       const passwordCheck = validatePasswordStrength(data.password);
       if (!passwordCheck.valid) {
@@ -90,7 +90,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           errors: passwordCheck.errors
         });
       }
-      
+
       // Validate email
       const emailCheck = validateEmail(data.email);
       if (!emailCheck.valid) {
@@ -184,7 +184,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           userAgent: request.headers['user-agent'] || '',
           details: { email, reason: 'user_not_found' }
         });
-        
+
         return reply.code(401).send({
           success: false,
           message: 'Invalid credentials',
@@ -192,6 +192,14 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       // Verify password
+      if (!user.password_hash) {
+        // User might have signed up with Google and has no password
+        return reply.code(401).send({
+          success: false,
+          message: 'Invalid credentials. Did you sign up with Google?',
+        });
+      }
+
       const validPassword = await bcrypt.compare(password, user.password_hash);
 
       if (!validPassword) {
@@ -203,7 +211,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           userAgent: request.headers['user-agent'] || '',
           details: { email, reason: 'invalid_password' }
         });
-        
+
         return reply.code(401).send({
           success: false,
           message: 'Invalid credentials',
@@ -322,7 +330,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       const { email } = sanitizeInput(rawData);
 
       await passwordResetService.sendResetCode(email);
-      
+
       // Log password reset request
       await logSecurityEvent({
         type: 'password_reset',
@@ -430,7 +438,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         userId: result.user.id,
         ip: request.ip,
         userAgent: request.headers['user-agent'] || '',
-        details: { 
+        details: {
           email: result.user.email,
           provider: 'google',
           isNewUser: result.isNewUser
@@ -469,7 +477,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const userId = request.user.userId;
-      
+
       const { companyName, industry, companySize, phoneNumber, address, timezone } = z.object({
         companyName: z.string().min(1, 'Company name is required'),
         industry: z.string().optional(),

@@ -34,7 +34,7 @@ export default function BusinessInfoPage() {
   useEffect(() => {
     // Prefetch next page for instant navigation
     // prefetch not needed in React Router: '/onboarding/documents')
-    
+
     // Check if previous steps completed
     const companySetup = sessionStorage.getItem('onboarding_company_setup')
     if (!companySetup) {
@@ -87,9 +87,9 @@ export default function BusinessInfoPage() {
     setError('')
 
     // Validate required fields
-    if (!formData.companyName || !formData.taxId || !formData.industry || 
-        !formData.employeeCount || !formData.address || !formData.city || 
-        !formData.stateProvince || !formData.postalCode) {
+    if (!formData.companyName || !formData.taxId || !formData.industry ||
+      !formData.employeeCount || !formData.address || !formData.city ||
+      !formData.stateProvince || !formData.postalCode) {
       setError('Please fill in all required fields')
       toast.error('Please fill in all required fields')
       return
@@ -114,7 +114,7 @@ export default function BusinessInfoPage() {
     try {
       // Get auth data
       const authData = getOnboardingAuth()
-      
+
       // Submit to backend
       await submitBusinessInfo({
         companyId: authData.companyId,
@@ -131,7 +131,7 @@ export default function BusinessInfoPage() {
         officeLatitude: location.latitude,
         officeLongitude: location.longitude,
       })
-      
+
       // Store in session storage for reference
       sessionStorage.setItem('onboarding_business_info', JSON.stringify({
         ...formData,
@@ -211,8 +211,8 @@ export default function BusinessInfoPage() {
       <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="max-w-4xl mx-auto">
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500" 
+            <div
+              className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500"
               style={{ width: '44%' }}
             />
           </div>
@@ -270,11 +270,16 @@ export default function BusinessInfoPage() {
                   type="text"
                   required
                   value={formData.taxId}
-                  onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                  onChange={(e) => {
+                    // Only allow numbers and limit to 15 characters
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 15)
+                    setFormData({ ...formData, taxId: value })
+                  }}
                   icon={<Hash className="w-5 h-5" />}
                   placeholder="Enter tax identification number"
-                  helperText="Company registration or tax ID number"
+                  helperText="Company registration or tax ID number (Numbers only)"
                   fullWidth
+                  maxLength={15}
                 />
 
                 <Select
@@ -401,11 +406,10 @@ export default function BusinessInfoPage() {
                 </div>
 
                 {/* Location Status */}
-                <div className={`p-4 rounded-lg border ${
-                  location 
-                    ? 'bg-success/10 border-success/20' 
+                <div className={`p-4 rounded-lg border ${location
+                    ? 'bg-success/10 border-success/20'
                     : 'bg-warning/10 border-warning/20'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2">
                     {location ? (
                       <>

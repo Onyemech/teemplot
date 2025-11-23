@@ -17,7 +17,7 @@ export class PasswordResetService {
   async sendResetCode(email: string): Promise<boolean> {
     // Check if user exists
     const user = await this.db.findOne('users', { email });
-    
+
     if (!user) {
       // Don't reveal if email exists for security
       logger.warn(`Password reset requested for non-existent email: ${email}`);
@@ -27,15 +27,15 @@ export class PasswordResetService {
     try {
       // Generate 6-digit code
       const code = await emailService.generateVerificationCode(email);
-      
+
       // Send reset email
       await emailService.sendPasswordResetEmail(email, user.first_name, code);
-      
+
       logger.info(`Password reset code sent to ${email}`);
       return true;
     } catch (error: any) {
       logger.error(`Failed to send reset code: ${error?.message}`);
-      throw new Error('Failed to send reset code');
+      throw new Error(`Failed to send reset code: ${error.message}`);
     }
   }
 
@@ -48,7 +48,7 @@ export class PasswordResetService {
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<boolean> {
     const isValid = await this.verifyResetCode(email, code);
-    
+
     if (!isValid) {
       throw new Error('Invalid or expired reset code');
     }

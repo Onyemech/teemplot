@@ -1,11 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function GoogleCallbackPage() {
   const { handleCallback } = useGoogleAuth();
 
+  const hasCalled = useRef(false);
+
   useEffect(() => {
-    handleCallback();
+    if (!hasCalled.current) {
+      hasCalled.current = true;
+      handleCallback();
+    }
   }, []);
 
   return (
@@ -16,7 +21,7 @@ export default function GoogleCallbackPage() {
         </div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Completing sign in...</h2>
         <p className="text-gray-600">Please wait while we set up your account.</p>
-        
+
         {/* Loading spinner */}
         <div className="mt-6">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
