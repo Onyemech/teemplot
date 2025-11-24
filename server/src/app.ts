@@ -118,9 +118,25 @@ export async function buildApp() {
   const { onboardingRoutes } = await import('./routes/onboarding.routes');
   await app.register(onboardingRoutes, { prefix: '/api/onboarding' });
 
+  // Import and register employees routes
+  const { employeesRoutes } = await import('./routes/employees.routes');
+  await app.register(employeesRoutes, { prefix: '/api/employees' });
+
   // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
   await app.register(superAdminRoutes, { prefix: '/api/superadmin' });
+
+  // Import and register files routes
+  const filesRoutes = await import('./routes/files.routes');
+  await app.register(filesRoutes.default, { prefix: '/api/files' });
+
+  // Import and register attendance routes
+  const attendanceRoutes = await import('./routes/attendance.routes');
+  await app.register(attendanceRoutes.default, { prefix: '/api/attendance' });
+
+  // Import and register company settings routes
+  const companySettingsRoutes = await import('./routes/company-settings.routes');
+  await app.register(companySettingsRoutes.default, { prefix: '/api/company-settings' });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

@@ -31,7 +31,7 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  logger.error('Unexpected database error', err);
+  logger.error({ err }, 'Unexpected database error');
   process.exit(-1);
 });
 
@@ -42,12 +42,12 @@ export const query = async (text: string, params?: any[]) => {
     const duration = Date.now() - start;
     
     if (isDevelopment) {
-      logger.debug('Executed query', { text, duration, rows: result.rowCount });
+      logger.debug({ text, duration, rows: result.rowCount }, 'Executed query');
     }
     
     return result;
   } catch (error) {
-    logger.error('Query error', { text, error });
+    logger.error({ text, error }, 'Query error');
     throw error;
   }
 };
@@ -77,7 +77,7 @@ export const healthCheck = async (): Promise<boolean> => {
     await pool.query('SELECT 1');
     return true;
   } catch (error) {
-    logger.error('Database health check failed', error);
+    logger.error({ error }, 'Database health check failed');
     return false;
   }
 };

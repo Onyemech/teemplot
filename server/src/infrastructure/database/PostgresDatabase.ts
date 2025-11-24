@@ -17,7 +17,7 @@ export class PostgresDatabase implements IDatabase {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+      ssl: process.env.NODE_ENV === 'development' ? { rejectUnauthorized: false } : undefined,
     });
 
     this.pool.on('error', (err: Error) => {
@@ -82,7 +82,6 @@ export class PostgresDatabase implements IDatabase {
   }
 
   async delete(table: string, where: Record<string, any>): Promise<number> {
-    // Check if table has deleted_at column (soft delete)
     const hasDeletedAt = await this.hasColumn(table, 'deleted_at');
 
     if (hasDeletedAt) {

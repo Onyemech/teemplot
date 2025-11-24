@@ -31,25 +31,11 @@ export default function SubscriptionPage() {
 
   const plans: Plan[] = [
     {
-      id: 'free',
-      name: 'Free',
-      price: '₦0',
-      period: 'forever',
-      features: [
-        'Up to 10 employees',
-        'Basic attendance tracking',
-        'Task management',
-        'Email support',
-        'Mobile app access',
-      ],
-    },
-    {
       id: 'silver',
       name: 'Silver',
       price: '₦15,000',
       period: 'per month',
       features: [
-        'Up to 50 employees',
         'Advanced attendance tracking',
         'Task management with priorities',
         'Performance analytics',
@@ -66,7 +52,6 @@ export default function SubscriptionPage() {
       recommended: true,
       trial: true,
       features: [
-        'Unlimited employees',
         'All Silver features',
         'Advanced analytics & insights',
         'Custom integrations',
@@ -74,7 +59,7 @@ export default function SubscriptionPage() {
         'Dedicated account manager',
         'API access',
         'White-label options',
-        '14-day free trial',
+        '30-day free trial',
       ],
     },
   ]
@@ -92,7 +77,6 @@ export default function SubscriptionPage() {
       
       // Map plan to backend format
       const planMap: Record<string, string> = {
-        'free': 'free',
         'silver': 'silver_monthly',
         'gold': 'gold_monthly',
       }
@@ -112,8 +96,8 @@ export default function SubscriptionPage() {
 
       toast.success('Plan selected successfully!')
 
-      // If free plan or gold with trial, skip payment
-      if (selectedPlan === 'free' || selectedPlan === 'gold') {
+      // Gold with trial skips payment, silver goes to payment
+      if (selectedPlan === 'gold') {
         navigate('/onboarding/complete')
       } else {
         // For silver, go to payment
@@ -168,12 +152,12 @@ export default function SubscriptionPage() {
               Choose the perfect plan for your business
             </h1>
             <p className="text-xl text-gray-600">
-              Start with a free plan or unlock advanced features with our premium options
+              Choose the plan that fits your business needs
             </p>
           </div>
 
           {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 max-w-4xl mx-auto">
             {plans.map((plan) => (
               <Card
                 key={plan.id}
@@ -248,7 +232,7 @@ export default function SubscriptionPage() {
               icon={<ArrowRight className="w-4 h-4" />}
               iconPosition="right"
             >
-              {selectedPlan === 'free' ? 'Start Free' : selectedPlan === 'gold' ? 'Start Trial' : 'Continue to Payment'}
+              {selectedPlan === 'gold' ? 'Start 30-Day Trial' : 'Continue to Payment'}
             </Button>
           </div>
         </div>

@@ -1,0 +1,424 @@
+import { FastifyInstance } from 'fastify';
+import { query } from '../config/database';
+import { logger } from '../utils/logger';
+
+export default async function companySettingsRoutes(fastify: FastifyInstance) {
+  // Get company settings
+  fastify.get('/', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const result = await query(
+        `SELECT 
+          work_start_time,
+          work_end_time,
+          working_days,
+          timezone,
+          auto_clockin_enabled,
+          auto_clockout_enabled,
+          geofence_radius_meters,
+          office_latitude,
+          office_longitude,
+          formatted_address as office_address,
+          early_departure_threshold_minutes,
+          notify_early_departure,
+          grace_period_minutes,
+          require_geofence_for_clockin,
+          time_format,
+          date_format,
+          currency,
+          language
+        FROM companies 
+        WHERE id = $1`,
+        [request.user.companyId]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({
+          success: false,
+          message: 'Company not found'
+        });
+      }
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Company settings retrieved successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to get company settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve company settings'
+      });
+    }
+  });
+
+  // Update work schedule
+  fastify.patch('/work-schedule', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const {
+        workStartTime,
+        workEndTime,
+        workingDays,
+        timezone
+      } = request.body as {
+        workStartTime?: string;
+        workEndTime?: string;
+        workingDays?: Record<string, boolean>;
+        timezone?: string;
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (workStartTime) {
+        params.push(workStartTime);
+        updates.push(`work_start_time = $${paramIndex++}`);
+      }
+
+      if (workEndTime) {
+        params.push(workEndTime);
+        updates.push(`work_end_time = $${paramIndex++}`);
+      }
+
+      if (workingDays) {
+        params.push(JSON.stringify(workingDays));
+        updates.push(`working_days = $${paramIndex++}`);
+      }
+
+      if (timezone) {
+        params.push(timezone);
+        updates.push(`timezone = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      params.push(request.user.companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE companies 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING work_start_time, work_end_time, working_days, timezone`,
+        params
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body)
+      }, 'Work schedule updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Work schedule updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update work schedule');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update work schedule'
+      });
+    }
+  });
+
+  // Update auto-attendance settings
+  fastify.patch('/auto-attendance', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const {
+        autoCheckinEnabled,
+        autoCheckoutEnabled,
+        geofenceRadiusMeters,
+        requireGeofenceForCheckin
+      } = request.body as {
+        autoCheckinEnabled?: boolean;
+        autoCheckoutEnabled?: boolean;
+        geofenceRadiusMeters?: number;
+        requireGeofenceForCheckin?: boolean;
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (typeof autoCheckinEnabled === 'boolean') {
+        params.push(autoCheckinEnabled);
+        updates.push(`auto_clockin_enabled = $${paramIndex++}`);
+      }
+
+      if (typeof autoCheckoutEnabled === 'boolean') {
+        params.push(autoCheckoutEnabled);
+        updates.push(`auto_clockout_enabled = $${paramIndex++}`);
+      }
+
+      if (geofenceRadiusMeters) {
+        params.push(geofenceRadiusMeters);
+        updates.push(`geofence_radius_meters = $${paramIndex++}`);
+      }
+
+      if (typeof requireGeofenceForCheckin === 'boolean') {
+        params.push(requireGeofenceForCheckin);
+        updates.push(`require_geofence_for_clockin = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      params.push(request.user.companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE companies 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING auto_clockin_enabled, auto_clockout_enabled, 
+                   geofence_radius_meters, require_geofence_for_clockin`,
+        params
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body)
+      }, 'Auto-attendance settings updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Auto-attendance settings updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update auto-attendance settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update auto-attendance settings'
+      });
+    }
+  });
+
+  // Update notification settings
+  fastify.patch('/notifications', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const {
+        notifyEarlyDeparture,
+        earlyDepartureThresholdMinutes,
+        gracePeriodMinutes
+      } = request.body as {
+        notifyEarlyDeparture?: boolean;
+        earlyDepartureThresholdMinutes?: number;
+        gracePeriodMinutes?: number;
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (typeof notifyEarlyDeparture === 'boolean') {
+        params.push(notifyEarlyDeparture);
+        updates.push(`notify_early_departure = $${paramIndex++}`);
+      }
+
+      if (earlyDepartureThresholdMinutes) {
+        params.push(earlyDepartureThresholdMinutes);
+        updates.push(`early_departure_threshold_minutes = $${paramIndex++}`);
+      }
+
+      if (gracePeriodMinutes) {
+        params.push(gracePeriodMinutes);
+        updates.push(`grace_period_minutes = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      params.push(request.user.companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE companies 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING notify_early_departure, early_departure_threshold_minutes, grace_period_minutes`,
+        params
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body)
+      }, 'Notification settings updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Notification settings updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update notification settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update notification settings'
+      });
+    }
+  });
+
+  // Update office location
+  fastify.patch('/office-location', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const {
+        latitude,
+        longitude,
+        address,
+        placeId
+      } = request.body as {
+        latitude: number;
+        longitude: number;
+        address?: string;
+        placeId?: string;
+      };
+
+      if (!latitude || !longitude) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Latitude and longitude are required'
+        });
+      }
+
+      const result = await query(
+        `UPDATE companies 
+         SET office_latitude = $1,
+             office_longitude = $2,
+             formatted_address = $3,
+             place_id = $4,
+             geocoded_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $5
+         RETURNING office_latitude, office_longitude, formatted_address, place_id`,
+        [latitude, longitude, address, placeId, request.user.companyId]
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        latitude,
+        longitude
+      }, 'Office location updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Office location updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update office location');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update office location'
+      });
+    }
+  });
+
+  // Update display preferences
+  fastify.patch('/display', {
+    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+  }, async (request, reply) => {
+    try {
+      const {
+        timeFormat,
+        dateFormat,
+        currency,
+        language
+      } = request.body as {
+        timeFormat?: '12h' | '24h';
+        dateFormat?: string;
+        currency?: string;
+        language?: string;
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (timeFormat) {
+        params.push(timeFormat);
+        updates.push(`time_format = $${paramIndex++}`);
+      }
+
+      if (dateFormat) {
+        params.push(dateFormat);
+        updates.push(`date_format = $${paramIndex++}`);
+      }
+
+      if (currency) {
+        params.push(currency);
+        updates.push(`currency = $${paramIndex++}`);
+      }
+
+      if (language) {
+        params.push(language);
+        updates.push(`language = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      params.push(request.user.companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE companies 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING time_format, date_format, currency, language`,
+        params
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body)
+      }, 'Display preferences updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Display preferences updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update display preferences');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update display preferences'
+      });
+    }
+  });
+}

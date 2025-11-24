@@ -44,13 +44,22 @@ export interface BusinessInfoData {
   industry?: string;
   employeeCount: number;
   website?: string;
+  // Legacy address field
   address: string;
-  city: string;
-  stateProvince: string;
-  country: string;
-  postalCode: string;
-  officeLatitude?: number;
-  officeLongitude?: number;
+  // Detailed address components from Google Places
+  formattedAddress?: string;
+  streetNumber?: string;
+  streetName?: string;
+  city?: string;
+  stateProvince?: string;
+  country?: string;
+  postalCode?: string;
+  // Required geocoding coordinates
+  officeLatitude: number;
+  officeLongitude: number;
+  // Google Places metadata
+  placeId?: string;
+  geocodingAccuracy?: string;
 }
 
 export interface CompleteOnboardingData {
@@ -221,10 +230,39 @@ export class OnboardingService {
   }
 
   /**
-   * Stage 5: Business Information - Save company details
+   * Stage 5: Business Information - Save company details with geocoding
    */
   async saveBusinessInfo(data: BusinessInfoData): Promise<void> {
-    const { companyId, companyName, taxId, industry, employeeCount, website, address, city, stateProvince, country, postalCode, officeLatitude, officeLongitude } = data;
+    const { 
+      companyId, 
+      companyName, 
+      taxId, 
+      industry, 
+      employeeCount, 
+      website, 
+      address, 
+      city, 
+      stateProvince, 
+      country, 
+      postalCode, 
+      officeLatitude, 
+      officeLongitude,
+      formattedAddress,
+      streetNumber,
+      streetName,
+      placeId,
+      geocodingAccuracy
+    } = data;
+
+    // Validate coordinates
+    if (!officeLatitude || !officeLongitude) {
+      throw new Error('Office coordinates are required. Please use the address autocomplete to select a valid location.');
+    }
+
+    const { GeocodingService } = await import('./GeocodingService');
+    if (!GeocodingService.validateCoordinates(officeLatitude, officeLongitude)) {
+      throw new Error('Invalid coordinates provided.');
+    }
 
     await this.db.update('companies', {
       name: companyName,
@@ -232,16 +270,26 @@ export class OnboardingService {
       industry,
       employee_count: employeeCount,
       website,
-      address,
-      city,
-      state_province: stateProvince,
-      country,
-      postal_code: postalCode,
+      // Legacy address field (for backward compatibility)
+      address: formattedAddress || address,
+      // Detailed address components
+      formatted_address: formattedAddress,
+      street_number: streetNumber,
+      street_name: streetName,
+      city: city || null,
+      state_province: stateProvince || null,
+      country: country || null,
+      postal_code: postalCode || null,
+      // Geocoding data for geofencing
       office_latitude: officeLatitude,
       office_longitude: officeLongitude,
+      place_id: placeId,
+      geocoding_accuracy: geocodingAccuracy,
+      geocoding_source: 'google_places',
+      geocoded_at: new Date().toISOString(),
     }, { id: companyId });
 
-    logger.info(`Business info saved for company ${companyId}`);
+    logger.info(`Business info saved for company ${companyId} with geocoding (${officeLatitude}, ${officeLongitude})`);
   }
 
   /**

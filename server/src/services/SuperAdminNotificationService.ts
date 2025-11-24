@@ -65,7 +65,7 @@ export class SuperAdminNotificationService {
         await this.sendPushNotification(notification);
       }
     } catch (error: any) {
-      logger.error('Failed to send superadmin notification:', error);
+      logger.error({ error }, 'Failed to send superadmin notification');
       // Don't throw - notification failure shouldn't break the main flow
     }
   }
@@ -233,7 +233,7 @@ export class SuperAdminNotificationService {
         });
       }
     } catch (error: any) {
-      logger.error('Failed to store superadmin notification:', error);
+      logger.error({ error }, 'Failed to store superadmin notification');
     }
   }
 
@@ -351,7 +351,7 @@ ${new Date().toLocaleString()}
 
       logger.info(`SuperAdmin email notification sent: ${notification.title}`);
     } catch (error: any) {
-      logger.error('Failed to send superadmin email:', error);
+      logger.error({ error }, 'Failed to send superadmin email');
     }
   }
 
@@ -381,7 +381,7 @@ ${new Date().toLocaleString()}
       });
       return notification ? 1 : 0;
     } catch (error: any) {
-      logger.error('Failed to get unread count:', error);
+      logger.error({ error }, 'Failed to get unread count');
       return 0;
     }
   }
@@ -400,7 +400,7 @@ ${new Date().toLocaleString()}
         { id: notificationId }
       );
     } catch (error: any) {
-      logger.error('Failed to mark notification as read:', error);
+      logger.error({ error }, 'Failed to mark notification as read');
     }
   }
 
@@ -415,7 +415,7 @@ ${new Date().toLocaleString()}
 
       return notification ? [notification] : [];
     } catch (error: any) {
-      logger.error('Failed to get recent notifications:', error);
+      logger.error({ error }, 'Failed to get recent notifications');
       return [];
     }
   }

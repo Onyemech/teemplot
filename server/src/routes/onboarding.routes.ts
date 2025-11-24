@@ -45,12 +45,23 @@ const BusinessInfoSchema = z.object({
   employeeCount: z.number().min(1),
   website: z.string().url().optional(),
   address: z.string().min(5),
-  city: z.string().min(2),
-  stateProvince: z.string().min(2),
-  country: z.string().min(2),
-  postalCode: z.string().min(3),
-  officeLatitude: z.number().optional(),
-  officeLongitude: z.number().optional(),
+  city: z.string().min(2).optional(),
+  stateProvince: z.string().min(2).optional(),
+  country: z.string().min(2).optional(),
+  postalCode: z.string().min(3).optional(),
+  // Geocoding data from Google Places
+  formattedAddress: z.string().optional(),
+  streetNumber: z.string().optional(),
+  streetName: z.string().optional(),
+  placeId: z.string().optional(),
+  officeLatitude: z.number(),
+  officeLongitude: z.number(),
+  geocodingAccuracy: z.string().optional(),
+});
+
+const GeocodeAddressSchema = z.object({
+  address: z.string().min(5),
+  placeId: z.string().optional(),
 });
 
 const CompleteOnboardingSchema = z.object({
@@ -64,6 +75,38 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     limits: {
       fileSize: 5 * 1024 * 1024, // 5MB
     },
+  });
+
+  // Geocode address endpoint - ONE call per company during onboarding
+  fastify.post('/geocode-address', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const data = GeocodeAddressSchema.parse(request.body);
+      const { GeocodingService } = await import('../services/GeocodingService');
+      const geocodingService = new GeocodingService();
+
+      let result;
+      
+      // If placeId provided (from autocomplete), use that for accuracy
+      if (data.placeId) {
+        result = await geocodingService.getPlaceDetails(data.placeId);
+      } else {
+        // Otherwise geocode the address string
+        result = await geocodingService.geocodeAddress(data.address);
+      }
+
+      return reply.code(200).send({
+        success: true,
+        data: result,
+        message: 'Address geocoded successfully',
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to geocode address',
+      });
+    }
   });
 
   // Stage 3: Company Setup
@@ -169,24 +212,21 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       // Prepare metadata for enhanced validation
       const metadata = {
         filename: data.filename,
-        mimetype: data.mimetype,
-        size: buffer.length,
-        extension
+        mimeType: data.mimetype,
+        uploadedBy: request.user.userId
       };
 
       // Upload with comprehensive validation
       const result = await fileUploadService.uploadLogo(buffer, companyId, metadata);
       
       // Save to database
-      await onboardingService.uploadLogo(companyId, result.url);
+      await onboardingService.uploadLogo(companyId, result.secureUrl);
 
       return reply.code(200).send({
         success: true,
         data: { 
-          logoUrl: result.url,
-          publicId: result.publicId,
-          size: result.size,
-          format: result.format
+          logoUrl: result.secureUrl,
+          publicId: result.publicId
         },
         message: 'Logo uploaded successfully',
       });
@@ -262,9 +302,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       // Prepare metadata for enhanced validation
       const metadata = {
         filename,
-        mimetype,
-        size: fileSize,
-        extension
+        mimeType: mimetype,
+        uploadedBy: request.user.userId
       };
 
       // Upload with comprehensive validation
@@ -279,17 +318,15 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       await onboardingService.uploadDocument({
         companyId,
         documentType: documentType as 'cac' | 'proof_of_address' | 'company_policy',
-        url: result.url,
+        url: result.secureUrl,
       });
 
       return reply.code(200).send({
         success: true,
         data: { 
-          documentUrl: result.url,
+          documentUrl: result.secureUrl,
           publicId: result.publicId,
-          size: result.size,
-          format: result.format,
-          checksum: result.checksum
+          fileId: result.fileId
         },
         message: 'Document uploaded successfully',
       });

@@ -140,7 +140,7 @@ export class NotificationService {
         JSON.stringify(notification.data || {}),
       ]);
     } catch (error) {
-      logger.error('Failed to store in-app notification', error);
+      logger.error({ error }, 'Failed to store in-app notification');
     }
   }
 
@@ -197,7 +197,7 @@ export class NotificationService {
         adminCount: adminsResult.rows.length,
       });
     } catch (error) {
-      logger.error('Failed to send early departure notifications', error);
+      logger.error({ error }, 'Failed to send early departure notifications');
     }
   }
 
@@ -346,7 +346,7 @@ export class NotificationService {
 
       logger.info(`Geofence violation notifications sent for user ${data.userId}`);
     } catch (error) {
-      logger.error('Failed to send geofence violation notifications', error);
+      logger.error({ error }, 'Failed to send geofence violation notifications');
     }
   }
 }

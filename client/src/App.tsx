@@ -5,6 +5,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
+import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
 // Auth Pages
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
@@ -27,6 +28,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
       
       {/* Auth Callback Routes */}
       <Route path="/auth/callback" element={<GoogleCallbackPage />} />

@@ -61,7 +61,6 @@ export class ConvexDatabase implements IDatabase {
   }
 
   async healthCheck(): Promise<boolean> {
-    // Check if Convex is configured
     return !!process.env.CONVEX_DEPLOYMENT_URL;
   }
 

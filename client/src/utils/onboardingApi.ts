@@ -9,6 +9,16 @@ export const getOnboardingAuth = () => {
   return JSON.parse(authData)
 }
 
+// Get auth token
+const getAuthToken = () => {
+  const authData = sessionStorage.getItem('onboarding_auth')
+  if (authData) {
+    const parsed = JSON.parse(authData)
+    return parsed.token
+  }
+  return localStorage.getItem('auth_token')
+}
+
 // Company Setup API
 export const submitCompanySetup = async (data: {
   userId: string
@@ -19,10 +29,12 @@ export const submitCompanySetup = async (data: {
   dateOfBirth: string
   isOwner: boolean
 }) => {
+  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/company-setup`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
     body: JSON.stringify(data),
   })
@@ -46,10 +58,12 @@ export const submitOwnerDetails = async (data: {
   ownerPhone: string
   ownerDateOfBirth: string
 }) => {
+  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/owner-details`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
     body: JSON.stringify(data),
   })
@@ -63,7 +77,7 @@ export const submitOwnerDetails = async (data: {
   return result
 }
 
-// Business Info API
+// Business Info API with Geocoding
 export const submitBusinessInfo = async (data: {
   companyId: string
   companyName: string
@@ -71,18 +85,29 @@ export const submitBusinessInfo = async (data: {
   industry?: string
   employeeCount: number
   website?: string
+  // Legacy address field
   address: string
-  city: string
-  stateProvince: string
-  country: string
-  postalCode: string
-  officeLatitude?: number
-  officeLongitude?: number
+  // Detailed geocoding data from Google Places
+  formattedAddress?: string
+  streetNumber?: string
+  streetName?: string
+  city?: string
+  stateProvince?: string
+  country?: string
+  postalCode?: string
+  // Required coordinates for geofencing
+  officeLatitude: number
+  officeLongitude: number
+  // Google Places metadata
+  placeId?: string
+  geocodingAccuracy?: string
 }) => {
+  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/business-info`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
     body: JSON.stringify(data),
   })
@@ -98,12 +123,15 @@ export const submitBusinessInfo = async (data: {
 
 // Upload Logo API
 export const uploadLogo = async (companyId: string, file: File) => {
+  const token = getAuthToken()
   const formData = new FormData()
-  formData.append('companyId', companyId)
-  formData.append('logo', file)
+  formData.append('file', file)
 
   const response = await fetch(`${API_URL}/onboarding/upload-logo`, {
     method: 'POST',
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    },
     body: formData,
   })
 
@@ -116,29 +144,94 @@ export const uploadLogo = async (companyId: string, file: File) => {
   return result
 }
 
-// Upload Document API
+// Upload Document API with hash-based deduplication
 export const uploadDocument = async (
   companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
-  const formData = new FormData()
-  formData.append('companyId', companyId)
-  formData.append('documentType', documentType)
-  formData.append('document', file)
-
-  const response = await fetch(`${API_URL}/onboarding/upload-document`, {
+  const token = getAuthToken()
+  
+  // Step 1: Compute file hash
+  const buffer = await file.arrayBuffer()
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  
+  // Step 2: Check if file already exists
+  const checkResponse = await fetch(`${API_URL}/files/check`, {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    },
+    body: JSON.stringify({
+      hash,
+      filename: file.name,
+      size: file.size,
+      mimeType: file.type
+    })
   })
-
-  const result = await response.json()
-
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to upload document')
+  
+  const checkResult = await checkResponse.json()
+  
+  if (!checkResponse.ok) {
+    throw new Error(checkResult.message || 'Failed to check file existence')
   }
-
-  return result
+  
+  let fileId: string
+  
+  // Step 3: Upload file if it doesn't exist
+  if (!checkResult.data.exists) {
+    const formData = new FormData()
+    formData.append('document', file)
+    formData.append('hash', hash)
+    
+    const uploadResponse = await fetch(`${API_URL}/files/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: formData
+    })
+    
+    const uploadResult = await uploadResponse.json()
+    
+    if (!uploadResponse.ok) {
+      throw new Error(uploadResult.message || 'Failed to upload file')
+    }
+    
+    fileId = uploadResult.data.file.id
+  } else {
+    // File already exists, use existing file ID
+    fileId = checkResult.data.file.id
+  }
+  
+  // Step 4: Attach file to company
+  const attachResponse = await fetch(`${API_URL}/files/attach-to-company`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    },
+    body: JSON.stringify({
+      fileId,
+      documentType,
+      purpose: `Company ${documentType} document`,
+      metadata: {
+        originalFilename: file.name,
+        uploadedAt: new Date().toISOString()
+      }
+    })
+  })
+  
+  const attachResult = await attachResponse.json()
+  
+  if (!attachResponse.ok) {
+    throw new Error(attachResult.message || 'Failed to attach document to company')
+  }
+  
+  return attachResult
 }
 
 // Select Plan API
@@ -147,10 +240,12 @@ export const submitPlanSelection = async (data: {
   plan: 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly' | 'free'
   companySize: number
 }) => {
+  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/select-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
     body: JSON.stringify(data),
   })
@@ -169,10 +264,12 @@ export const completeOnboarding = async (data: {
   companyId: string
   userId: string
 }) => {
+  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/complete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
     body: JSON.stringify(data),
   })

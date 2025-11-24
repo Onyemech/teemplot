@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { submitPlanSelection, completeOnboarding, getOnboardingAuth } from '@/utils/onboardingApi'
+import { useToast } from '@/contexts/ToastContext'
 
 interface PaymentStepProps {
   companySize: string
@@ -7,8 +9,10 @@ interface PaymentStepProps {
 }
 
 export default function PaymentStep({ companySize, onComplete }: PaymentStepProps) {
+  const toast = useToast()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<'silver' | 'gold'>('gold')
+  const [loading, setLoading] = useState(false)
 
   const numberOfEmployees = parseInt(companySize) || 1
 
@@ -39,11 +43,12 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
       description: 'For small teams',
       monthlyPrice: calculatePrice('silver', 'monthly'),
       yearlyPrice: calculatePrice('silver', 'yearly'),
+      hasTrial: false,
       features: [
         'Attendance tracking',
         'Task management',
         'Basic reports',
-        `${numberOfEmployees} ${numberOfEmployees === 1 ? 'user' : 'users'}`,
+        `${numberOfEmployees} total ${numberOfEmployees === 1 ? 'user' : 'users'} (including you)`,
         'Email support',
       ]
     },
@@ -52,12 +57,13 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
       description: 'For growing companies',
       monthlyPrice: calculatePrice('gold', 'monthly'),
       yearlyPrice: calculatePrice('gold', 'yearly'),
+      hasMonthlyTrial: true, // Only monthly has trial
       features: [
         'Advanced attendance tracking',
         'Task management',
         'Performance metrics',
         'Advanced reports',
-        `${numberOfEmployees} ${numberOfEmployees === 1 ? 'user' : 'users'}`,
+        `${numberOfEmployees} total ${numberOfEmployees === 1 ? 'user' : 'users'} (including you)`,
         'Priority support',
         'Custom integrations',
       ]
@@ -91,9 +97,11 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
               : 'border-gray-200 hover:border-gray-300'
           }`}
         >
-          <div className="absolute -top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-            30-DAY FREE
-          </div>
+          {billingCycle === 'monthly' && (
+            <div className="absolute -top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              30-DAY FREE
+            </div>
+          )}
           <h3 className="font-bold text-lg text-gray-900">Gold</h3>
           <p className="text-sm text-gray-600">Growing teams</p>
         </button>
@@ -126,7 +134,7 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
             <h3 className="text-2xl font-bold text-gray-900">{currentPlan.name}</h3>
             <p className="text-sm text-gray-600">{currentPlan.description}</p>
           </div>
-          {selectedPlan === 'gold' && (
+          {selectedPlan === 'gold' && billingCycle === 'monthly' && (
             <div className="px-3 py-1 bg-green-100 text-green-700 text-sm font-bold rounded-full">
               30-DAY FREE TRIAL
             </div>
@@ -138,11 +146,14 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
             <span className="text-4xl font-bold text-gray-900">₦{price.toLocaleString()}</span>
             <span className="text-gray-600">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
           </div>
-          <p className="text-sm text-gray-600">
-            For {numberOfEmployees} {numberOfEmployees === 1 ? 'employee' : 'employees'}
+          <p className="text-sm text-gray-600 mb-1">
+            For {numberOfEmployees} total {numberOfEmployees === 1 ? 'user' : 'users'} (including you)
+          </p>
+          <p className="text-xs text-gray-500">
+            You can invite {numberOfEmployees - 1} additional {numberOfEmployees - 1 === 1 ? 'person' : 'people'}
           </p>
           {billingCycle === 'yearly' && (
-            <div className="mt-2 inline-block bg-green-50 border border-green-200 rounded-lg px-3 py-1">
+            <div className="mt-3 inline-block bg-green-50 border border-green-200 rounded-lg px-3 py-1">
               <p className="text-sm text-green-700 font-medium">
                 💰 Save ₦{savings.savings.toLocaleString()}/year ({savings.percentage}% off)
               </p>
@@ -160,15 +171,50 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
         </ul>
 
         <button
-          onClick={onComplete}
-          className="w-full bg-primary-600 text-white font-bold py-4 rounded-lg hover:bg-primary-700 transition-colors shadow-md"
+          onClick={async () => {
+            setLoading(true)
+            try {
+              const authData = getOnboardingAuth()
+              
+              // Submit plan selection
+              const planKey = `${selectedPlan}_${billingCycle}` as 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly'
+              await submitPlanSelection({
+                companyId: authData.companyId,
+                plan: planKey,
+                companySize: numberOfEmployees,
+              })
+
+              // Complete onboarding
+              await completeOnboarding({
+                companyId: authData.companyId,
+                userId: authData.userId,
+              })
+
+              toast.success('Onboarding completed successfully!')
+              
+              // Clear onboarding data
+              sessionStorage.removeItem('onboarding_auth')
+              
+              // Call parent completion handler
+              onComplete()
+            } catch (error: any) {
+              console.error('Failed to complete onboarding:', error)
+              toast.error(error.message || 'Failed to complete onboarding')
+            } finally {
+              setLoading(false)
+            }
+          }}
+          disabled={loading}
+          className="w-full bg-primary-600 text-white font-bold py-4 rounded-lg hover:bg-primary-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {selectedPlan === 'gold' ? 'Start 30-Day Free Trial' : 'Continue to Payment'}
+          {loading ? 'Processing...' : (selectedPlan === 'gold' && billingCycle === 'monthly' 
+            ? 'Start 30-Day Free Trial' 
+            : 'Continue to Payment')}
         </button>
       </div>
 
       <div className="text-center space-y-2">
-        {selectedPlan === 'gold' && (
+        {selectedPlan === 'gold' && billingCycle === 'monthly' && (
           <p className="text-sm font-medium text-green-600">
             ✓ 30-day free trial • No credit card required • Cancel anytime
           </p>

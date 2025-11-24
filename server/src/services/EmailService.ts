@@ -235,6 +235,56 @@ export class EmailService {
     });
   }
 
+  async sendEmployeeInvitation(
+    email: string,
+    firstName: string,
+    companyName: string,
+    inviterName: string,
+    role: string,
+    invitationLink: string
+  ): Promise<boolean> {
+    const html = this.getTemplate({
+      title: `Join ${companyName} on Teemplot`,
+      content: `
+        <h2 style="color: #1a2332; margin: 0 0 20px 0; font-size: 26px; font-weight: 700;">You're Invited! 🎉</h2>
+        
+        <p style="color: #4a5568; font-size: 15px; margin: 0 0 20px 0;">
+          Hello <strong>${firstName}</strong>,
+        </p>
+
+        <p style="color: #4a5568; font-size: 15px; margin: 0 0 30px 0;">
+          <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Teemplot as a <strong>${role}</strong>.
+        </p>
+
+        <div style="background: #f7fafc; border-radius: 8px; padding: 20px; margin: 0 0 30px 0;">
+          <p style="color: #2d3748; font-size: 14px; margin: 0 0 10px 0;"><strong>Company:</strong> ${companyName}</p>
+          <p style="color: #2d3748; font-size: 14px; margin: 0;"><strong>Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
+        </div>
+
+        <div style="text-align: center; margin: 0 0 30px 0;">
+          <a href="${invitationLink}" style="display: inline-block; background: ${this.brandColor}; color: white; padding: 14px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            Accept Invitation
+          </a>
+        </div>
+
+        <p style="color: #718096; font-size: 13px; margin: 0 0 10px 0; line-height: 1.6;">
+          This invitation expires in 7 days.
+        </p>
+
+        <p style="color: #718096; font-size: 13px; margin: 0; line-height: 1.6;">
+          If you have any questions, contact ${inviterName} or reach out to us at <a href="mailto:support@teemplot.com" style="color: ${this.brandColor}; text-decoration: none;">support@teemplot.com</a>
+        </p>
+      `,
+    });
+
+    return this.sendEmail({
+      to: email,
+      subject: `You're invited to join ${companyName} on Teemplot`,
+      html,
+      text: `${inviterName} has invited you to join ${companyName} on Teemplot as a ${role}. Accept your invitation: ${invitationLink}`,
+    });
+  }
+
   private getTemplate(options: { title: string; content: string }): string {
     return `
 <!DOCTYPE html>

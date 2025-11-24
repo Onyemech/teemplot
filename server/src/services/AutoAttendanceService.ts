@@ -74,7 +74,7 @@ export class AutoAttendanceService {
         await this.clockInEmployees(company);
       }
     } catch (error) {
-      logger.error('Error processing auto clock-in', error);
+      logger.error({ error }, 'Error processing auto clock-in');
     }
   }
 
@@ -89,7 +89,7 @@ export class AutoAttendanceService {
         await this.clockOutEmployees(company);
       }
     } catch (error) {
-      logger.error('Error processing auto clock-out', error);
+      logger.error({ error }, 'Error processing auto clock-out');
     }
   }
 

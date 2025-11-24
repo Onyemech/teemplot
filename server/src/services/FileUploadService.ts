@@ -1,444 +1,459 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { query } from '../config/database';
 import { logger } from '../utils/logger';
-import { Readable } from 'stream';
-import crypto from 'crypto';
 
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-export interface UploadResult {
-  url: string;
-  publicId: string;
-  format: string;
+export interface FileCheckRequest {
+  hash: string;
+  filename: string;
   size: number;
-  checksum?: string;
+  mimeType: string;
 }
 
-export interface UploadOptions {
-  folder: string;
-  allowedFormats?: string[];
-  maxSize?: number; // in bytes
-  transformation?: any;
+export interface FileCheckResponse {
+  exists: boolean;
+  file?: {
+    id: string;
+    hash: string;
+    public_id: string;
+    url: string;
+    secure_url: string;
+    file_size: number;
+    mime_type: string;
+  };
+}
+
+export interface FileUploadRequest {
+  hash: string;
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+  uploadedBy: string;
   resourceType?: 'image' | 'raw' | 'video' | 'auto';
 }
 
-export interface FileValidationResult {
-  valid: boolean;
-  error?: string;
-  warnings?: string[];
-}
-
-export interface FileMetadata {
-  filename: string;
-  mimetype: string;
-  size: number;
-  extension: string;
-  checksum?: string;
-}
-
-export class FileUploadService {
-  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB default
-  private readonly MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2MB for logos
-  private readonly MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB for documents
-  
-  private readonly ALLOWED_IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-  private readonly ALLOWED_DOCUMENT_FORMATS = ['pdf', 'jpg', 'jpeg', 'png'];
-  
-  private readonly ALLOWED_IMAGE_MIMETYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif'
-  ];
-  
-  private readonly ALLOWED_DOCUMENT_MIMETYPES = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png'
-  ];
-  
-  private readonly DANGEROUS_EXTENSIONS = [
-    '.exe', '.bat', '.cmd', '.sh', '.bash', '.ps1',
-    '.app', '.deb', '.rpm', '.dmg', '.pkg',
-    '.js', '.jsx', '.ts', '.tsx', '.php', '.asp', '.aspx',
-    '.jar', '.war', '.ear', '.class',
-    '.vbs', '.vbe', '.wsf', '.wsh',
-    '.scr', '.pif', '.com', '.cpl', '.msi',
-    '.dll', '.so', '.dylib'
-  ];
-  
-  private readonly MAGIC_NUMBERS: { [key: string]: string[] } = {
-    'image/jpeg': ['ffd8ff'],
-    'image/png': ['89504e47'],
-    'image/gif': ['474946383761', '474946383961'],
-    'application/pdf': ['25504446']
+export interface FileUploadResponse {
+  success: boolean;
+  file: {
+    id: string;
+    hash: string;
+    public_id: string;
+    url: string;
+    secure_url: string;
+    file_size: number;
+    mime_type: string;
   };
+}
+
+export interface AttachFileToCompanyRequest {
+  companyId: string;
+  fileId: string;
+  documentType: string;
+  uploadedBy: string;
+  purpose?: string;
+  metadata?: Record<string, any>;
+}
+
+class FileUploadService {
+  /**
+   * Check if a file with the given hash already exists
+   */
+  async checkFileExists(request: FileCheckRequest): Promise<FileCheckResponse> {
+    try {
+      const result = await query(
+        `SELECT id, hash, public_id, url, secure_url, file_size, mime_type, status
+         FROM files
+         WHERE hash = $1 AND status = 'uploaded' AND deleted_at IS NULL`,
+        [request.hash]
+      );
+
+      if (result.rows.length > 0) {
+        const file = result.rows[0];
+        
+        // Increment upload_count to track deduplication
+        await query(
+          `UPDATE files SET upload_count = upload_count + 1, updated_at = NOW()
+           WHERE id = $1`,
+          [file.id]
+        );
+
+        logger.info({
+          fileId: file.id,
+          hash: request.hash,
+          filename: request.filename
+        }, 'File already exists - deduplication successful');
+
+        return {
+          exists: true,
+          file: {
+            id: file.id,
+            hash: file.hash,
+            public_id: file.public_id,
+            url: file.url,
+            secure_url: file.secure_url,
+            file_size: file.file_size,
+            mime_type: file.mime_type
+          }
+        };
+      }
+
+      return { exists: false };
+    } catch (error: any) {
+      logger.error({ err: error, hash: request.hash }, 'Error checking file existence');
+      throw new Error('Failed to check file existence');
+    }
+  }
 
   /**
-   * Upload file to Cloudinary
+   * Upload file to Cloudinary using hash as public_id
    */
-  async uploadFile(
-    file: Buffer | Readable,
-    options: UploadOptions
-  ): Promise<UploadResult> {
+  async uploadToCloudinary(request: FileUploadRequest): Promise<FileUploadResponse> {
     try {
-      // Validate configuration
-      if (!process.env.CLOUDINARY_CLOUD_NAME) {
-        throw new Error('Cloudinary not configured');
-      }
-
-      const uploadOptions: any = {
-        folder: options.folder,
-        resource_type: 'auto',
-      };
-
-      if (options.allowedFormats) {
-        uploadOptions.allowed_formats = options.allowedFormats;
-      }
-
-      if (options.transformation) {
-        uploadOptions.transformation = options.transformation;
-      }
-
-      // Upload to Cloudinary
-      const result = await new Promise<any>((resolve, reject) => {
+      // Determine resource type based on MIME type
+      const resourceType = request.resourceType || this.getResourceType(request.mimeType);
+      
+      // Upload to Cloudinary with hash as public_id
+      const uploadResult = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
-          uploadOptions,
+          {
+            public_id: request.hash,
+            resource_type: resourceType,
+            overwrite: false, // Don't overwrite if exists
+            unique_filename: false, // Use our hash as-is
+            folder: 'company-documents', // Organize in folder
+            tags: ['company-document', request.mimeType.split('/')[0]]
+          },
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
           }
         );
 
-        if (Buffer.isBuffer(file)) {
-          uploadStream.end(file);
-        } else {
-          file.pipe(uploadStream);
-        }
+        uploadStream.end(request.buffer);
       });
 
-      logger.info(`File uploaded successfully: ${result.public_id}`);
+      // Save file metadata to database
+      const result = await query(
+        `INSERT INTO files (
+          hash, public_id, url, secure_url, file_size, mime_type,
+          original_filename, resource_type, format, uploaded_by, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+        RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
+        [
+          request.hash,
+          uploadResult.public_id,
+          uploadResult.url,
+          uploadResult.secure_url,
+          request.buffer.length,
+          request.mimeType,
+          request.filename,
+          uploadResult.resource_type,
+          uploadResult.format,
+          request.uploadedBy
+        ]
+      );
+
+      const file = result.rows[0];
+
+      logger.info({
+        fileId: file.id,
+        hash: request.hash,
+        publicId: uploadResult.public_id,
+        size: request.buffer.length
+      }, 'File uploaded successfully to Cloudinary');
 
       return {
-        url: result.secure_url,
-        publicId: result.public_id,
-        format: result.format,
-        size: result.bytes,
+        success: true,
+        file: {
+          id: file.id,
+          hash: file.hash,
+          public_id: file.public_id,
+          url: file.url,
+          secure_url: file.secure_url,
+          file_size: file.file_size,
+          mime_type: file.mime_type
+        }
       };
     } catch (error: any) {
-      logger.error(`File upload failed: ${error?.message}`);
-      throw new Error('File upload failed');
+      logger.error({ err: error, hash: request.hash }, 'Error uploading file to Cloudinary');
+      
+      // If it's a duplicate error from Cloudinary, try to fetch existing file
+      if (error.message?.includes('already exists')) {
+        const existingFile = await this.checkFileExists({
+          hash: request.hash,
+          filename: request.filename,
+          size: request.buffer.length,
+          mimeType: request.mimeType
+        });
+
+        if (existingFile.exists && existingFile.file) {
+          return {
+            success: true,
+            file: existingFile.file
+          };
+        }
+      }
+
+      throw new Error('Failed to upload file to Cloudinary');
     }
   }
 
   /**
-   * Upload company logo with comprehensive validation
+   * Attach a file to a company (creates company_files record)
+   */
+  async attachFileToCompany(request: AttachFileToCompanyRequest): Promise<void> {
+    try {
+      // Deactivate any existing active file for this document type
+      await query(
+        `UPDATE company_files
+         SET is_active = FALSE, updated_at = NOW()
+         WHERE company_id = $1 AND document_type = $2 AND is_active = TRUE`,
+        [request.companyId, request.documentType]
+      );
+
+      // Create new company_files record
+      await query(
+        `INSERT INTO company_files (
+          company_id, file_id, document_type, uploaded_by, purpose, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          request.companyId,
+          request.fileId,
+          request.documentType,
+          request.uploadedBy,
+          request.purpose || null,
+          JSON.stringify(request.metadata || {})
+        ]
+      );
+
+      // Update company table with document URL (for backward compatibility)
+      const urlColumnMap: Record<string, string> = {
+        'cac': 'cac_document_url',
+        'proof_of_address': 'proof_of_address_url',
+        'company_policy': 'company_policy_url'
+      };
+
+      const urlColumn = urlColumnMap[request.documentType];
+      if (urlColumn) {
+        const fileResult = await query(
+          'SELECT secure_url FROM files WHERE id = $1',
+          [request.fileId]
+        );
+
+        if (fileResult.rows.length > 0) {
+          await query(
+            `UPDATE companies SET ${urlColumn} = $1, updated_at = NOW() WHERE id = $2`,
+            [fileResult.rows[0].secure_url, request.companyId]
+          );
+        }
+      }
+
+      logger.info({
+        companyId: request.companyId,
+        fileId: request.fileId,
+        documentType: request.documentType
+      }, 'File attached to company successfully');
+    } catch (error: any) {
+      logger.error({ err: error, request }, 'Error attaching file to company');
+      throw new Error('Failed to attach file to company');
+    }
+  }
+
+  /**
+   * Get company files by document type
+   */
+  async getCompanyFiles(companyId: string, documentType?: string) {
+    try {
+      let queryText = `
+        SELECT 
+          cf.id as company_file_id,
+          cf.document_type,
+          cf.purpose,
+          cf.metadata,
+          cf.is_active,
+          cf.created_at as attached_at,
+          f.id as file_id,
+          f.hash,
+          f.public_id,
+          f.url,
+          f.secure_url,
+          f.file_size,
+          f.mime_type,
+          f.original_filename,
+          f.format
+        FROM company_files cf
+        JOIN files f ON cf.file_id = f.id
+        WHERE cf.company_id = $1 AND cf.is_active = TRUE AND f.deleted_at IS NULL
+      `;
+
+      const params: any[] = [companyId];
+
+      if (documentType) {
+        queryText += ' AND cf.document_type = $2';
+        params.push(documentType);
+      }
+
+      queryText += ' ORDER BY cf.created_at DESC';
+
+      const result = await query(queryText, params);
+      return result.rows;
+    } catch (error: any) {
+      logger.error({ err: error, companyId, documentType }, 'Error fetching company files');
+      throw new Error('Failed to fetch company files');
+    }
+  }
+
+  /**
+   * Upload company logo
    */
   async uploadLogo(
-    file: Buffer, 
-    companyId: string, 
-    metadata: FileMetadata
-  ): Promise<UploadResult> {
-    // Validate metadata
-    const metadataValidation = this.validateFile(metadata, 'image');
-    if (!metadataValidation.valid) {
-      throw new Error(metadataValidation.error);
+    buffer: Buffer,
+    companyId: string,
+    metadata: { filename: string; mimeType: string; uploadedBy: string }
+  ): Promise<{ url: string; secureUrl: string; publicId: string }> {
+    try {
+      // Upload to Cloudinary
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'company-logos',
+            resource_type: 'image',
+            transformation: [
+              { width: 500, height: 500, crop: 'limit' },
+              { quality: 'auto' },
+              { fetch_format: 'auto' }
+            ],
+            tags: ['company-logo', companyId]
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+
+        uploadStream.end(buffer);
+      });
+
+      logger.info({
+        companyId,
+        publicId: uploadResult.public_id,
+        size: buffer.length
+      }, 'Company logo uploaded successfully');
+
+      return {
+        url: uploadResult.url,
+        secureUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id
+      };
+    } catch (error: any) {
+      logger.error({ err: error, companyId }, 'Error uploading company logo');
+      throw new Error('Failed to upload company logo');
     }
-
-    // Log warnings if any
-    if (metadataValidation.warnings) {
-      logger.warn({ warnings: metadataValidation.warnings }, 'File upload warnings');
-    }
-
-    // Validate buffer content
-    const bufferValidation = this.validateFileBuffer(file, metadata.mimetype);
-    if (!bufferValidation.valid) {
-      throw new Error(bufferValidation.error);
-    }
-
-    // Calculate checksum
-    const checksum = this.calculateChecksum(file);
-
-    // Sanitize filename
-    const sanitizedFilename = this.sanitizeFilename(metadata.filename);
-
-    // Upload to Cloudinary
-    const result = await this.uploadFile(file, {
-      folder: `teemplot/logos/${companyId}`,
-      allowedFormats: this.ALLOWED_IMAGE_FORMATS,
-      maxSize: this.MAX_LOGO_SIZE,
-      resourceType: 'image',
-      transformation: {
-        width: 500,
-        height: 500,
-        crop: 'limit',
-        quality: 'auto',
-        fetch_format: 'auto',
-      },
-    });
-
-    logger.info({
-      companyId,
-      filename: sanitizedFilename,
-      size: metadata.size,
-      checksum,
-      publicId: result.publicId
-    }, 'Logo uploaded successfully');
-
-    return {
-      ...result,
-      checksum
-    };
   }
 
   /**
-   * Upload company document with comprehensive validation
+   * Upload company document
    */
   async uploadDocument(
-    file: Buffer,
+    buffer: Buffer,
     companyId: string,
-    documentType: 'cac' | 'proof_of_address' | 'company_policy',
-    metadata: FileMetadata
-  ): Promise<UploadResult> {
-    // Validate metadata
-    const metadataValidation = this.validateFile(metadata, 'document');
-    if (!metadataValidation.valid) {
-      throw new Error(metadataValidation.error);
-    }
-
-    // Log warnings if any
-    if (metadataValidation.warnings) {
-      logger.warn({ warnings: metadataValidation.warnings }, 'File upload warnings');
-    }
-
-    // Validate buffer content
-    const bufferValidation = this.validateFileBuffer(file, metadata.mimetype);
-    if (!bufferValidation.valid) {
-      throw new Error(bufferValidation.error);
-    }
-
-    // Calculate checksum
-    const checksum = this.calculateChecksum(file);
-
-    // Sanitize filename
-    const sanitizedFilename = this.sanitizeFilename(metadata.filename);
-
-    // Upload to Cloudinary
-    const result = await this.uploadFile(file, {
-      folder: `teemplot/documents/${companyId}/${documentType}`,
-      allowedFormats: this.ALLOWED_DOCUMENT_FORMATS,
-      maxSize: this.MAX_DOCUMENT_SIZE,
-      resourceType: 'auto',
-    });
-
-    logger.info({
-      companyId,
-      documentType,
-      filename: sanitizedFilename,
-      size: metadata.size,
-      checksum,
-      publicId: result.publicId
-    }, 'Document uploaded successfully');
-
-    return {
-      ...result,
-      checksum
-    };
-  }
-
-  /**
-   * Delete file from Cloudinary
-   */
-  async deleteFile(publicId: string): Promise<boolean> {
+    documentType: string,
+    metadata: { filename: string; mimeType: string; uploadedBy: string }
+  ): Promise<{ url: string; secureUrl: string; publicId: string; fileId: string }> {
     try {
-      await cloudinary.uploader.destroy(publicId);
-      logger.info(`File deleted: ${publicId}`);
-      return true;
+      // Determine resource type
+      const resourceType = this.getResourceType(metadata.mimeType);
+
+      // Upload to Cloudinary
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `company-documents/${documentType}`,
+            resource_type: resourceType,
+            tags: ['company-document', documentType, companyId]
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+
+        uploadStream.end(buffer);
+      });
+
+      // Save to database
+      const result = await query(
+        `INSERT INTO files (
+          hash, public_id, url, secure_url, file_size, mime_type,
+          original_filename, resource_type, format, uploaded_by, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+        RETURNING id`,
+        [
+          uploadResult.public_id, // Using public_id as hash for now
+          uploadResult.public_id,
+          uploadResult.url,
+          uploadResult.secure_url,
+          buffer.length,
+          metadata.mimeType,
+          metadata.filename,
+          uploadResult.resource_type,
+          uploadResult.format,
+          metadata.uploadedBy
+        ]
+      );
+
+      const fileId = result.rows[0].id;
+
+      logger.info({
+        companyId,
+        documentType,
+        publicId: uploadResult.public_id,
+        fileId,
+        size: buffer.length
+      }, 'Company document uploaded successfully');
+
+      return {
+        url: uploadResult.url,
+        secureUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        fileId
+      };
     } catch (error: any) {
-      logger.error(`File deletion failed: ${error?.message}`);
-      return false;
+      logger.error({ err: error, companyId, documentType }, 'Error uploading company document');
+      throw new Error('Failed to upload company document');
     }
   }
 
   /**
-   * Calculate file checksum (SHA-256)
+   * Delete file (soft delete)
    */
-  private calculateChecksum(buffer: Buffer): string {
-    return crypto.createHash('sha256').update(buffer).digest('hex');
+  async deleteFile(fileId: string): Promise<void> {
+    try {
+      await query(
+        'UPDATE files SET deleted_at = NOW(), status = $1 WHERE id = $2',
+        ['deleted', fileId]
+      );
+
+      logger.info({ fileId }, 'File soft deleted');
+    } catch (error: any) {
+      logger.error({ err: error, fileId }, 'Error deleting file');
+      throw new Error('Failed to delete file');
+    }
   }
 
   /**
-   * Verify file magic number (file signature)
+   * Determine Cloudinary resource type from MIME type
    */
-  private verifyMagicNumber(buffer: Buffer, mimetype: string): boolean {
-    const magicNumbers = this.MAGIC_NUMBERS[mimetype];
-    if (!magicNumbers) return true; // Skip if not in our list
-
-    const header = buffer.slice(0, 8).toString('hex');
-    return magicNumbers.some(magic => header.startsWith(magic));
-  }
-
-  /**
-   * Extract file extension from filename
-   */
-  private getFileExtension(filename: string): string {
-    const parts = filename.toLowerCase().split('.');
-    return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-  }
-
-  /**
-   * Comprehensive file validation
-   */
-  validateFile(metadata: FileMetadata, type: 'image' | 'document'): FileValidationResult {
-    const warnings: string[] = [];
-
-    // 1. Check file size
-    const maxSize = type === 'image' ? this.MAX_LOGO_SIZE : this.MAX_DOCUMENT_SIZE;
-    if (metadata.size > maxSize) {
-      return {
-        valid: false,
-        error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit`
-      };
-    }
-
-    if (metadata.size === 0) {
-      return { valid: false, error: 'File is empty' };
-    }
-
-    // 2. Check for dangerous extensions
-    const filename = metadata.filename.toLowerCase();
-    for (const ext of this.DANGEROUS_EXTENSIONS) {
-      if (filename.includes(ext)) {
-        return {
-          valid: false,
-          error: `Dangerous file extension detected: ${ext}`
-        };
-      }
-    }
-
-    // 3. Check for double extensions (e.g., file.pdf.exe)
-    const parts = filename.split('.');
-    if (parts.length > 2) {
-      warnings.push('File has multiple extensions');
-    }
-
-    // 4. Validate MIME type
-    const allowedMimetypes = type === 'image' 
-      ? this.ALLOWED_IMAGE_MIMETYPES 
-      : this.ALLOWED_DOCUMENT_MIMETYPES;
-
-    if (!allowedMimetypes.includes(metadata.mimetype)) {
-      return {
-        valid: false,
-        error: `File type not allowed. Allowed types: ${allowedMimetypes.join(', ')}`
-      };
-    }
-
-    // 5. Validate file extension matches MIME type
-    const extension = metadata.extension.toLowerCase();
-    const expectedExtensions: { [key: string]: string[] } = {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/webp': ['.webp'],
-      'image/gif': ['.gif'],
-      'application/pdf': ['.pdf']
-    };
-
-    const expected = expectedExtensions[metadata.mimetype];
-    if (expected && !expected.includes(extension)) {
-      warnings.push(`Extension ${extension} doesn't match MIME type ${metadata.mimetype}`);
-    }
-
-    // 6. Check filename for suspicious patterns
-    const suspiciousPatterns = [
-      /\.\./,  // Directory traversal
-      /[<>:"|?*]/,  // Invalid filename characters
-      /^\./, // Hidden files
-      /\s{2,}/, // Multiple spaces
-    ];
-
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(filename)) {
-        return {
-          valid: false,
-          error: 'Filename contains suspicious characters'
-        };
-      }
-    }
-
-    // 7. Check filename length
-    if (filename.length > 255) {
-      return { valid: false, error: 'Filename too long (max 255 characters)' };
-    }
-
-    return { valid: true, warnings: warnings.length > 0 ? warnings : undefined };
-  }
-
-  /**
-   * Validate file buffer content
-   */
-  validateFileBuffer(buffer: Buffer, mimetype: string): FileValidationResult {
-    // 1. Verify magic number
-    if (!this.verifyMagicNumber(buffer, mimetype)) {
-      return {
-        valid: false,
-        error: 'File content does not match declared type (possible file spoofing)'
-      };
-    }
-
-    // 2. Check for embedded scripts in images (basic check)
-    const content = buffer.toString('utf8', 0, Math.min(buffer.length, 1024));
-    const scriptPatterns = [
-      /<script/i,
-      /javascript:/i,
-      /onerror=/i,
-      /onload=/i,
-      /<iframe/i,
-      /<embed/i,
-      /<object/i
-    ];
-
-    for (const pattern of scriptPatterns) {
-      if (pattern.test(content)) {
-        return {
-          valid: false,
-          error: 'File contains potentially malicious content'
-        };
-      }
-    }
-
-    return { valid: true };
-  }
-
-  /**
-   * Sanitize filename
-   */
-  sanitizeFilename(filename: string): string {
-    return filename
-      .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace special chars with underscore
-      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-      .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
-      .toLowerCase()
-      .slice(0, 200); // Limit length
-  }
-
-  /**
-   * Validate file size
-   */
-  validateFileSize(size: number, maxSize?: number): boolean {
-    const limit = maxSize || this.MAX_FILE_SIZE;
-    return size <= limit && size > 0;
-  }
-
-  /**
-   * Validate file format
-   */
-  validateFileFormat(format: string, allowedFormats: string[]): boolean {
-    return allowedFormats.includes(format.toLowerCase());
+  private getResourceType(mimeType: string): 'image' | 'raw' | 'video' {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    return 'raw';
   }
 }
 

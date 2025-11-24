@@ -7,14 +7,23 @@ import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 import Dropdown from '@/components/ui/Dropdown'
 import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 import PaymentStep from '@/components/onboarding/PaymentStep'
+import { useToast } from '@/contexts/ToastContext'
+import {
+  submitBusinessInfo,
+  submitOwnerDetails,
+  uploadLogo,
+  uploadDocument
+} from '@/utils/onboardingApi'
 
 type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 
 export default function CompanySetupPage() {
   const navigate = useNavigate()
   const { saveProgress, getProgress, getAuthData } = useOnboardingProgress()
+  const toast = useToast()
   const [currentStep, setCurrentStep] = useState<Step>('details')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     // Company details
     companyLogo: null as File | null,
@@ -25,6 +34,19 @@ export default function CompanySetupPage() {
     website: '',
     headOffice: '',
     address: '',
+    
+    // Geocoding data from Google Places (captured ONCE during onboarding)
+    formattedAddress: '',
+    streetNumber: '',
+    streetName: '',
+    city: '',
+    stateProvince: '',
+    country: 'Nigeria',
+    postalCode: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    placeId: '',
+    geocodingAccuracy: '',
 
     // Owner details
     isOwner: true,
@@ -78,24 +100,106 @@ export default function CompanySetupPage() {
 
   const handleNext = async () => {
     setLoading(true)
+    setError('')
 
     try {
-      // If this is the first step (details) and user is from Google auth, complete onboarding
       const authData = getAuthData()
-      if (currentStep === 'details' && authData?.isGoogleAuth) {
-        await completeGoogleOnboarding()
+      if (!authData?.userId || !authData?.companyId) {
+        throw new Error('Authentication data not found')
       }
 
-      // Simulate quick save
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Submit data to backend based on current step
+      if (currentStep === 'details') {
+        // Validate that we have coordinates from Google Places
+        if (!formData.latitude || !formData.longitude) {
+          throw new Error('Please select a valid address from the suggestions to capture precise location coordinates')
+        }
 
+        if (!formData.placeId) {
+          throw new Error('Please select an address from Google suggestions for accurate location tracking')
+        }
+
+        // Submit business information with complete geocoding data
+        await submitBusinessInfo({
+          companyId: authData.companyId,
+          companyName: formData.companyName,
+          taxId: formData.tin,
+          industry: formData.industry,
+          employeeCount: parseInt(formData.companySize) || 1,
+          website: formData.website ? `http://${formData.website}` : undefined,
+          // Legacy address field
+          address: formData.formattedAddress || formData.address,
+          // Detailed geocoding data from Google Places
+          formattedAddress: formData.formattedAddress,
+          streetNumber: formData.streetNumber,
+          streetName: formData.streetName,
+          city: formData.city,
+          stateProvince: formData.stateProvince,
+          country: formData.country,
+          postalCode: formData.postalCode,
+          // Required coordinates for geofencing
+          officeLatitude: formData.latitude,
+          officeLongitude: formData.longitude,
+          // Google Places metadata
+          placeId: formData.placeId,
+          geocodingAccuracy: formData.geocodingAccuracy,
+        })
+
+        // Upload logo if provided
+        if (formData.companyLogo) {
+          await uploadLogo(authData.companyId, formData.companyLogo)
+        }
+
+        toast.success('Company details saved successfully!')
+
+        // If Google auth user, complete onboarding
+        if (authData?.isGoogleAuth) {
+          await completeGoogleOnboarding()
+        }
+      } else if (currentStep === 'owner') {
+        // Submit owner details if not the owner
+        if (!formData.isOwner) {
+          await submitOwnerDetails({
+            companyId: authData.companyId,
+            registrantUserId: authData.userId,
+            ownerFirstName: formData.ownerFirstName,
+            ownerLastName: formData.ownerLastName,
+            ownerEmail: formData.ownerEmail,
+            ownerPhone: formData.ownerPhone,
+            ownerDateOfBirth: formData.ownerDOB,
+          })
+        }
+        toast.success('Owner details saved successfully!')
+      } else if (currentStep === 'documents') {
+        // Upload all documents using hash-based deduplication
+        const uploadPromises = [];
+        
+        if (formData.cacDocument) {
+          uploadPromises.push(uploadDocument(authData.companyId, 'cac', formData.cacDocument));
+        }
+        if (formData.proofOfAddress) {
+          uploadPromises.push(uploadDocument(authData.companyId, 'proof_of_address', formData.proofOfAddress));
+        }
+        if (formData.companyPolicies) {
+          uploadPromises.push(uploadDocument(authData.companyId, 'company_policy', formData.companyPolicies));
+        }
+        
+        // Upload all documents in parallel
+        await Promise.all(uploadPromises);
+        toast.success('Documents uploaded successfully!');
+      }
+
+      // Move to next step
       const stepOrder: Step[] = ['details', 'owner', 'documents', 'review', 'payment']
       const currentIndex = stepOrder.indexOf(currentStep)
       if (currentIndex < stepOrder.length - 1) {
         setCurrentStep(stepOrder[currentIndex + 1])
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to proceed:', error)
+      const errorMsg = error.message || 'Failed to save. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -111,6 +215,11 @@ export default function CompanySetupPage() {
       case 'details':
         return (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
                 Company logo
@@ -232,26 +341,48 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Head office</label>
-              <p className="text-xs text-muted-foreground mb-2">Please provide the headquarter location and address, so that we can geographically capture your company head office location</p>
-              <input
-                type="text"
+              <label className="block text-sm font-medium text-foreground mb-2">Business Address</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                📍 Enter your company's head office address. We'll capture the exact coordinates for accurate attendance tracking.
+              </p>
+              
+              <AddressAutocomplete
+                value={formData.address}
+                onChange={(value, addressData) => {
+                  if (addressData) {
+                    // Store ALL geocoding data from Google Places
+                    setFormData({
+                      ...formData,
+                      address: value,
+                      formattedAddress: addressData.formattedAddress,
+                      streetNumber: addressData.streetNumber,
+                      streetName: addressData.streetName,
+                      city: addressData.city,
+                      stateProvince: addressData.state,
+                      country: addressData.country,
+                      postalCode: addressData.postalCode,
+                      latitude: addressData.latitude,
+                      longitude: addressData.longitude,
+                      placeId: addressData.placeId,
+                      geocodingAccuracy: addressData.accuracy || '',
+                    })
+                  } else {
+                    setFormData({ ...formData, address: value })
+                  }
+                }}
+                placeholder="Start typing your business address..."
                 required
-                value={formData.headOffice}
-                onChange={(e) => setFormData({ ...formData, headOffice: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Lekki"
               />
+              
+              {formData.latitude && formData.longitude && (
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-xs text-green-700 flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Location captured: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </p>
+                </div>
+              )}
             </div>
-
-            <AddressAutocomplete
-              label="Full Address"
-              value={formData.address}
-              onChange={(value) => setFormData({ ...formData, address: value })}
-              placeholder="13a, Dr adewale oshin"
-              required
-              contextLocation={formData.headOffice}
-            />
 
             <button
               type="submit"
