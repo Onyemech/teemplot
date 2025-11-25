@@ -49,13 +49,7 @@ export class GeocodingService {
     }
   }
 
-  /**
-   * Verify a Place ID and get detailed information
-   * Useful when user selects from autocomplete
-   * 
-   * @param placeId - Google Places ID
-   * @returns Detailed geocoding result
-   */
+
   async getPlaceDetails(placeId: string): Promise<GeocodingResult> {
     if (!this.apiKey) {
       throw new Error('Google Maps API key not configured');
@@ -162,9 +156,6 @@ export class GeocodingService {
     };
   }
 
-  /**
-   * Validate coordinates are within reasonable bounds
-   */
   static validateCoordinates(lat: number, lon: number): boolean {
     return (
       lat >= -90 &&

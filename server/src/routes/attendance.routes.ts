@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { enhancedAttendanceService } from '../services/EnhancedAttendanceService';
+import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
 export default async function attendanceRoutes(fastify: FastifyInstance) {
@@ -114,7 +115,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const result = await fastify.pg.query(
+      const result = await query(
         'SELECT * FROM check_early_departure($1, NOW())',
         [request.user.companyId]
       );
@@ -153,7 +154,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         limit?: number;
       };
 
-      let query = `
+      let queryText = `
         SELECT * FROM attendance_records 
         WHERE user_id = $1
       `;
@@ -161,18 +162,18 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
       if (startDate) {
         params.push(startDate);
-        query += ` AND clock_in_time >= $${params.length}`;
+        queryText += ` AND clock_in_time >= $${params.length}`;
       }
 
       if (endDate) {
         params.push(endDate);
-        query += ` AND clock_in_time <= $${params.length}`;
+        queryText += ` AND clock_in_time <= $${params.length}`;
       }
 
-      query += ` ORDER BY clock_in_time DESC LIMIT $${params.length + 1}`;
+      queryText += ` ORDER BY clock_in_time DESC LIMIT $${params.length + 1}`;
       params.push(limit);
 
-      const result = await fastify.pg.query(query, params);
+      const result = await query(queryText, params);
 
       return reply.code(200).send({
         success: true,
@@ -190,13 +191,21 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Get company attendance for date
   fastify.get('/company/:date?', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can view company attendance'
+        });
+      }
+
       const { date } = request.params as { date?: string };
       const targetDate = date || new Date().toISOString().split('T')[0];
 
-      const result = await fastify.pg.query(
+      const result = await query(
         `SELECT 
           ar.*,
           u.first_name,
@@ -228,15 +237,23 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Get early departures
   fastify.get('/early-departures', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can view early departures'
+        });
+      }
+
       const { startDate, endDate } = request.query as {
         startDate?: string;
         endDate?: string;
       };
 
-      let query = `
+      let queryText = `
         SELECT 
           ar.*,
           u.first_name,
@@ -252,17 +269,17 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
       if (startDate) {
         params.push(startDate);
-        query += ` AND ar.clock_out_time >= $${params.length}`;
+        queryText += ` AND ar.clock_out_time >= $${params.length}`;
       }
 
       if (endDate) {
         params.push(endDate);
-        query += ` AND ar.clock_out_time <= $${params.length}`;
+        queryText += ` AND ar.clock_out_time <= $${params.length}`;
       }
 
-      query += ` ORDER BY ar.clock_out_time DESC`;
+      queryText += ` ORDER BY ar.clock_out_time DESC`;
 
-      const result = await fastify.pg.query(query, params);
+      const result = await query(queryText, params);
 
       return reply.code(200).send({
         success: true,
@@ -280,15 +297,23 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Get late arrivals
   fastify.get('/late-arrivals', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can view late arrivals'
+        });
+      }
+
       const { startDate, endDate } = request.query as {
         startDate?: string;
         endDate?: string;
       };
 
-      let query = `
+      let queryText = `
         SELECT 
           ar.*,
           u.first_name,
@@ -304,17 +329,17 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
       if (startDate) {
         params.push(startDate);
-        query += ` AND ar.clock_in_time >= $${params.length}`;
+        queryText += ` AND ar.clock_in_time >= $${params.length}`;
       }
 
       if (endDate) {
         params.push(endDate);
-        query += ` AND ar.clock_in_time <= $${params.length}`;
+        queryText += ` AND ar.clock_in_time <= $${params.length}`;
       }
 
-      query += ` ORDER BY ar.clock_in_time DESC`;
+      queryText += ` ORDER BY ar.clock_in_time DESC`;
 
-      const result = await fastify.pg.query(query, params);
+      const result = await query(queryText, params);
 
       return reply.code(200).send({
         success: true,

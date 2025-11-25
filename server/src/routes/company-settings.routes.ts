@@ -5,9 +5,16 @@ import { logger } from '../utils/logger';
 export default async function companySettingsRoutes(fastify: FastifyInstance) {
   // Get company settings
   fastify.get('/', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can view company settings'
+        });
+      }
       const result = await query(
         `SELECT 
           work_start_time,
@@ -56,9 +63,16 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
   // Update work schedule
   fastify.patch('/work-schedule', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update work schedule'
+        });
+      }
       const {
         workStartTime,
         workEndTime,
@@ -116,7 +130,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       logger.info({
         companyId: request.user.companyId,
         userId: request.user.userId,
-        updates: Object.keys(request.body)
+        updates: Object.keys(request.body as object)
       }, 'Work schedule updated');
 
       return reply.code(200).send({
@@ -135,9 +149,16 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
   // Update auto-attendance settings
   fastify.patch('/auto-attendance', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update auto-attendance settings'
+        });
+      }
       const {
         autoCheckinEnabled,
         autoCheckoutEnabled,
@@ -196,7 +217,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       logger.info({
         companyId: request.user.companyId,
         userId: request.user.userId,
-        updates: Object.keys(request.body)
+        updates: Object.keys(request.body as object)
       }, 'Auto-attendance settings updated');
 
       return reply.code(200).send({
@@ -215,9 +236,16 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
   // Update notification settings
   fastify.patch('/notifications', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update notification settings'
+        });
+      }
       const {
         notifyEarlyDeparture,
         earlyDepartureThresholdMinutes,
@@ -268,7 +296,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       logger.info({
         companyId: request.user.companyId,
         userId: request.user.userId,
-        updates: Object.keys(request.body)
+        updates: Object.keys(request.body as object)
       }, 'Notification settings updated');
 
       return reply.code(200).send({
@@ -287,9 +315,16 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
   // Update office location
   fastify.patch('/office-location', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update office location'
+        });
+      }
       const {
         latitude,
         longitude,
@@ -345,9 +380,16 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
   // Update display preferences
   fastify.patch('/display', {
-    preHandler: [fastify.authenticate, fastify.requireRole(['owner', 'admin'])],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update display preferences'
+        });
+      }
       const {
         timeFormat,
         dateFormat,
@@ -405,7 +447,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       logger.info({
         companyId: request.user.companyId,
         userId: request.user.userId,
-        updates: Object.keys(request.body)
+        updates: Object.keys(request.body as object)
       }, 'Display preferences updated');
 
       return reply.code(200).send({
