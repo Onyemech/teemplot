@@ -15,9 +15,18 @@ export function useGoogleAuth() {
     try {
       setLoading(true);
       
+      // Set a timeout to stop loading if redirect doesn't happen
+      const timeout = setTimeout(() => {
+        setLoading(false);
+        toast.error('Google sign-in is taking too long. Please try again.');
+      }, 10000); // 10 second timeout
+      
       // Redirect to our backend Google OAuth endpoint
       const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
       window.location.href = `${backendUrl}/api/auth/google`;
+      
+      // Clear timeout if redirect happens (though this code won't run after redirect)
+      clearTimeout(timeout);
       
     } catch (error: any) {
       console.error('Google sign-in error:', error);
@@ -34,15 +43,22 @@ export function useGoogleAuth() {
     try {
       setLoading(true);
 
-      // Send code to backend for verification
+      // Send code to backend for verification with timeout
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${apiUrl}/auth/google/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ code }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       const result = await response.json();
 
@@ -77,7 +93,13 @@ export function useGoogleAuth() {
       return result.data;
     } catch (error: any) {
       console.error('Google callback error:', error);
-      toast.error(error.message || 'Failed to complete Google authentication');
+      
+      if (error.name === 'AbortError') {
+        toast.error('Google authentication timed out. Please try again.');
+      } else {
+        toast.error(error.message || 'Failed to complete Google authentication');
+      }
+      
       navigate('/login?error=google_auth_failed');
       throw error;
     } finally {

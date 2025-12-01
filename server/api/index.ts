@@ -50,27 +50,48 @@ async function buildServerlessApp() {
     }
   });
 
-  // Health check
+  // Health check (both with and without /api prefix)
   fastify.get('/health', async () => {
     return { 
       success: true, 
       message: 'Server is running',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'production'
+      environment: process.env.NODE_ENV || 'production',
+      routes: 'Registered'
     };
   });
 
-  // Register routes
-  await fastify.register(authRoutes, { prefix: '/auth' });
-  await fastify.register(onboardingRoutes, { prefix: '/onboarding' });
-  await fastify.register(attendanceRoutes, { prefix: '/attendance' });
-  await fastify.register(tasksRoutes, { prefix: '/tasks' });
-  await fastify.register(leaveRoutes, { prefix: '/leave' });
-  await fastify.register(dashboardRoutes, { prefix: '/dashboard' });
-  await fastify.register(companySettingsRoutes, { prefix: '/company-settings' });
-  await fastify.register(employeesRoutes, { prefix: '/employees' });
-  await fastify.register(filesRoutes, { prefix: '/files' });
-  await fastify.register(adminAddressAuditRoutes, { prefix: '/admin/address-audit' });
+  fastify.get('/api/health', async () => {
+    return { 
+      success: true, 
+      message: 'Server is running',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production',
+      routes: 'Registered'
+    };
+  });
+
+  // Register routes with /api prefix
+  await fastify.register(authRoutes, { prefix: '/api/auth' });
+  await fastify.register(onboardingRoutes, { prefix: '/api/onboarding' });
+  await fastify.register(attendanceRoutes, { prefix: '/api/attendance' });
+  await fastify.register(tasksRoutes, { prefix: '/api/tasks' });
+  await fastify.register(leaveRoutes, { prefix: '/api/leave' });
+  await fastify.register(dashboardRoutes, { prefix: '/api/dashboard' });
+  await fastify.register(companySettingsRoutes, { prefix: '/api/company-settings' });
+  await fastify.register(employeesRoutes, { prefix: '/api/employees' });
+  await fastify.register(filesRoutes, { prefix: '/api/files' });
+  await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
+
+  // 404 handler
+  fastify.setNotFoundHandler((request, reply) => {
+    reply.code(404).send({
+      success: false,
+      message: 'Route not found',
+      path: request.url,
+      method: request.method
+    });
+  });
 
   return fastify;
 }
