@@ -31,7 +31,6 @@ export default function ForgotPasswordPage() {
 
       if (data.success) {
         toast.success('Verification code sent! Check your email.')
-        // Redirect to reset password page with email
         setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}`), 500)
       } else {
         const errorMsg = data.message || 'Failed to send verification code'
