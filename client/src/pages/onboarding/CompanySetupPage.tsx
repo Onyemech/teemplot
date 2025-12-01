@@ -226,8 +226,12 @@ export default function CompanySetupPage() {
               </label>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border">
-                  {formData.companyLogo ? (
-                    <img src={URL.createObjectURL(formData.companyLogo)} alt="Logo" className="w-full h-full object-contain rounded-lg" />
+                 {formData.companyLogo ? (
+                    <img 
+                      src={URL.createObjectURL(formData.companyLogo)} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain rounded-lg" 
+                    />
                   ) : (
                     <img src="/logo.png" alt="Default Logo" className="w-full h-full object-contain opacity-50" />
                   )}

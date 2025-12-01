@@ -172,6 +172,12 @@ export default function AddressAutocomplete({
               const place = results[0]
               const addressData = extractAddressComponents(place)
               
+              // Update city field if available
+              if (addressData.city && onCityChange) {
+                setInternalCity(addressData.city)
+                onCityChange(addressData.city)
+              }
+              
               // Update with current location
               onChange(place.formatted_address, {
                 ...addressData,
@@ -181,7 +187,7 @@ export default function AddressAutocomplete({
               })
 
               // Show success message
-              alert(`✅ Location captured successfully!\n\nAddress: ${place.formatted_address}\nAccuracy: ${Math.round(accuracy)}m\n\nYour office location has been set for attendance tracking.`)
+              alert(`✅ Location captured successfully!\n\nAddress: ${place.formatted_address}\nCity: ${addressData.city || 'N/A'}\nAccuracy: ${Math.round(accuracy)}m\n\nYour office location has been set for attendance tracking.`)
             } else {
               alert('❌ Could not determine address\n\nWe got your coordinates but couldn\'t convert them to an address. Please:\n1. Try again\n2. Or enter your address manually')
             }
@@ -592,14 +598,21 @@ export default function AddressAutocomplete({
 
         {/* Use Current Location Button - Shows when no predictions and user has typed enough */}
         {!isLoading && predictions.length === 0 && value.length > 5 && !useFallbackMode && (
-          <button
-            type="button"
-            onClick={handleUseCurrentLocation}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
-          >
-            <MapPin className="h-4 w-4" />
-            I'm at the office now → Use my current location
-          </button>
+          <div className="mt-3 space-y-2">
+            <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                💡 <strong>At the office?</strong> Click below to use your current GPS location for accurate attendance tracking.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-primary-600 bg-white hover:bg-primary-50 border border-primary-300 rounded-lg transition-colors"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Use my current location
+            </button>
+          </div>
         )}
       </div>
     </div>

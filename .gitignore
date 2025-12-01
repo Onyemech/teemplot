@@ -72,3 +72,5 @@ coverage/
 .kiro
 docs
 *.md
+.kiro\specs\onboarding-redesign
+.vscode

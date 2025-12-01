@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { LogoLoader } from '@/components/LogoLoader'
