@@ -36,53 +36,8 @@ const baseConfig: pino.LoggerOptions = {
   },
 };
 
-// Serverless: Simple console logging (no transports)
-if (isServerless) {
-  export const logger = pino(baseConfig);
-} else if (isDevelopment) {
-  // Development: Pretty print to console
-  const developmentTransport = pino.transport({
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'HH:MM:ss Z',
-      ignore: 'pid,hostname',
-      singleLine: false,
-    },
-  });
-  export const logger = pino(baseConfig, developmentTransport);
-} else {
-  // Production (non-serverless): JSON to file and console
-  const productionTransports = pino.transport({
-    targets: [
-      {
-        target: 'pino/file',
-        options: {
-          destination: path.join(logsDir, 'app.log'),
-          mkdir: true,
-        },
-        level: 'info',
-      },
-      {
-        target: 'pino/file',
-        options: {
-          destination: path.join(logsDir, 'error.log'),
-          mkdir: true,
-        },
-        level: 'error',
-      },
-      {
-        target: 'pino-pretty',
-        options: {
-          colorize: false,
-          translateTime: 'SYS:standard',
-        },
-        level: 'info',
-      },
-    ],
-  });
-  export const logger = pino(baseConfig, productionTransports);
-}
+// Simple logger - no transports (works everywhere including serverless)
+export const logger = pino(baseConfig);
 
 // Smart logging helper - detects environment
 export const smartLog = {
