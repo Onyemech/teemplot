@@ -118,7 +118,7 @@ export default function Navbar() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 animate-fade-in">
+          <div className="md:hidden mt-4 pb-4 animate-fade-in bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 p-4">
             <div className="flex flex-col space-y-4">
               {NAV_LINKS.map((link, index) => (
                 <button
@@ -128,7 +128,7 @@ export default function Navbar() {
                     smoothScrollTo(link.href.replace('#', ''))
                     setIsMobileMenuOpen(false)
                   }}
-                  className="text-gray-900 hover:text-[#FF5722] font-semibold transition-colors px-4 py-2 text-left"
+                  className="text-gray-900 hover:text-[#FF5722] font-semibold transition-colors px-4 py-2 text-left rounded-lg hover:bg-gray-100"
                 >
                   {link.label}
                 </button>
@@ -136,13 +136,15 @@ export default function Navbar() {
               <div className="flex flex-col space-y-2 px-4 pt-4 border-t border-gray-300">
                 <Link 
                   to="/login"
-                  className="w-full text-center border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="w-full text-center border-2 border-gray-300 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Sign In
                 </Link>
                 <Link 
                   to="/onboarding/register"
-                  className="w-full text-center bg-[#0F5D5D] text-white px-4 py-2 rounded-lg hover:bg-[#093737]"
+                  className="w-full text-center bg-[#0F5D5D] text-white px-4 py-3 rounded-lg hover:bg-[#093737] font-semibold"
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Get Started
                 </Link>

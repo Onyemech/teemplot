@@ -162,26 +162,26 @@ export default function Hero() {
               </ScrollReveal>
 
               {/* Feature Icons - Sequential reveal */}
-              <div className="grid grid-cols-3 gap-6 mt-12">
-                <SequentialReveal index={0} delay={1} className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0F5D5D]/10 to-[#0F5D5D]/5 w-fit mx-auto">
-                    <Users className="h-10 w-10 text-[#0F5D5D]" />
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-12">
+                <SequentialReveal index={0} delay={1} className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <div className="p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#0F5D5D]/10 to-[#0F5D5D]/5 w-fit mx-auto">
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 md:h-10 md:w-10 text-[#0F5D5D]" />
                   </div>
-                  <p className="text-sm md:text-base text-gray-700 font-semibold mt-3 text-center">Team Management</p>
+                  <p className="text-xs sm:text-sm md:text-base text-gray-700 font-semibold mt-2 sm:mt-3 text-center leading-tight">Team Management</p>
                 </SequentialReveal>
                 
-                <SequentialReveal index={1} delay={1} className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-[#FF5722]/10 to-[#FF5722]/5 w-fit mx-auto">
-                    <Calendar className="h-10 w-10 text-[#FF5722]" />
+                <SequentialReveal index={1} delay={1} className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <div className="p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#FF5722]/10 to-[#FF5722]/5 w-fit mx-auto">
+                    <Calendar className="h-6 w-6 sm:h-8 sm:w-8 md:h-10 md:w-10 text-[#FF5722]" />
                   </div>
-                  <p className="text-sm md:text-base text-gray-700 font-semibold mt-3 text-center">Attendance</p>
+                  <p className="text-xs sm:text-sm md:text-base text-gray-700 font-semibold mt-2 sm:mt-3 text-center leading-tight">Attendance</p>
                 </SequentialReveal>
                 
-                <SequentialReveal index={2} delay={1} className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0F5D5D]/10 to-[#0F5D5D]/5 w-fit mx-auto">
-                    <CheckCircle2 className="h-10 w-10 text-[#0F5D5D]" />
+                <SequentialReveal index={2} delay={1} className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <div className="p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#0F5D5D]/10 to-[#0F5D5D]/5 w-fit mx-auto">
+                    <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 md:h-10 md:w-10 text-[#0F5D5D]" />
                   </div>
-                  <p className="text-sm md:text-base text-gray-700 font-semibold mt-3 text-center">Analytics</p>
+                  <p className="text-xs sm:text-sm md:text-base text-gray-700 font-semibold mt-2 sm:mt-3 text-center leading-tight">Analytics</p>
                 </SequentialReveal>
               </div>
             </div>
