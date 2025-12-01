@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-import { FileText, Image as ImageIcon, Trash2, Upload, Check, AlertCircle, ArrowRight } from 'lucide-react'
+import { FileText, Image as ImageIcon, Trash2, Upload, AlertCircle, ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'

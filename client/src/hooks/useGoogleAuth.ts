@@ -16,8 +16,7 @@ export function useGoogleAuth() {
       setLoading(true);
       
       // Redirect to our backend Google OAuth endpoint
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const backendUrl = apiUrl.replace('/api', ''); // Remove /api if present
+      const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
       window.location.href = `${backendUrl}/api/auth/google`;
       
     } catch (error: any) {
@@ -86,10 +85,7 @@ export function useGoogleAuth() {
     }
   };
 
-  /**
-   * Handle token from URL (alternative flow)
-   * Used when backend redirects with token in URL
-   */
+
   const handleTokenFromUrl = () => {
     try {
       const params = new URLSearchParams(window.location.search);

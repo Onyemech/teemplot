@@ -124,7 +124,7 @@ export const submitBusinessInfo = async (data: {
 }
 
 // Upload Logo API
-export const uploadLogo = async (companyId: string, file: File) => {
+export const uploadLogo = async (_companyId: string, file: File) => {
   const token = getAuthToken()
   const formData = new FormData()
   formData.append('file', file)
@@ -148,7 +148,7 @@ export const uploadLogo = async (companyId: string, file: File) => {
 
 // Upload Document API with hash-based deduplication
 export const uploadDocument = async (
-  companyId: string,
+  _companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-import { Check, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Check, ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'

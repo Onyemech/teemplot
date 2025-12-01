@@ -6,7 +6,6 @@ import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
-import { Mail, Lock } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
