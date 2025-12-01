@@ -4,7 +4,7 @@ export default function DashboardPage() {
   const stats = [
     {
       label: 'Total Employees',
-      value: '124',
+      value: '123',
       change: '+12%',
       icon: Users,
       color: 'bg-blue-500',
