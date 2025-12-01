@@ -6,11 +6,18 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 // Server-side: check if running on localhost
 const isLocalhost = process.env.HOST === 'localhost' || process.env.HOST === '127.0.0.1' || process.env.HOST === '0.0.0.0';
+// Check if running in serverless environment (Vercel, AWS Lambda, etc.)
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT;
 
-// Ensure logs directory exists
+// Ensure logs directory exists (only in non-serverless environments)
 const logsDir = path.join(process.cwd(), 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+if (!isServerless && !fs.existsSync(logsDir)) {
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+  } catch (error) {
+    // Ignore errors in serverless - we'll log to console only
+    console.warn('Could not create logs directory, using console only');
+  }
 }
 
 const logLevel = process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info');
@@ -40,35 +47,44 @@ const developmentTransport = pino.transport({
   },
 });
 
-// Production: JSON to file and console
-const productionTransports = pino.transport({
-  targets: [
-    {
-      target: 'pino/file',
-      options: {
-        destination: path.join(logsDir, 'app.log'),
-        mkdir: true,
-      },
-      level: 'info',
-    },
-    {
-      target: 'pino/file',
-      options: {
-        destination: path.join(logsDir, 'error.log'),
-        mkdir: true,
-      },
-      level: 'error',
-    },
-    {
+// Production: JSON to file and console (only if not serverless)
+const productionTransports = isServerless
+  ? pino.transport({
       target: 'pino-pretty',
       options: {
         colorize: false,
         translateTime: 'SYS:standard',
       },
       level: 'info',
-    },
-  ],
-});
+    })
+  : pino.transport({
+      targets: [
+        {
+          target: 'pino/file',
+          options: {
+            destination: path.join(logsDir, 'app.log'),
+            mkdir: true,
+          },
+          level: 'info',
+        },
+        {
+          target: 'pino/file',
+          options: {
+            destination: path.join(logsDir, 'error.log'),
+            mkdir: true,
+          },
+          level: 'error',
+        },
+        {
+          target: 'pino-pretty',
+          options: {
+            colorize: false,
+            translateTime: 'SYS:standard',
+          },
+          level: 'info',
+        },
+      ],
+    });
 
 export const logger = pino(
   baseConfig,

@@ -20,7 +20,16 @@ let app: any = null;
 
 async function buildServerlessApp() {
   const fastify = Fastify({
-    logger: false, // Disable logger for serverless
+    logger: {
+      level: 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: false,
+          translateTime: 'SYS:standard',
+        }
+      }
+    },
     trustProxy: true,
   });
 
