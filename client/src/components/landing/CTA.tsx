@@ -49,7 +49,7 @@ export default function CTA() {
           </button>
         </div>
         <p className="text-sm text-muted-foreground pt-4">
-          No credit card required · 14-day free trial · Cancel anytime
+          No credit card required · 30-days free trial 
         </p>
       </div>
     </section>

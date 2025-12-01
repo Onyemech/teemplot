@@ -36,60 +36,53 @@ const baseConfig: pino.LoggerOptions = {
   },
 };
 
-// Development: Pretty print to console
-const developmentTransport = pino.transport({
-  target: 'pino-pretty',
-  options: {
-    colorize: true,
-    translateTime: 'HH:MM:ss Z',
-    ignore: 'pid,hostname',
-    singleLine: false,
-  },
-});
-
-// Production: JSON to file and console (only if not serverless)
-const productionTransports = isServerless
-  ? pino.transport({
-      target: 'pino-pretty',
-      options: {
-        colorize: false,
-        translateTime: 'SYS:standard',
+// Serverless: Simple console logging (no transports)
+if (isServerless) {
+  export const logger = pino(baseConfig);
+} else if (isDevelopment) {
+  // Development: Pretty print to console
+  const developmentTransport = pino.transport({
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'HH:MM:ss Z',
+      ignore: 'pid,hostname',
+      singleLine: false,
+    },
+  });
+  export const logger = pino(baseConfig, developmentTransport);
+} else {
+  // Production (non-serverless): JSON to file and console
+  const productionTransports = pino.transport({
+    targets: [
+      {
+        target: 'pino/file',
+        options: {
+          destination: path.join(logsDir, 'app.log'),
+          mkdir: true,
+        },
+        level: 'info',
       },
-      level: 'info',
-    })
-  : pino.transport({
-      targets: [
-        {
-          target: 'pino/file',
-          options: {
-            destination: path.join(logsDir, 'app.log'),
-            mkdir: true,
-          },
-          level: 'info',
+      {
+        target: 'pino/file',
+        options: {
+          destination: path.join(logsDir, 'error.log'),
+          mkdir: true,
         },
-        {
-          target: 'pino/file',
-          options: {
-            destination: path.join(logsDir, 'error.log'),
-            mkdir: true,
-          },
-          level: 'error',
+        level: 'error',
+      },
+      {
+        target: 'pino-pretty',
+        options: {
+          colorize: false,
+          translateTime: 'SYS:standard',
         },
-        {
-          target: 'pino-pretty',
-          options: {
-            colorize: false,
-            translateTime: 'SYS:standard',
-          },
-          level: 'info',
-        },
-      ],
-    });
-
-export const logger = pino(
-  baseConfig,
-  isDevelopment ? developmentTransport : productionTransports
-);
+        level: 'info',
+      },
+    ],
+  });
+  export const logger = pino(baseConfig, productionTransports);
+}
 
 // Smart logging helper - detects environment
 export const smartLog = {

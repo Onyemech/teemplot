@@ -22,13 +22,7 @@ async function buildServerlessApp() {
   const fastify = Fastify({
     logger: {
       level: 'info',
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          colorize: false,
-          translateTime: 'SYS:standard',
-        }
-      }
+      // Simple JSON logging for serverless (no transports)
     },
     trustProxy: true,
   });
