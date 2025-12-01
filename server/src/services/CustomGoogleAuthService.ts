@@ -9,14 +9,34 @@ const uuidv4 = randomUUID;
 
 const db = DatabaseFactory.getPrimaryDatabase();
 
+// Determine redirect URI based on environment
+const getGoogleRedirectUri = () => {
+  // If explicitly set in env, use that
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI;
+  }
+  
+  // Otherwise, construct based on environment
+  if (process.env.NODE_ENV === 'production') {
+    // Use custom domain if available, otherwise Vercel URL
+    const baseUrl = process.env.BACKEND_URL || 'https://teemplot-backend.vercel.app';
+    return `${baseUrl}/api/auth/google/callback`;
+  }
+  
+  // Development
+  return 'http://localhost:5000/api/auth/google/callback';
+};
+
+const GOOGLE_REDIRECT_URI = getGoogleRedirectUri();
+
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: process.env.GOOGLE_REDIRECT_URI!,
+      callbackURL: GOOGLE_REDIRECT_URI,
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (_accessToken, _refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
         const firstName = profile.name?.givenName || '';
@@ -121,7 +141,7 @@ export class CustomGoogleAuthService {
   getAuthUrl(): string {
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID!,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      redirect_uri: GOOGLE_REDIRECT_URI,
       response_type: 'code',
       scope: 'openid email profile',
       access_type: 'offline',
@@ -144,7 +164,7 @@ export class CustomGoogleAuthService {
         code,
         client_id: process.env.GOOGLE_CLIENT_ID!,
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+        redirect_uri: GOOGLE_REDIRECT_URI,
         grant_type: 'authorization_code',
       }),
     });
