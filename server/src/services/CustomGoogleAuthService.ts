@@ -2,8 +2,10 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import passport from 'passport';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import slugify from 'slugify';
+
+const uuidv4 = randomUUID;
 
 const db = DatabaseFactory.getPrimaryDatabase();
 
