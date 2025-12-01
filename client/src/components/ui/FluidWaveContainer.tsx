@@ -23,11 +23,11 @@ export default function FluidWaveContainer({ children, className = '' }: FluidWa
   });
 
   // Create wave effect that flows through the container
-  const waveIntensity = useTransform(
-    smoothProgress,
-    [0, 0.3, 0.7, 1],
-    [0, 1, 1, 0]
-  );
+  // const waveIntensity = useTransform(
+  //   smoothProgress,
+  //   [0, 0.3, 0.7, 1],
+  //   [0, 1, 1, 0]
+  // );
 
   return (
     <motion.div

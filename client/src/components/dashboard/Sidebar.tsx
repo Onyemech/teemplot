@@ -19,7 +19,7 @@ import {
 
 interface NavItem {
   label: string
-  to: string
+  href: string
   icon: any
   submenu?: NavItem[]
 }
@@ -88,7 +88,7 @@ export default function Sidebar() {
     )
   }
 
-  const isActive = (to: string) => {
+  const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === href
     }

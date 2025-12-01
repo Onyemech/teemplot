@@ -1,15 +1,16 @@
 {
   "version": 2,
   "name": "teemplot-api",
-  "buildCommand": "npm run build",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/api/index"
     }
   ],
-  "env": {
-    "NODE_ENV": "production",
-    "DATABASE_TYPE": "postgres"
+  "functions": {
+    "api/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
   }
 }

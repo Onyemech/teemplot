@@ -1,4 +1,4 @@
-import { useEffect, useRef, ReactNode, useState } from 'react';
+import { useEffect, ReactNode, useState } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { useSharedIntersectionObserver } from '@/hooks/useSharedIntersectionObserver';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -92,7 +92,7 @@ export default function ScrollReveal({
 
   return (
     <motion.div
-      ref={ref}
+      ref={ref as any}
       initial="hidden"
       animate={isVisible ? 'visible' : 'hidden'}
       variants={activeVariants[direction]}
