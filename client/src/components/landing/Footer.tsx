@@ -45,7 +45,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="bg-primary text-primary-foreground relative overflow-hidden">
+    <footer id="contact" className="bg-primary text-primary-foreground relative overflow-hidden">
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
@@ -134,14 +134,19 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8 border-t border-primary-foreground/10">
           {CONTACT_INFO.map((contact, index) => {
             const Icon = contact.icon
+            const isPhone = contact.label === 'Phone'
             return (
-              <div key={index} className="flex items-center space-x-3">
+              <div 
+                key={index} 
+                id={isPhone ? 'contact-phone' : undefined}
+                className={`flex items-center space-x-3 transition-all duration-300 ${isPhone ? 'phone-highlight-target' : ''}`}
+              >
                 <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-accent" />
                 </div>
                 <div>
                   <p className="text-xs text-primary-foreground/50">{contact.label}</p>
-                  <p className="text-sm text-primary-foreground/90">{contact.value}</p>
+                  <p className="text-sm text-primary-foreground/90 font-semibold">{contact.value}</p>
                 </div>
               </div>
             )

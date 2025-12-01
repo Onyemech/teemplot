@@ -11,7 +11,7 @@ export default function CTA() {
     // No prefetch needed in React Router
   }, [navigate])
   return (
-    <section className="py-24 px-6">
+    <section id="cta" className="py-24 px-6">
       <div className="max-w-4xl mx-auto text-center space-y-8 animate-fade-in">
         <h2 className="text-4xl md:text-5xl font-bold text-foreground">
           Ready to Transform Your HR Operations?
@@ -27,11 +27,26 @@ export default function CTA() {
             Start Free Trial
             <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
           </Link>
-          <Link to="#contact"
+          <button 
+            onClick={() => {
+              const element = document.getElementById('contact')
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                setTimeout(() => {
+                  const phoneElement = document.getElementById('contact-phone')
+                  if (phoneElement) {
+                    phoneElement.classList.add('highlight-pulse')
+                    setTimeout(() => {
+                      phoneElement.classList.remove('highlight-pulse')
+                    }, 3000)
+                  }
+                }, 800)
+              }
+            }}
             className="border-2 border-[#0F5D5D] text-[#0F5D5D] px-8 py-4 rounded-lg hover:bg-[#0F5D5D] hover:text-white transition-all duration-300"
           >
             Contact Sales
-          </Link>
+          </button>
         </div>
         <p className="text-sm text-muted-foreground pt-4">
           No credit card required · 14-day free trial · Cancel anytime

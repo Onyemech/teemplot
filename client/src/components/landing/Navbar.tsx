@@ -4,9 +4,29 @@ import { Link } from 'react-router-dom'
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Benefits', href: '#benefits' },
-  { label: 'Pricing', href: '#pricing' },
+  { label: 'Pricing', href: '#cta' },
   { label: 'Contact', href: '#contact' },
 ]
+
+const smoothScrollTo = (elementId: string) => {
+  const element = document.getElementById(elementId)
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    
+    // Add highlight effect for contact phone
+    if (elementId === 'contact') {
+      setTimeout(() => {
+        const phoneElement = document.getElementById('contact-phone')
+        if (phoneElement) {
+          phoneElement.classList.add('highlight-pulse')
+          setTimeout(() => {
+            phoneElement.classList.remove('highlight-pulse')
+          }, 3000)
+        }
+      }, 800)
+    }
+  }
+}
 
 // Menu and X icons as SVG components
 const MenuIcon = () => (
@@ -60,14 +80,17 @@ export default function Navbar() {
 
           <div className="hidden md:flex items-center space-x-8">
             {NAV_LINKS.map((link, index) => (
-              <a
+              <button
                 key={index}
-                href={link.href}
+                onClick={(e) => {
+                  e.preventDefault()
+                  smoothScrollTo(link.href.replace('#', ''))
+                }}
                 className="text-gray-900 hover:text-[#FF5722] font-semibold transition-all duration-300 relative group"
               >
                 {link.label}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#FF5722] group-hover:w-full transition-all duration-300" />
-              </a>
+              </button>
             ))}
           </div>
 
@@ -98,14 +121,17 @@ export default function Navbar() {
           <div className="md:hidden mt-4 pb-4 animate-fade-in">
             <div className="flex flex-col space-y-4">
               {NAV_LINKS.map((link, index) => (
-                <a
+                <button
                   key={index}
-                  href={link.href}
-                  className="text-gray-900 hover:text-[#FF5722] font-semibold transition-colors px-4 py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    smoothScrollTo(link.href.replace('#', ''))
+                    setIsMobileMenuOpen(false)
+                  }}
+                  className="text-gray-900 hover:text-[#FF5722] font-semibold transition-colors px-4 py-2 text-left"
                 >
                   {link.label}
-                </a>
+                </button>
               ))}
               <div className="flex flex-col space-y-2 px-4 pt-4 border-t border-gray-300">
                 <Link 

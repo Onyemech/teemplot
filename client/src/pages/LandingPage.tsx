@@ -10,8 +10,12 @@ export default function LandingPage() {
     <main className="min-h-screen">
       <Navbar />
       <Hero />
-      <Features />
-      <Benefits />
+      <div id="features">
+        <Features />
+      </div>
+      <div id="benefits">
+        <Benefits />
+      </div>
       <CTA />
       <Footer />
     </main>

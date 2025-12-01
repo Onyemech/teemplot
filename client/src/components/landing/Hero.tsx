@@ -120,12 +120,26 @@ export default function Hero() {
                     </span>
                     <div className="absolute inset-0 bg-gradient-to-r from-[#0F5D5D] to-[#093737] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
-                  <Link 
-                    to="#contact"
+                  <button 
+                    onClick={() => {
+                      const element = document.getElementById('contact')
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        setTimeout(() => {
+                          const phoneElement = document.getElementById('contact-phone')
+                          if (phoneElement) {
+                            phoneElement.classList.add('highlight-pulse')
+                            setTimeout(() => {
+                              phoneElement.classList.remove('highlight-pulse')
+                            }, 3000)
+                          }
+                        }, 800)
+                      }
+                    }}
                     className="border-2 border-[#FF5722] text-[#FF5722] px-8 py-4 rounded-xl hover:bg-[#FF5722] hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-xl font-semibold flex items-center justify-center"
                   >
                     Schedule Demo
-                  </Link>
+                  </button>
                 </div>
               </ScrollReveal>
 
