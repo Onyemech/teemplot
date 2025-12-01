@@ -51,7 +51,6 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Logo at top of card */}
           <div className="text-center mb-6">
             <Link to="/login" className="inline-block">
               <img src="/logo.png"

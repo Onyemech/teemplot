@@ -79,7 +79,6 @@ export default function AcceptInvitationPage() {
     }
   }, [formData.password])
 
-  // Fetch invitation details
   useEffect(() => {
     const fetchInvitation = async () => {
       if (!token) {
@@ -117,7 +116,6 @@ export default function AcceptInvitationPage() {
     e.preventDefault()
     setError('')
 
-    // Validate password match
     if (formData.password !== formData.confirmPassword) {
       const errorMsg = 'Passwords do not match'
       setError(errorMsg)
@@ -125,7 +123,6 @@ export default function AcceptInvitationPage() {
       return
     }
 
-    // Validate password strength
     if (!passwordValidation.isValid) {
       const errorMsg = `Password must have: ${passwordValidation.errors.join(', ')}`
       setError(errorMsg)
