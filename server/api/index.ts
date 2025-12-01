@@ -83,13 +83,23 @@ async function buildServerlessApp() {
   await fastify.register(filesRoutes, { prefix: '/api/files' });
   await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
 
+  // Debug route to list all routes
+  fastify.get('/api/debug/routes', async () => {
+    return {
+      success: true,
+      routes: fastify.printRoutes({ commonPrefix: false })
+    };
+  });
+
   // 404 handler
   fastify.setNotFoundHandler((request, reply) => {
+    console.log('[404] Route not found:', request.method, request.url);
     reply.code(404).send({
       success: false,
       message: 'Route not found',
       path: request.url,
-      method: request.method
+      method: request.method,
+      availableRoutes: 'Check /api/debug/routes for all routes'
     });
   });
 
@@ -98,23 +108,30 @@ async function buildServerlessApp() {
 
 export default async function handler(req: any, res: any) {
   try {
+    // Initialize app if not already done
     if (!app) {
-      console.log('Initializing Fastify app...');
+      console.log('[Serverless] Initializing Fastify app...');
       app = await buildServerlessApp();
       await app.ready();
-      console.log('Fastify app ready');
+      console.log('[Serverless] Fastify app ready');
+      console.log('[Serverless] Registered routes:', app.printRoutes());
     }
 
     // Handle the request
-    await app.ready();
     app.server.emit('request', req, res);
   } catch (error) {
-    console.error('Serverless function error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
-    });
+    console.error('[Serverless] Function error:', error);
+    
+    // Make sure response hasn't been sent
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        success: false, 
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
+      }));
+    }
   }
 }
