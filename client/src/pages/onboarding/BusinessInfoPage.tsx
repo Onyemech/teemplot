@@ -1,454 +1,462 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-
-import { Building2, Hash, Users, Globe, MapPin, AlertCircle, ArrowRight, ArrowLeft, Check } from 'lucide-react'
-import Input from '@/components/ui/Input'
-import Button from '@/components/ui/Button'
-import BackButton from '@/components/ui/BackButton'
-import Card from '@/components/ui/Card'
-import Select from '@/components/ui/Select'
-import { submitBusinessInfo, getOnboardingAuth } from '@/utils/onboardingApi'
-import { useToast } from '@/contexts/ToastContext'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, MapPin, Loader } from 'lucide-react';
 
 export default function BusinessInfoPage() {
-  const navigate = useNavigate()
-  const toast = useToast()
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+
   const [formData, setFormData] = useState({
     companyName: '',
     taxId: '',
     industry: '',
-    employeeCount: '',
+    numberOfEmployees: '',
     website: '',
     address: '',
     city: '',
-    stateProvince: '',
+    state: '',
     country: 'Nigeria',
     postalCode: '',
-  })
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
-  const [locationError, setLocationError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [showSuccess, setShowSuccess] = useState(false)
+    latitude: '',
+    longitude: ''
+  });
 
-  useEffect(() => {
-    // Prefetch next page for instant navigation
-    // prefetch not needed in React Router: '/onboarding/documents')
-
-    // Check if previous steps completed
-    const companySetup = sessionStorage.getItem('onboarding_company_setup')
-    if (!companySetup) {
-      navigate('/onboarding/company-setup')
-      return
-    }
-
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          })
-        },
-        () => {
-          setLocationError('Unable to get location. Please enable location services.')
-        }
-      )
-    } else {
-      setLocationError('Geolocation is not supported by this browser.')
-    }
-  }, [navigate])
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const industries = [
-    { value: 'technology', label: 'Technology' },
-    { value: 'healthcare', label: 'Healthcare' },
-    { value: 'finance', label: 'Finance' },
-    { value: 'education', label: 'Education' },
-    { value: 'retail', label: 'Retail' },
-    { value: 'manufacturing', label: 'Manufacturing' },
-    { value: 'construction', label: 'Construction' },
-    { value: 'hospitality', label: 'Hospitality' },
-    { value: 'transportation', label: 'Transportation' },
-    { value: 'other', label: 'Other' },
-  ]
+    'Technology',
+    'Healthcare',
+    'Finance',
+    'Education',
+    'Manufacturing',
+    'Retail',
+    'Hospitality',
+    'Construction',
+    'Transportation',
+    'Agriculture',
+    'Real Estate',
+    'Media & Entertainment',
+    'Professional Services',
+    'Other'
+  ];
 
-  const countries = [
-    { value: 'Nigeria', label: 'Nigeria' },
-    { value: 'Ghana', label: 'Ghana' },
-    { value: 'Kenya', label: 'Kenya' },
-    { value: 'South Africa', label: 'South Africa' },
-    { value: 'United States', label: 'United States' },
-    { value: 'United Kingdom', label: 'United Kingdom' },
-  ]
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setFetchingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: position.coords.latitude.toString(),
+          longitude: position.coords.longitude.toString()
+        }));
+        setFetchingLocation(false);
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        alert('Failed to get location. Please enter manually or try again.');
+        setFetchingLocation(false);
+      }
+    );
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.companyName || formData.companyName.length < 2) {
+      newErrors.companyName = 'Company name must be at least 2 characters';
+    }
+
+    if (!formData.taxId) {
+      newErrors.taxId = 'Tax ID / RC Number is required';
+    }
+
+    if (!formData.industry) {
+      newErrors.industry = 'Please select an industry';
+    }
+
+    if (!formData.numberOfEmployees) {
+      newErrors.numberOfEmployees = 'Number of employees is required';
+    } else if (parseInt(formData.numberOfEmployees) < 1) {
+      newErrors.numberOfEmployees = 'Must be at least 1 employee';
+    }
+
+    if (formData.website && !/^https?:\/\/.+/.test(formData.website)) {
+      newErrors.website = 'Please enter a valid URL (e.g., https://example.com)';
+    }
+
+    if (!formData.address) {
+      newErrors.address = 'Business address is required';
+    }
+
+    if (!formData.city) {
+      newErrors.city = 'City is required';
+    }
+
+    if (!formData.state) {
+      newErrors.state = 'State/Province is required';
+    }
+
+    if (!formData.country) {
+      newErrors.country = 'Country is required';
+    }
+
+    if (!formData.postalCode) {
+      newErrors.postalCode = 'Postal code is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    
+    if (!validateForm()) return;
 
-    // Validate required fields
-    if (!formData.companyName || !formData.taxId || !formData.industry ||
-      !formData.employeeCount || !formData.address || !formData.city ||
-      !formData.stateProvince || !formData.postalCode) {
-      setError('Please fill in all required fields')
-      toast.error('Please fill in all required fields')
-      return
-    }
-
-    // Validate employee count
-    const employeeCount = parseInt(formData.employeeCount)
-    if (isNaN(employeeCount) || employeeCount < 1) {
-      setError('Employee count must be at least 1')
-      toast.error('Employee count must be at least 1')
-      return
-    }
-
-    if (!location) {
-      setError('Location is required. Please enable location services and refresh the page.')
-      toast.error('Location is required')
-      return
-    }
-
-    setLoading(true)
+    setLoading(true);
 
     try {
-      // Get auth data
-      const authData = getOnboardingAuth()
-
-      // Submit to backend
-      await submitBusinessInfo({
-        companyId: authData.companyId,
-        companyName: formData.companyName,
-        taxId: formData.taxId,
-        industry: formData.industry,
-        employeeCount: employeeCount,
-        website: formData.website || undefined,
-        address: formData.address,
-        city: formData.city,
-        stateProvince: formData.stateProvince,
-        country: formData.country,
-        postalCode: formData.postalCode,
-        officeLatitude: location.latitude,
-        officeLongitude: location.longitude,
-      })
-
-      // Store in session storage for reference
-      sessionStorage.setItem('onboarding_business_info', JSON.stringify({
-        ...formData,
-        employeeCount: employeeCount,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      }))
-
-      toast.success('Business information saved successfully!')
-      setShowSuccess(true)
-
-      setTimeout(() => {
-        navigate('/onboarding/documents')
-      }, 1500)
-
-    } catch (err: any) {
-      console.error('Failed to save business info:', err)
-      const errorMsg = err.message || 'Failed to save business information'
-      setError(errorMsg)
-      toast.error(errorMsg)
+      // Save business info to session
+      sessionStorage.setItem('businessInfo', JSON.stringify(formData));
+      
+      // Navigate to next stage
+      navigate('/onboarding/logo-upload');
+    } catch (error) {
+      console.error('Error saving business info:', error);
+      alert('Failed to save business information. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleBack = () => {
-    const companySetup = sessionStorage.getItem('onboarding_company_setup')
-    if (companySetup) {
-      const { isOwner } = JSON.parse(companySetup)
-      if (isOwner) {
-        navigate('/onboarding/company-setup')
-      } else {
-        navigate('/onboarding/owner-details')
-      }
+    const isOwner = sessionStorage.getItem('isOwner') === 'true';
+    if (isOwner) {
+      navigate('/onboarding/company-setup');
     } else {
-      navigate('/onboarding/company-setup')
+      navigate('/onboarding/owner-details');
     }
-  }
-
-  // Success animation component
-  if (showSuccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-success rounded-full flex items-center justify-center mx-auto mb-4 animate-scaleIn">
-            <Check className="w-10 h-10 text-white" strokeWidth={3} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 animate-fadeIn">
-            Business Info Saved!
-          </h2>
-          <p className="text-gray-600 animate-fadeIn">
-            Proceeding to document upload...
-          </p>
-        </div>
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Teemplot" className="h-16 w-auto" />
-            <div className="text-sm text-gray-700 font-medium">
-              Step 4 of 9
-            </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-3xl mx-auto px-4">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">Step 4 of 9</span>
+            <span className="text-sm text-gray-500">44% Complete</span>
           </div>
-          <div className="text-sm font-medium text-primary-600">
-            Business Information
-          </div>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="max-w-4xl mx-auto">
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: '44%' }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-gray-700 font-medium mt-2">
-            <span>Registration</span>
-            <span>Company Setup</span>
-            <span className="font-medium text-primary-600">Business Info</span>
-            <span>Documents</span>
-            <span>Complete</span>
+            <div className="bg-[#0F5D5D] h-2 rounded-full transition-all duration-300" style={{ width: '44%' }}></div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-6 py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card className="p-8">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Business Information
-              </h1>
-              <p className="text-gray-600">
-                Tell us about your company to complete your profile.
-              </p>
-            </div>
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </button>
 
-            {error && (
-              <div className="mb-6 p-4 bg-error/10 border border-error/20 rounded-lg text-error text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </div>
-            )}
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Business Information
+          </h1>
+          <p className="text-gray-600">
+            Tell us about your company
+          </p>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Company Details */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                  Company Details
-                </h3>
-
-                <Input
-                  label="Company Name"
-                  type="text"
-                  required
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  icon={<Building2 className="w-5 h-5" />}
-                  placeholder="Enter your company name"
-                  helperText="Legal business name as registered"
-                  fullWidth
-                />
-
-                <Input
-                  label="Tax ID / RC Number"
-                  type="text"
-                  required
-                  value={formData.taxId}
-                  onChange={(e) => {
-                    // Only allow numbers and limit to 15 characters
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 15)
-                    setFormData({ ...formData, taxId: value })
-                  }}
-                  icon={<Hash className="w-5 h-5" />}
-                  placeholder="Enter tax identification number"
-                  helperText="Company registration or tax ID number (Numbers only)"
-                  fullWidth
-                  maxLength={15}
-                />
-
-                <Select
-                  label="Industry"
-                  required
-                  value={formData.industry}
-                  onChange={(value) => setFormData({ ...formData, industry: value })}
-                  options={industries}
-                  placeholder="Select your industry"
-                />
-
-                <Input
-                  label="Number of Employees"
-                  type="number"
-                  required
-                  value={formData.employeeCount}
-                  onChange={(e) => setFormData({ ...formData, employeeCount: e.target.value })}
-                  icon={<Users className="w-5 h-5" />}
-                  placeholder="Enter number of employees"
-                  helperText="Include yourself in the count"
-                  fullWidth
-                  min="1"
-                />
-
-                <Input
-                  label="Company Website"
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  icon={<Globe className="w-5 h-5" />}
-                  placeholder="https://www.example.com"
-                  helperText="Optional - Your company website"
-                  fullWidth
-                />
-              </div>
-
-              {/* Business Address */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                  Business Address
-                </h3>
-
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="space-y-6">
+            {/* Company Details Section */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Company Details</h2>
+              
+              <div className="space-y-4">
+                {/* Company Name */}
                 <div>
-                  <Input
-                    label="Street Address"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
                     type="text"
-                    required
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    icon={<MapPin className="w-5 h-5" />}
-                    placeholder="Enter street address"
-                    fullWidth
+                    name="companyName"
+                    value={formData.companyName}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.companyName ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter your company name"
                   />
-                  {location && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          // Use reverse geocoding to get address from coordinates
-                          const response = await fetch(
-                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.latitude}&lon=${location.longitude}`
-                          )
-                          const data = await response.json()
-                          if (data.address) {
-                            setFormData({
-                              ...formData,
-                              address: data.address.road || data.display_name,
-                              city: data.address.city || data.address.town || data.address.village || '',
-                              stateProvince: data.address.state || '',
-                              postalCode: data.address.postcode || '',
-                            })
-                          }
-                        } catch (err) {
-                          console.error('Failed to fetch address:', err)
-                        }
-                      }}
-                      className="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      📍 Use my current location
-                    </button>
+                  {errors.companyName && (
+                    <p className="text-red-500 text-sm mt-1">{errors.companyName}</p>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="City"
+                {/* Tax ID */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tax ID / RC Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
                     type="text"
-                    required
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="Enter city"
-                    fullWidth
+                    name="taxId"
+                    value={formData.taxId}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.taxId ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter company registration number"
                   />
-
-                  <Input
-                    label="State/Province"
-                    type="text"
-                    required
-                    value={formData.stateProvince}
-                    onChange={(e) => setFormData({ ...formData, stateProvince: e.target.value })}
-                    placeholder="Enter state"
-                    fullWidth
-                  />
+                  {errors.taxId && (
+                    <p className="text-red-500 text-sm mt-1">{errors.taxId}</p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select
-                    label="Country"
-                    required
-                    value={formData.country}
-                    onChange={(value) => setFormData({ ...formData, country: value })}
-                    options={countries}
-                  />
-
-                  <Input
-                    label="Postal Code"
-                    type="text"
-                    required
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                    placeholder="Enter postal code"
-                    fullWidth
-                  />
+                {/* Industry */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Industry <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="industry"
+                    value={formData.industry}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.industry ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select industry</option>
+                    {industries.map(industry => (
+                      <option key={industry} value={industry}>{industry}</option>
+                    ))}
+                  </select>
+                  {errors.industry && (
+                    <p className="text-red-500 text-sm mt-1">{errors.industry}</p>
+                  )}
                 </div>
 
-                {/* Location Status */}
-                <div className={`p-4 rounded-lg border ${location
-                    ? 'bg-success/10 border-success/20'
-                    : 'bg-warning/10 border-warning/20'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    {location ? (
-                      <>
-                        <Check className="w-4 h-4 text-success" />
-                        <span className="text-sm font-medium text-success-dark">
-                          Location captured successfully
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-4 h-4 text-warning" />
-                        <span className="text-sm font-medium text-warning-dark">
-                          {locationError || 'Capturing your location...'}
-                        </span>
-                      </>
+                {/* Number of Employees */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Number of Employees <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="numberOfEmployees"
+                    value={formData.numberOfEmployees}
+                    onChange={handleChange}
+                    min="1"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.numberOfEmployees ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter number of employees"
+                  />
+                  {errors.numberOfEmployees && (
+                    <p className="text-red-500 text-sm mt-1">{errors.numberOfEmployees}</p>
+                  )}
+                </div>
+
+                {/* Website */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Website <span className="text-gray-400">(Optional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="website"
+                    value={formData.website}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.website ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="https://www.example.com"
+                  />
+                  {errors.website && (
+                    <p className="text-red-500 text-sm mt-1">{errors.website}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Business Address Section */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Business Address</h2>
+              
+              <div className="space-y-4">
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Street Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                      errors.address ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter full business address"
+                  />
+                  {errors.address && (
+                    <p className="text-red-500 text-sm mt-1">{errors.address}</p>
+                  )}
+                </div>
+
+                {/* City and State */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                        errors.city ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="City"
+                    />
+                    {errors.city && (
+                      <p className="text-red-500 text-sm mt-1">{errors.city}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State/Province <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                        errors.state ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="State"
+                    />
+                    {errors.state && (
+                      <p className="text-red-500 text-sm mt-1">{errors.state}</p>
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* Navigation */}
-              <div className="flex justify-between pt-8 mt-8 border-t border-gray-200">
-                <BackButton onClick={handleBack} />
+                {/* Country and Postal Code */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Country <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                        errors.country ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="Nigeria">Nigeria</option>
+                      <option value="Ghana">Ghana</option>
+                      <option value="Kenya">Kenya</option>
+                      <option value="South Africa">South Africa</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {errors.country && (
+                      <p className="text-red-500 text-sm mt-1">{errors.country}</p>
+                    )}
+                  </div>
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={loading}
-                  icon={<ArrowRight className="w-4 h-4" />}
-                  iconPosition="right"
-                  disabled={!location}
-                >
-                  {loading ? 'Saving...' : 'Continue'}
-                </Button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Postal Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="postalCode"
+                      value={formData.postalCode}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                        errors.postalCode ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Postal code"
+                    />
+                    {errors.postalCode && (
+                      <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Geolocation */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Office Location (GPS)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={fetchingLocation}
+                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    {fetchingLocation ? (
+                      <>
+                        <Loader className="h-4 w-4 animate-spin" />
+                        <span>Getting location...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-4 w-4" />
+                        <span>Get Current Location</span>
+                      </>
+                    )}
+                  </button>
+                  {formData.latitude && formData.longitude && (
+                    <p className="text-sm text-green-600 mt-2">
+                      ✓ Location captured: {parseFloat(formData.latitude).toFixed(6)}, {parseFloat(formData.longitude).toFixed(6)}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Used for attendance geofencing and location-based features
+                  </p>
+                </div>
               </div>
-            </form>
-          </Card>
-        </div>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-6 bg-[#0F5D5D] text-white py-3 rounded-lg hover:bg-[#0d4d4d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
+            {loading ? 'Saving...' : 'Continue to Logo Upload'}
+          </button>
+        </form>
       </div>
     </div>
-  )
+  );
 }

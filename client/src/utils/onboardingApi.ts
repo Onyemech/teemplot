@@ -1,3 +1,5 @@
+import { authFetch } from './authInterceptor';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 // Get auth data from sessionStorage
@@ -103,7 +105,7 @@ export const submitBusinessInfo = async (data: {
   geocodingAccuracy?: string
 }) => {
   const token = getAuthToken()
-  const response = await fetch(`${API_URL}/onboarding/business-info`, {
+  const response = await authFetch(`${API_URL}/onboarding/business-info`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

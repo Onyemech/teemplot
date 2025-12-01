@@ -34,22 +34,58 @@ const heroImages = [
 
 export default function Hero() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
+  const sectionRef = useRef<HTMLElement>(null)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Pause carousel when not visible using IntersectionObserver
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length)
-    }, 5000) // Change image every 5 seconds
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsVisible(entry.isIntersecting)
+        })
+      },
+      { threshold: 0.1 }
+    )
 
-    return () => clearInterval(interval)
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current)
+    }
+
+    return () => {
+      if (sectionRef.current) {
+        observer.unobserve(sectionRef.current)
+      }
+    }
   }, [])
 
+  // Only run carousel when visible
+  useEffect(() => {
+    if (isVisible) {
+      intervalRef.current = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % heroImages.length)
+      }, 5000)
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [isVisible])
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-6 pt-32 pb-20 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Animated Background Blobs */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 right-20 w-72 h-72 bg-[#FF5722]/10 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-[#0F5D5D]/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#FF5722]/5 rounded-full blur-3xl animate-pulse-slow" />
+    <section ref={sectionRef} className="relative min-h-screen flex items-center justify-center px-6 pt-32 pb-20 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      {/* Optimized Background Blobs - Reduced from 3 to 2 */}
+      <div className="absolute inset-0 -z-10" style={{ contain: 'layout' }}>
+        <div className="absolute top-20 right-20 w-72 h-72 bg-[#FF5722]/10 rounded-full blur-3xl animate-float" style={{ willChange: 'transform' }} />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-[#0F5D5D]/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s', willChange: 'transform' }} />
       </div>
 
       <div className="max-w-7xl mx-auto w-full">
@@ -137,19 +173,22 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Right - Animated Image Carousel */}
+          {/* Right - Optimized Image Carousel */}
           <ScrollReveal direction="scale" delay={0.3}>
-            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl" style={{ willChange: 'transform' }}>
               {/* Image Container */}
               <div className="relative w-full h-full">
                 {heroImages.map((image, index) => (
                   <div
                     key={index}
-                    className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
-                      index === currentImageIndex
-                        ? 'opacity-100 scale-100'
-                        : 'opacity-0 scale-110'
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                      index === currentImageIndex ? 'opacity-100' : 'opacity-0'
                     }`}
+                    style={{
+                      transform: index === currentImageIndex ? 'scale(1)' : 'scale(1.05)',
+                      transition: 'opacity 1000ms ease-in-out, transform 1000ms ease-in-out',
+                      willChange: index === currentImageIndex ? 'opacity, transform' : 'auto'
+                    }}
                   >
                     <img
                       src={image.url}
@@ -161,9 +200,15 @@ export default function Hero() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                     
                     {/* Caption */}
-                    <div className={`absolute bottom-8 left-8 right-8 transition-all duration-700 ${
-                      index === currentImageIndex ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-                    }`}>
+                    <div 
+                      className="absolute bottom-8 left-8 right-8"
+                      style={{
+                        transform: index === currentImageIndex ? 'translateY(0)' : 'translateY(1rem)',
+                        opacity: index === currentImageIndex ? 1 : 0,
+                        transition: 'transform 700ms ease-in-out, opacity 700ms ease-in-out',
+                        willChange: index === currentImageIndex ? 'transform, opacity' : 'auto'
+                      }}
+                    >
                       <h3 className="text-white text-2xl md:text-3xl font-bold drop-shadow-lg">
                         {image.caption}
                       </h3>
@@ -172,9 +217,8 @@ export default function Hero() {
                 ))}
               </div>
 
-              {/* Decorative Elements */}
-              <div className="absolute -top-6 -right-6 w-32 h-32 bg-[#FF5722] rounded-full blur-2xl opacity-30 animate-pulse-slow" />
-              <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-[#0F5D5D] rounded-full blur-2xl opacity-30 animate-pulse-slow" style={{ animationDelay: '1s' }} />
+              {/* Decorative Elements - Reduced and optimized */}
+              <div className="absolute -top-6 -right-6 w-32 h-32 bg-[#FF5722] rounded-full blur-2xl opacity-30 animate-pulse-slow" style={{ willChange: 'transform, filter' }} />
             </div>
 
             {/* Image Indicators */}

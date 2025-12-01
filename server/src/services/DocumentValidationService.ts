@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { db } from '../infrastructure/database';
+import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import crypto from 'crypto';
 
 export interface DocumentValidationResult {

@@ -33,4 +33,18 @@
   .drop-shadow-glow {
     filter: drop-shadow(0 0 20px hsl(14 100% 57% / 0.5));
   }
+
+  /* Optimized cursor blink animation using CSS */
+  .animate-cursor-blink {
+    animation: cursor-blink 1s step-end infinite;
+  }
+}
+
+@keyframes cursor-blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
 }

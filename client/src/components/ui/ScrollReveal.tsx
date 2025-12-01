@@ -1,5 +1,7 @@
-import { useEffect, useRef, ReactNode } from 'react';
-import { motion, useInView, useAnimation, Variants } from 'framer-motion';
+import { useEffect, useRef, ReactNode, useState } from 'react';
+import { motion, Variants } from 'framer-motion';
+import { useSharedIntersectionObserver } from '@/hooks/useSharedIntersectionObserver';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -38,6 +40,16 @@ const variants: Record<string, Variants> = {
   }
 };
 
+// Reduced motion variants - instant transitions
+const reducedMotionVariants: Record<string, Variants> = {
+  up: { hidden: { opacity: 0 }, visible: { opacity: 1 } },
+  down: { hidden: { opacity: 0 }, visible: { opacity: 1 } },
+  left: { hidden: { opacity: 0 }, visible: { opacity: 1 } },
+  right: { hidden: { opacity: 0 }, visible: { opacity: 1 } },
+  scale: { hidden: { opacity: 0 }, visible: { opacity: 1 } },
+  fade: { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+};
+
 export default function ScrollReveal({
   children,
   delay = 0,
@@ -47,30 +59,52 @@ export default function ScrollReveal({
   once = true,
   amount = 0.3
 }: ScrollRevealProps) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once, amount });
-  const controls = useAnimation();
+  const [isVisible, setIsVisible] = useState(false);
+  const [willChange, setWillChange] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  
+  const ref = useSharedIntersectionObserver(
+    (entry) => {
+      if (entry.isIntersecting) {
+        // Apply will-change before animation
+        setWillChange(true);
+        setIsVisible(true);
+      } else if (!once) {
+        setIsVisible(false);
+      }
+    },
+    { threshold: amount, once }
+  );
 
+  // Remove will-change after animation completes
   useEffect(() => {
-    if (isInView) {
-      controls.start('visible');
-    } else if (!once) {
-      controls.start('hidden');
+    if (isVisible && willChange) {
+      const timer = setTimeout(() => {
+        setWillChange(false);
+      }, (duration + delay) * 1000 + 100); // Add 100ms buffer
+      
+      return () => clearTimeout(timer);
     }
-  }, [isInView, controls, once]);
+  }, [isVisible, willChange, duration, delay]);
+
+  const activeVariants = prefersReducedMotion ? reducedMotionVariants : variants;
+  const activeDuration = prefersReducedMotion ? 0 : duration;
 
   return (
     <motion.div
       ref={ref}
       initial="hidden"
-      animate={controls}
-      variants={variants[direction]}
+      animate={isVisible ? 'visible' : 'hidden'}
+      variants={activeVariants[direction]}
       transition={{
-        duration,
-        delay,
+        duration: activeDuration,
+        delay: prefersReducedMotion ? 0 : delay,
         ease: [0.25, 0.4, 0.25, 1]
       }}
       className={className}
+      style={{
+        willChange: willChange ? 'transform, opacity' : 'auto'
+      }}
     >
       {children}
     </motion.div>

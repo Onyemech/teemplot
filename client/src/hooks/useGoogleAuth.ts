@@ -75,11 +75,12 @@ export const useGoogleAuth = () => {
 
       // Check if onboarding is required
       if (data.data.requiresOnboarding) {
-        // Store auth data for onboarding
+        // Store auth data for onboarding (including token!)
         sessionStorage.setItem('onboarding_auth', JSON.stringify({
           email: data.data.user.email,
           userId: data.data.user.id,
           companyId: data.data.user.companyId,
+          token: data.data.token, // Include the token!
           isGoogleAuth: true,
         }));
 

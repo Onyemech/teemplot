@@ -78,6 +78,22 @@ function VerifyEmailContent() {
       const data = await response.json()
 
       if (data.success) {
+        // Store token in sessionStorage for onboarding flow
+        const existingAuth = sessionStorage.getItem('onboarding_auth')
+        if (existingAuth) {
+          const authData = JSON.parse(existingAuth)
+          authData.token = data.data.token
+          sessionStorage.setItem('onboarding_auth', JSON.stringify(authData))
+        } else {
+          // Fallback: create new auth data
+          sessionStorage.setItem('onboarding_auth', JSON.stringify({
+            email,
+            token: data.data.token,
+            userId: data.data.user.id,
+            companyId: data.data.user.companyId,
+          }))
+        }
+
         // After email verification, proceed to company setup
         navigate('/onboarding/company-setup')
       } else {

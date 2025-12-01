@@ -53,7 +53,7 @@ export async function errorHandler(
  */
 export function setupUncaughtExceptionHandler(): void {
   process.on('uncaughtException', (error: Error) => {
-    logger.error('Uncaught Exception:', error);
+    logger.error({ error }, 'Uncaught Exception');
     
     superAdminNotificationService.notifyError(error, {
       type: 'uncaughtException',
@@ -74,7 +74,7 @@ export function setupUncaughtExceptionHandler(): void {
  */
 export function setupUnhandledRejectionHandler(): void {
   process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-    logger.error('Unhandled Rejection:', { reason, promise });
+    logger.error({ reason, promise }, 'Unhandled Rejection');
     
     const error = reason instanceof Error ? reason : new Error(String(reason));
     

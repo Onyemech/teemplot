@@ -129,9 +129,38 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Get user data to generate token
+      const user = await db.findOne('users', { email });
+      
+      if (!user) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Generate JWT token
+      const token = fastify.jwt.sign({
+        userId: user.id,
+        companyId: user.company_id,
+        email: user.email,
+        role: user.role,
+      });
+
       return reply.code(200).send({
         success: true,
         message: 'Email verified successfully',
+        data: {
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            companyId: user.company_id,
+          },
+        },
       });
     } catch (error: any) {
       return reply.code(400).send({

@@ -1,8 +1,3 @@
-/**
- * Database abstraction interface for loose coupling
- * Supports: PostgreSQL (Supabase), SQLite (local dev), Convex (backup)
- */
-
 export interface QueryResult<T = any> {
   rows: T[];
   rowCount: number;
@@ -25,6 +20,7 @@ export interface IDatabase {
       limit?: number;
       offset?: number;
       orderBy?: string;
+      orderDir?: 'asc' | 'desc';
       select?: string[];
     }
   ): Promise<T[]>;

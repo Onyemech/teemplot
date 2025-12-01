@@ -7,18 +7,22 @@ import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
+// Debug utilities (available in console as window.debugAuth())
+import './utils/debugAuth'
+
 // Auth Pages
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
 
 // Onboarding Pages
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
-import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
+import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPageNew'
 import OnboardingOwnerDetailsPage from './pages/onboarding/OwnerDetailsPage'
 import OnboardingBusinessInfoPage from './pages/onboarding/BusinessInfoPage'
-import OnboardingDocumentsPage from './pages/onboarding/DocumentsPage'
+import OnboardingLogoUploadPage from './pages/onboarding/LogoUploadPage'
+import OnboardingDocumentsPage from './pages/onboarding/DocumentUploadPage'
 import OnboardingSubscriptionPage from './pages/onboarding/SubscriptionPage'
-import OnboardingCompletePage from './pages/onboarding/CompletePage'
+import OnboardingCompletePage from './pages/onboarding/CompletionPage'
 
 function App() {
   return (
@@ -41,6 +45,7 @@ function App() {
         <Route path="company-setup" element={<OnboardingCompanySetupPage />} />
         <Route path="owner-details" element={<OnboardingOwnerDetailsPage />} />
         <Route path="business-info" element={<OnboardingBusinessInfoPage />} />
+        <Route path="logo-upload" element={<OnboardingLogoUploadPage />} />
         <Route path="documents" element={<OnboardingDocumentsPage />} />
         <Route path="subscription" element={<OnboardingSubscriptionPage />} />
         <Route path="complete" element={<OnboardingCompletePage />} />

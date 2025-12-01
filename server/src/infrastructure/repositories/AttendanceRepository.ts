@@ -1,110 +1,86 @@
 import { IAttendanceRepository, AttendanceFilters, AttendanceStats } from '../../domain/repositories/IAttendanceRepository';
 import { AttendanceRecord } from '../../domain/entities/Attendance';
-import { db } from '../../config/database';
+import { DatabaseFactory } from '../database/DatabaseFactory';
+import { IDatabase } from '../database/IDatabase';
 import { startOfDay, endOfDay } from 'date-fns';
 
 export class AttendanceRepository implements IAttendanceRepository {
   private tableName = 'attendance_records';
+  private db: IDatabase;
+
+  constructor() {
+    this.db = DatabaseFactory.getPrimaryDatabase();
+  }
 
   async findById(id: string): Promise<AttendanceRecord | null> {
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !data) return null;
-    return this.mapToEntity(data);
+    const record = await this.db.findOne(this.tableName, { id });
+    if (!record) return null;
+    return this.mapToEntity(record);
   }
 
   async findByUserAndDate(userId: string, date: Date): Promise<AttendanceRecord | null> {
     const start = startOfDay(date);
     const end = endOfDay(date);
 
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .select('*')
-      .eq('user_id', userId)
-      .gte('clock_in_time', start.toISOString())
-      .lte('clock_in_time', end.toISOString())
-      .order('clock_in_time', { ascending: false })
-      .limit(1)
-      .single();
+    const records = await this.db.query(
+      `SELECT * FROM ${this.tableName} 
+       WHERE user_id = $1 
+       AND clock_in_time >= $2 
+       AND clock_in_time <= $3 
+       ORDER BY clock_in_time DESC 
+       LIMIT 1`,
+      [userId, start.toISOString(), end.toISOString()]
+    );
 
-    if (error || !data) return null;
-    return this.mapToEntity(data);
+    if (records.rows.length === 0) return null;
+    return this.mapToEntity(records.rows[0]);
   }
 
   async findByCompany(companyId: string, filters?: AttendanceFilters): Promise<AttendanceRecord[]> {
-    let query = db.getAdminClient()
-      .from(this.tableName)
-      .select('*')
-      .eq('company_id', companyId);
+    // TODO: Implement using IDatabase interface
+    throw new Error('Not implemented - use DatabaseFactory.getPrimaryDatabase() directly in services');
+  }
 
-    query = this.applyFilters(query, filters);
-
-    const { data, error } = await query;
-    if (error || !data) return [];
-    return data.map(this.mapToEntity);
+  private applyFilters(query: any, filters?: AttendanceFilters): any {
+    // Legacy method - not used
+    return query;
   }
 
   async findByUser(userId: string, filters?: AttendanceFilters): Promise<AttendanceRecord[]> {
-    let query = db.getAdminClient()
-      .from(this.tableName)
-      .select('*')
-      .eq('user_id', userId);
-
-    query = this.applyFilters(query, filters);
-
-    const { data, error } = await query;
-    if (error || !data) return [];
-    return data.map(this.mapToEntity);
+    // TODO: Implement using IDatabase interface
+    throw new Error('Not implemented - use DatabaseFactory.getPrimaryDatabase() directly in services');
   }
 
   async create(record: Omit<AttendanceRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<AttendanceRecord> {
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .insert(this.mapToDb(record))
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to create attendance record: ${error.message}`);
-    return this.mapToEntity(data);
+    const result = await this.db.insert(this.tableName, this.mapToDb(record));
+    return this.mapToEntity(result);
   }
 
   async update(id: string, recordData: Partial<AttendanceRecord>): Promise<AttendanceRecord> {
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .update(this.mapToDb(recordData))
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to update attendance record: ${error.message}`);
-    return this.mapToEntity(data);
+    const results = await this.db.update(this.tableName, this.mapToDb(recordData), { id });
+    if (results.length === 0) throw new Error('Attendance record not found');
+    return this.mapToEntity(results[0]);
   }
 
   async hasActiveClock(userId: string): Promise<boolean> {
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .select('id')
-      .eq('user_id', userId)
-      .is('clock_out_time', null)
-      .limit(1)
-      .single();
-
-    return !error && data !== null;
+    const result = await this.db.query(
+      `SELECT id FROM ${this.tableName} WHERE user_id = $1 AND clock_out_time IS NULL LIMIT 1`,
+      [userId]
+    );
+    return result.rows.length > 0;
   }
 
   async getUserAttendanceStats(userId: string, startDate: Date, endDate: Date): Promise<AttendanceStats> {
-    const { data, error } = await db.getAdminClient()
-      .from(this.tableName)
-      .select('status, total_hours')
-      .eq('user_id', userId)
-      .gte('clock_in_time', startDate.toISOString())
-      .lte('clock_in_time', endDate.toISOString());
+    const result = await this.db.query(
+      `SELECT status, total_hours FROM ${this.tableName} 
+       WHERE user_id = $1 
+       AND clock_in_time >= $2 
+       AND clock_in_time <= $3`,
+      [userId, startDate.toISOString(), endDate.toISOString()]
+    );
 
-    if (error || !data) {
+    const data = result.rows;
+    if (!data || data.length === 0) {
       return {
         totalDays: 0,
         presentDays: 0,
@@ -115,7 +91,7 @@ export class AttendanceRepository implements IAttendanceRepository {
       };
     }
 
-    const stats = data.reduce((acc, record) => {
+    const stats = data.reduce((acc: any, record: any) => {
       acc.totalDays++;
       if (record.status === 'present') acc.presentDays++;
       if (record.status === 'late') acc.lateDays++;
@@ -134,30 +110,6 @@ export class AttendanceRepository implements IAttendanceRepository {
       ...stats,
       averageHoursPerDay: stats.totalDays > 0 ? stats.totalHours / stats.totalDays : 0,
     };
-  }
-
-  private applyFilters(query: any, filters?: AttendanceFilters): any {
-    if (filters?.startDate) {
-      query = query.gte('clock_in_time', filters.startDate.toISOString());
-    }
-    if (filters?.endDate) {
-      query = query.lte('clock_in_time', filters.endDate.toISOString());
-    }
-    if (filters?.status) {
-      query = query.eq('status', filters.status);
-    }
-    if (filters?.userId) {
-      query = query.eq('user_id', filters.userId);
-    }
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
-    if (filters?.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-    }
-
-    query = query.order('clock_in_time', { ascending: false });
-    return query;
   }
 
   private mapToEntity(data: any): AttendanceRecord {

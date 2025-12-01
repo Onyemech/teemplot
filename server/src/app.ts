@@ -71,7 +71,7 @@ export async function buildApp() {
     max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
     errorResponseBuilder: (request, context) => {
-      const retryAfter = Math.ceil(context.after / 1000 / 60);
+      const retryAfter = Math.ceil(Number(context.after) / 1000 / 60);
       return {
         statusCode: 429,
         error: 'Too Many Requests',
@@ -91,8 +91,20 @@ export async function buildApp() {
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
-    } catch (error) {
-      reply.code(401).send({ success: false, message: 'Unauthorized' });
+    } catch (error: any) {
+      // Provide clear error messages
+      const message = error.message?.includes('expired') 
+        ? 'Session expired. Please log in again.'
+        : error.message?.includes('invalid')
+        ? 'Invalid authentication token. Please log in again.'
+        : 'Authentication required. Please log in.';
+      
+      reply.code(401).send({ 
+        success: false, 
+        message,
+        code: 'AUTH_ERROR',
+        requiresLogin: true
+      });
     }
   });
 
@@ -137,6 +149,14 @@ export async function buildApp() {
   // Import and register company settings routes
   const companySettingsRoutes = await import('./routes/company-settings.routes');
   await app.register(companySettingsRoutes.default, { prefix: '/api/company-settings' });
+
+  // Import and register admin address audit routes
+  const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');
+  await app.register(adminAddressAuditRoutes.default, { prefix: '/api/admin/address-audit' });
+
+  // Import and register dashboard routes
+  const dashboardRoutes = await import('./routes/dashboard.routes');
+  await app.register(dashboardRoutes.default, { prefix: '/api/dashboard' });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

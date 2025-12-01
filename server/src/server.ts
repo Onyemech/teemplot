@@ -6,7 +6,7 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { config_env } from './config/environment';
-import { db } from './config/database';
+import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { authRoutes } from './presentation/routes/authRoutes';
 import { userRoutes } from './presentation/routes/userRoutes';
 import { companyRoutes } from './presentation/routes/companyRoutes';
@@ -82,7 +82,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   server.get('/health', async (request, reply) => {
-    const dbConnected = await db.testConnection();
+    const db = DatabaseFactory.getPrimaryDatabase();
+    const dbConnected = await db.healthCheck();
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -96,7 +97,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(attendanceRoutes, { prefix: '/api/attendance' });
   await server.register(taskRoutes, { prefix: '/api/tasks' });
 
-  server.setErrorHandler((error, request, reply) => {
+  server.setErrorHandler((error: any, request, reply) => {
     request.log.error(error);
 
     if (error.validation) {

@@ -14,7 +14,7 @@ export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private readonly fromEmail: string;
   private readonly fromName: string = 'Teemplot';
-  private readonly brandColor: string = '#0F5D5D';
+  private readonly brandColor: string = '#16a06e';
   private readonly accentColor: string = '#FF5722';
   private db: IDatabase;
 
@@ -115,6 +115,17 @@ export class EmailService {
       { verified_at: new Date().toISOString() },
       { id: record.id }
     );
+
+    return true;
+  }
+
+  async validateCode(email: string, code: string): Promise<boolean> {
+    const records = await this.db.find('email_verification_codes', { email, code });
+    if (records.length === 0) return false;
+
+    const record = records[0];
+    if (new Date(record.expires_at) < new Date()) return false;
+    if (record.verified_at) return false;
 
     return true;
   }

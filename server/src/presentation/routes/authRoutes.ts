@@ -81,7 +81,7 @@ export async function authRoutes(server: FastifyInstance) {
 
     const refreshToken = server.jwt.sign(
       { userId: user.id },
-      { secret: config_env.jwt.refreshSecret, expiresIn: config_env.jwt.refreshExpiresIn }
+      { expiresIn: config_env.jwt.refreshExpiresIn }
     );
 
     reply.setCookie('refreshToken', refreshToken, {

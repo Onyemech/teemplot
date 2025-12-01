@@ -48,7 +48,7 @@ export default function AddressAutocomplete({
   value,
   onChange,
   label,
-  placeholder = 'Start typing your street address...',
+  placeholder = 'e.g., No 18 Admiralty Way',
   required = false,
   error,
   className = '',
@@ -153,14 +153,17 @@ export default function AddressAutocomplete({
     try {
       // Build search query - combine city with address input for better results
       const searchQuery = internalCity 
-        ? `${inputValue}, ${internalCity}` 
-        : inputValue
+        ? `${inputValue}, ${internalCity}, Nigeria` 
+        : `${inputValue}, Nigeria`
 
       autocompleteServiceRef.current.getPlacePredictions(
         {
           input: searchQuery,
           types: ['address'],
-          // No country restriction - allow global search
+          componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
+          // Location bias for Nigeria (Lagos coordinates as center)
+          location: new window.google.maps.LatLng(6.5244, 3.3792),
+          radius: 100000, // 100km radius
         },
         (results, status) => {
           setIsLoading(false)
@@ -325,11 +328,11 @@ export default function AddressAutocomplete({
           type="text"
           value={internalCity}
           onChange={handleCityChange}
-          placeholder="e.g., Lekki"
+          placeholder="e.g., Lekki, Victoria Island, Ikeja"
           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Enter your city to get more accurate address suggestions
+          Enter your city/area first for accurate Nigerian address suggestions
         </p>
       </div>
 
@@ -407,8 +410,8 @@ export default function AddressAutocomplete({
         {!error && !apiError && (
           <p className="mt-1.5 text-xs text-gray-500">
             {internalCity 
-              ? `Showing addresses in ${internalCity}` 
-              : 'Start typing to see address suggestions'}
+              ? `Showing addresses in ${internalCity}, Nigeria` 
+              : 'Type your street address (e.g., No 18 Admiralty Way)'}
           </p>
         )}
       </div>

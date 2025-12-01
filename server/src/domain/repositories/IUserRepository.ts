@@ -25,4 +25,8 @@ export interface UserFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  email?: string;   // <-- Add this
+  orderBy?: 'created_at' | 'name' | 'email' | 'role';
+  orderDir?: 'asc' | 'desc';
 }
+

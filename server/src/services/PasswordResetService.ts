@@ -43,11 +43,12 @@ export class PasswordResetService {
    * Verify reset code
    */
   async verifyResetCode(email: string, code: string): Promise<boolean> {
-    return await emailService.verifyCode(email, code);
+    return await emailService.validateCode(email, code);
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<boolean> {
-    const isValid = await this.verifyResetCode(email, code);
+    // Verify AND consume the code
+    const isValid = await emailService.verifyCode(email, code);
 
     if (!isValid) {
       throw new Error('Invalid or expired reset code');

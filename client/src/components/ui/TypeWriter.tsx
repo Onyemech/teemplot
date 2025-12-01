@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface TypeWriterProps {
   text: string;
@@ -22,17 +22,21 @@ export default function TypeWriter({
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [showCursor, setShowCursor] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Typing effect
+  // Optimized typing effect using single setTimeout chain
   useEffect(() => {
     if (currentIndex < text.length) {
-      const timeout = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setDisplayedText(prev => prev + text[currentIndex]);
         setCurrentIndex(prev => prev + 1);
       }, currentIndex === 0 ? delay : speed);
 
-      return () => clearTimeout(timeout);
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     } else if (!isComplete) {
       setIsComplete(true);
       if (onComplete) {
@@ -41,22 +45,20 @@ export default function TypeWriter({
     }
   }, [currentIndex, text, delay, speed, isComplete, onComplete]);
 
-  // Blinking cursor effect
+  // Cleanup on unmount
   useEffect(() => {
-    if (!cursor) return;
-
-    const cursorInterval = setInterval(() => {
-      setShowCursor(prev => !prev);
-    }, 530);
-
-    return () => clearInterval(cursorInterval);
-  }, [cursor]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <span className={className}>
       {displayedText}
       {cursor && !isComplete && (
-        <span className={`inline-block ${showCursor ? 'opacity-100' : 'opacity-0'}`}>
+        <span className="inline-block animate-cursor-blink">
           {cursorChar}
         </span>
       )}

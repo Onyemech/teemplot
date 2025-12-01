@@ -158,6 +158,52 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     try {
       const rawData = BusinessInfoSchema.parse(request.body);
       const data = sanitizeInput(rawData);
+
+      // Validate address if coordinates are provided
+      if (data.officeLatitude && data.officeLongitude) {
+        const { addressValidationService } = await import('../services/AddressValidationService');
+        
+        const validationResult = await addressValidationService.validateAddress({
+          streetAddress: data.address,
+          city: data.city || '',
+          state: data.stateProvince || '',
+          country: data.country || 'Nigeria',
+          postalCode: data.postalCode,
+          latitude: data.officeLatitude,
+          longitude: data.officeLongitude,
+          placeId: data.placeId || '',
+          formattedAddress: data.formattedAddress || data.address
+        });
+
+        // If validation fails, return detailed errors
+        if (!validationResult.isValid) {
+          return reply.code(400).send({
+            success: false,
+            message: 'Address validation failed',
+            errors: validationResult.issues,
+            warnings: validationResult.warnings
+          });
+        }
+
+        // If validation has warnings but is valid, log them
+        if (validationResult.warnings.length > 0) {
+          fastify.log.warn({
+            companyId: data.companyId,
+            warnings: validationResult.warnings,
+            confidence: validationResult.confidence
+          }, 'Address validation completed with warnings');
+        }
+
+        // Use normalized address
+        data.address = validationResult.normalizedAddress.streetAddress;
+        data.city = validationResult.normalizedAddress.city;
+        data.stateProvince = validationResult.normalizedAddress.state;
+        data.country = validationResult.normalizedAddress.country;
+        data.postalCode = validationResult.normalizedAddress.postalCode;
+        data.formattedAddress = validationResult.normalizedAddress.formattedAddress;
+        data.geocodingAccuracy = validationResult.metadata.coordinateAccuracy;
+      }
+
       await onboardingService.saveBusinessInfo(data);
 
       return reply.code(200).send({

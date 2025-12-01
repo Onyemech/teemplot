@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { motion, useInView, useSpring, useTransform, useScroll } from 'framer-motion';
+import { useRef, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface WaveRevealCardProps {
   children: React.ReactNode;
@@ -9,107 +9,54 @@ interface WaveRevealCardProps {
 
 export default function WaveRevealCard({ children, index, className = '' }: WaveRevealCardProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, amount: 0.2 });
-  
-  // Track scroll velocity for responsive animation
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"]
-  });
+  const [isVisible, setIsVisible] = useState(false);
 
-  // Create spring animations for smooth, organic motion
-  const springConfig = { 
-    stiffness: 150, 
-    damping: 25, 
-    mass: 0.8 
-  };
-
-  // Base delay increases with index for wave effect (faster timing)
-  const baseDelay = index * 0.05;
-  
-  // Opacity spring - fades in smoothly
-  const opacity = useSpring(0, springConfig);
-  
-  // Y position spring - creates the wave motion
-  const y = useSpring(100, springConfig);
-  
-  // X position for snake-like horizontal sway
-  const x = useSpring(0, springConfig);
-  
-  // Rotation for organic feel
-  const rotate = useSpring(0, springConfig);
-  
-  // Scale for depth effect
-  const scale = useSpring(0.8, springConfig);
-
+  // Simple IntersectionObserver for visibility detection
   useEffect(() => {
-    if (isInView) {
-      // Stagger the animation start based on index
-      const timer = setTimeout(() => {
-        opacity.set(1);
-        y.set(0);
-        x.set(0);
-        rotate.set(0);
-        scale.set(1);
-      }, baseDelay * 1000);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isVisible) {
+            setIsVisible(true);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '50px' }
+    );
 
-      return () => clearTimeout(timer);
+    if (ref.current) {
+      observer.observe(ref.current);
     }
-  }, [isInView, baseDelay, opacity, y, x, rotate, scale]);
 
-  // Create wave-like motion based on scroll position
-  const waveY = useTransform(
-    scrollYProgress,
-    [0, 0.5, 1],
-    [20, 0, -20]
-  );
-
-  // Horizontal sway for snake effect (alternates based on index)
-  const waveX = useTransform(
-    scrollYProgress,
-    [0, 0.5, 1],
-    index % 2 === 0 ? [-10, 0, 10] : [10, 0, -10]
-  );
-
-  // Subtle rotation for organic movement
-  const waveRotate = useTransform(
-    scrollYProgress,
-    [0, 0.5, 1],
-    index % 2 === 0 ? [-2, 0, 2] : [2, 0, -2]
-  );
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, [isVisible]);
 
   return (
     <motion.div
       ref={ref}
-      style={{
-        opacity,
-        y,
-        x,
-        rotate,
-        scale,
+      initial={{ opacity: 0, y: 30 }}
+      animate={isVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+      transition={{
+        duration: 0.5,
+        delay: index * 0.08,
+        ease: [0.25, 0.4, 0.25, 1]
+      }}
+      whileHover={{
+        y: -8,
+        transition: { 
+          type: "spring", 
+          stiffness: 400, 
+          damping: 25 
+        }
       }}
       className={className}
+      style={{ willChange: isVisible ? 'transform, opacity' : 'auto' }}
     >
-      <motion.div
-        style={{
-          y: waveY,
-          x: waveX,
-          rotate: waveRotate,
-        }}
-        whileHover={{
-          scale: 1.05,
-          y: -12,
-          rotate: 0,
-          transition: { 
-            type: "spring", 
-            stiffness: 500, 
-            damping: 20 
-          }
-        }}
-        whileTap={{ scale: 0.98 }}
-      >
-        {children}
-      </motion.div>
+      {children}
     </motion.div>
   );
 }
