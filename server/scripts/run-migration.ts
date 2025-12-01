@@ -1,9 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const Database = require('better-sqlite3');
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import Database from 'better-sqlite3';
 
-const dbPath = path.join(__dirname, '../database/teemplot.db');
-const migrationPath = path.join(__dirname, '../migrations/add_geocoding_columns.sql');
+const dbPath = join(__dirname, '../database/teemplot.db');
+const migrationPath = join(__dirname, '../migrations/add_geocoding_columns.sql');
 
 console.log('🔄 Running database migration...');
 console.log('Database:', dbPath);
@@ -11,7 +11,7 @@ console.log('Migration:', migrationPath);
 
 try {
   // Read migration SQL
-  const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
+  const migrationSQL = readFileSync(migrationPath, 'utf-8');
   
   // Connect to database
   const db = new Database(dbPath);
@@ -32,7 +32,7 @@ try {
     try {
       db.exec(statement);
       console.log(`✅ Success\n`);
-    } catch (error) {
+    } catch (error: any) {
       // Ignore "duplicate column" errors (column already exists)
       if (error.message.includes('duplicate column')) {
         console.log(`⚠️  Column already exists, skipping\n`);
@@ -45,7 +45,7 @@ try {
   // Verify columns were added
   console.log('🔍 Verifying schema...');
   const tableInfo = db.prepare('PRAGMA table_info(companies)').all();
-  const columnNames = tableInfo.map(col => col.name);
+  const columnNames = tableInfo.map((col: any) => col.name);
   
   const requiredColumns = [
     'formatted_address',
@@ -71,7 +71,7 @@ try {
   console.log('\n✅ Migration completed successfully!');
   console.log('You can now restart your server.\n');
   
-} catch (error) {
+} catch (error: any) {
   console.error('\n❌ Migration failed:', error.message);
   console.error(error);
   process.exit(1);

@@ -132,9 +132,9 @@ export class AutoAttendanceService {
     try {
       const now = new Date();
       const currentDay = now.toLocaleDateString('en-US', { 
-        weekday: 'lowercase',
+        weekday: 'long',
         timeZone: company.timezone 
-      });
+      }).toLowerCase();
       
       // Check if today is a working day
       if (!company.working_days[currentDay]) {
@@ -179,7 +179,7 @@ export class AutoAttendanceService {
         }
       }
     } catch (error) {
-      logger.error(`Error clocking in employees for company ${company.id}`, error);
+      logger.error({ err: error, companyId: company.id }, `Error clocking in employees for company ${company.id}`);
     }
   }
 
@@ -190,9 +190,9 @@ export class AutoAttendanceService {
     try {
       const now = new Date();
       const currentDay = now.toLocaleDateString('en-US', { 
-        weekday: 'lowercase',
+        weekday: 'long',
         timeZone: company.timezone 
-      });
+      }).toLowerCase();
       
       // Check if today is a working day
       if (!company.working_days[currentDay]) {
@@ -230,7 +230,7 @@ export class AutoAttendanceService {
         }
       }
     } catch (error) {
-      logger.error(`Error clocking out employees for company ${company.id}`, error);
+      logger.error({ err: error, companyId: company.id }, `Error clocking out employees for company ${company.id}`);
     }
   }
 
@@ -348,3 +348,4 @@ export class AutoAttendanceService {
 }
 
 export const autoAttendanceService = new AutoAttendanceService();
+

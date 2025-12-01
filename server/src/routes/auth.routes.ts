@@ -430,28 +430,75 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // ============================================
-  // GOOGLE OAUTH ROUTES
+  // CUSTOM GOOGLE OAUTH ROUTES
   // ============================================
 
-  // Google OAuth callback - Handle Supabase token
-  fastify.post('/google/callback', async (request, reply) => {
+  // Import custom Google auth service
+  const { customGoogleAuthService } = await import('../services/CustomGoogleAuthService');
+
+  // Initiate Google OAuth
+  fastify.get('/google', async (_request, reply) => {
+    const authUrl = customGoogleAuthService.getAuthUrl();
+    return reply.redirect(authUrl);
+  });
+
+  // Google OAuth callback
+  fastify.get('/google/callback', async (request, reply) => {
     try {
-      const { access_token } = z.object({
-        access_token: z.string(),
+      const { code } = z.object({
+        code: z.string(),
+      }).parse(request.query);
+
+      // Handle OAuth callback
+      const result = await customGoogleAuthService.handleCallback(code);
+
+      // Generate JWT token
+      const token = fastify.jwt.sign({
+        userId: result.user.id,
+        companyId: result.user.company_id,
+        role: result.user.role,
+        email: result.user.email,
+      });
+
+      // Log successful login
+      await logSecurityEvent({
+        type: 'login',
+        userId: result.user.id,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] || '',
+        details: {
+          email: result.user.email,
+          provider: 'google',
+          isNewUser: result.isNewUser
+        }
+      });
+
+      // Redirect to frontend with token
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
+      // New users or users who haven't completed onboarding should go to onboarding
+      // Only redirect to dashboard if onboarding is completed
+      const redirectUrl = result.requiresOnboarding
+        ? `${frontendUrl}/onboarding/company-setup?token=${token}&isNewUser=${result.isNewUser}`
+        : `${frontendUrl}/dashboard?token=${token}`;
+
+      return reply.redirect(redirectUrl);
+    } catch (error: any) {
+      logger.error({ err: error }, 'Google OAuth callback failed');
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return reply.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
+  });
+
+  // Get Google auth status (for frontend)
+  fastify.post('/google/verify', async (request, reply) => {
+    try {
+      const { code } = z.object({
+        code: z.string(),
       }).parse(request.body);
 
-      // Get user info from Supabase session
-      const googleUser = await googleAuthService.getUserFromSupabaseSession(access_token);
-
-      if (!googleUser) {
-        return reply.code(401).send({
-          success: false,
-          message: 'Invalid Google authentication',
-        });
-      }
-
-      // Handle authentication and check if onboarding needed
-      const result = await googleAuthService.handleGoogleAuth(googleUser);
+      // Handle OAuth callback
+      const result = await customGoogleAuthService.handleCallback(code);
 
       // Generate JWT token
       const token = fastify.jwt.sign({
@@ -492,60 +539,10 @@ export async function authRoutes(fastify: FastifyInstance) {
         },
       });
     } catch (error: any) {
-      logger.error({ err: error }, 'Google OAuth callback failed');
+      logger.error({ err: error }, 'Google OAuth verification failed');
       return reply.code(500).send({
         success: false,
         message: error.message || 'Google authentication failed',
-      });
-    }
-  });
-
-  // Complete Google user onboarding
-  fastify.post('/google/complete-onboarding', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    try {
-      const userId = request.user.userId;
-
-      const { companyName, industry, companySize, phoneNumber, address, timezone } = z.object({
-        companyName: z.string().min(1, 'Company name is required'),
-        industry: z.string().optional(),
-        companySize: z.string().optional(),
-        phoneNumber: z.string().optional(),
-        address: z.string().optional(),
-        timezone: z.string().default('UTC'),
-      }).parse(request.body);
-
-      const result = await googleAuthService.completeOnboarding(userId, {
-        companyName,
-        industry,
-        companySize,
-        phoneNumber,
-        address,
-        timezone,
-      });
-
-      // Generate new token with updated company ID
-      const user = await db.findOne('users', { id: userId });
-      const newToken = fastify.jwt.sign({
-        userId: user.id,
-        companyId: result.companyId,
-        role: user.role,
-        email: user.email,
-      });
-
-      return reply.code(200).send({
-        success: true,
-        data: {
-          token: newToken,
-          companyId: result.companyId,
-        },
-        message: 'Onboarding completed successfully',
-      });
-    } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Onboarding completion failed',
       });
     }
   });

@@ -62,9 +62,31 @@ export async function buildApp() {
     },
   });
 
+  // Intelligent CORS configuration
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      const { config_env } = require('./config/environment');
+      const allowedOrigins = config_env.allowedOrigins;
+      
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Check if origin is allowed
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
+        callback(new Error('Not allowed by CORS'), false);
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
   });
 
   await app.register(rateLimit, {

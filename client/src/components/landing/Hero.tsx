@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Calendar, CheckCircle2, Users } from 'lucide-react'
 import ScrollReveal from '../ui/ScrollReveal'

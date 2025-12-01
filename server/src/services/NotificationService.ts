@@ -76,10 +76,10 @@ export class NotificationService {
         html: notification.html,
       });
 
-      logger.info(`Email sent: ${info.messageId}`, { to: notification.to });
+      logger.info({ messageId: info.messageId, to: notification.to }, `Email sent: ${info.messageId}`);
       return true;
     } catch (error) {
-      logger.error('Failed to send email', { error, to: notification.to });
+      logger.error({ error, to: notification.to });
       return false;
     }
   }
@@ -89,10 +89,10 @@ export class NotificationService {
    */
   async sendPushNotification(notification: PushNotification): Promise<boolean> {
     // TODO: Implement with Firebase Cloud Messaging, OneSignal, or similar
-    logger.info('Push notification queued', {
+    logger.info({
       userId: notification.userId,
       title: notification.title,
-    });
+    }, 'Push notification queued');
 
     // Store notification in database for in-app display
     await this.storeInAppNotification(notification);
@@ -109,7 +109,7 @@ export class NotificationService {
     const userResult = await pool.query(userQuery, [notification.userId]);
     
     if (userResult.rows.length === 0) {
-      logger.error('User not found for notification', { userId: notification.userId });
+      logger.error({ userId: notification.userId });
       return;
     }
 
@@ -192,10 +192,11 @@ export class NotificationService {
         });
       }
 
-      logger.info(`Early departure notifications sent for user ${data.userId}`, {
+      logger.info({
+        userId: data.userId,
         companyId: data.companyId,
         adminCount: adminsResult.rows.length,
-      });
+      }, `Early departure notifications sent for user ${data.userId}`);
     } catch (error) {
       logger.error({ error }, 'Failed to send early departure notifications');
     }
@@ -352,3 +353,4 @@ export class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+

@@ -1,36 +1,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
-import { useOnboardingProgress } from './useOnboardingProgress';
 
-export const useGoogleAuth = () => {
+export function useGoogleAuth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
-  const { resumeOnboarding } = useOnboardingProgress();
 
+  /**
+   * Initiate Google OAuth flow
+   * Redirects to backend which then redirects to Google
+   */
   const signInWithGoogle = async () => {
-    setLoading(true);
-
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Supabase will redirect to Google OAuth
-      // The callback will be handled by the callback page
+      setLoading(true);
+      
+      // Redirect to our backend Google OAuth endpoint
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const backendUrl = apiUrl.replace('/api', ''); // Remove /api if present
+      window.location.href = `${backendUrl}/api/auth/google`;
+      
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       toast.error(error.message || 'Failed to sign in with Google');
@@ -38,74 +27,127 @@ export const useGoogleAuth = () => {
     }
   };
 
-  const handleCallback = async () => {
+  /**
+   * Handle Google OAuth callback
+   * Called when user returns from Google with authorization code
+   */
+  const handleGoogleCallback = async (code: string) => {
     try {
-      // Get session from URL hash
-      const { data: { session }, error } = await supabase.auth.getSession();
+      setLoading(true);
 
-      if (error) {
-        throw error;
-      }
-
-      if (!session) {
-        throw new Error('No session found');
-      }
-
-      // Send access token to backend
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_URL}/auth/google/callback`, {
+      // Send code to backend for verification
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/auth/google/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          access_token: session.access_token,
-        }),
+        body: JSON.stringify({ code }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Authentication failed');
+      if (!result.success) {
+        throw new Error(result.message || 'Google authentication failed');
       }
 
-      // Store auth token
-      localStorage.setItem('auth_token', data.data.token);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
+      // Save auth data
+      const { token, user, requiresOnboarding } = result.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
 
-      // Check if onboarding is required
-      if (data.data.requiresOnboarding) {
-        // Store auth data for onboarding (including token!)
-        sessionStorage.setItem('onboarding_auth', JSON.stringify({
-          email: data.data.user.email,
-          userId: data.data.user.id,
-          companyId: data.data.user.companyId,
-          token: data.data.token, // Include the token!
-          isGoogleAuth: true,
-        }));
+      // Save auth data to session storage for onboarding
+      sessionStorage.setItem('onboarding_auth', JSON.stringify({
+        userId: user.id,
+        companyId: user.companyId,
+        email: user.email,
+        isGoogleAuth: true,
+      }));
 
-        toast.success('Welcome! Let\'s set up your company.');
+      toast.success('Successfully signed in with Google!');
 
-        // Navigate to company setup (skip email verification)
+      // Always navigate to onboarding for new users or incomplete onboarding
+      // Only go to dashboard if onboarding is fully completed
+      if (requiresOnboarding) {
         navigate('/onboarding/company-setup');
       } else {
-        toast.success('Welcome back!');
-        const redirectPath = await resumeOnboarding(data.data.user.id);
-        navigate(redirectPath);
+        navigate('/dashboard');
       }
 
-      return data;
+      return result.data;
     } catch (error: any) {
-      console.error('Callback handling error:', error);
-      toast.error(error.message || 'Authentication failed');
-      navigate('/register');
+      console.error('Google callback error:', error);
+      toast.error(error.message || 'Failed to complete Google authentication');
+      navigate('/login?error=google_auth_failed');
       throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handle token from URL (alternative flow)
+   * Used when backend redirects with token in URL
+   */
+  const handleTokenFromUrl = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const isNewUser = params.get('isNewUser') === 'true';
+
+      if (token) {
+        // Save token
+        localStorage.setItem('token', token);
+
+        // Fetch user data
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        fetch(`${apiUrl}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              localStorage.setItem('user', JSON.stringify(result.data));
+              
+              // Save auth data to session storage for onboarding
+              sessionStorage.setItem('onboarding_auth', JSON.stringify({
+                userId: result.data.id,
+                companyId: result.data.companyId,
+                email: result.data.email,
+                isGoogleAuth: true,
+              }));
+
+              toast.success('Successfully signed in with Google!');
+
+              // Navigate based on onboarding status
+              if (isNewUser) {
+                navigate('/onboarding/company-setup');
+              } else {
+                navigate('/dashboard');
+              }
+            }
+          })
+          .catch(error => {
+            console.error('Failed to fetch user data:', error);
+            toast.error('Failed to complete authentication');
+          });
+
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (error: any) {
+      console.error('Token handling error:', error);
+      toast.error('Failed to process authentication');
     }
   };
 
   return {
     signInWithGoogle,
-    handleCallback,
+    handleGoogleCallback,
+    handleTokenFromUrl,
     loading,
   };
-};
+}

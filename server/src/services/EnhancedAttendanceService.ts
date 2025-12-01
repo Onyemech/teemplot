@@ -83,7 +83,7 @@ class EnhancedAttendanceService {
         if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence) {
           throw new Error(
             `You must be within ${company.geofence_radius_meters}m of the office to check in. ` +
-            `Current distance: ${Math.round(distanceMeters)}m`
+            `Current distance: ${distanceMeters !== null ? Math.round(distanceMeters) : 'unknown'}m`
           );
         }
       }
@@ -388,13 +388,13 @@ class EnhancedAttendanceService {
 
       // Send notifications to all admins
       for (const admin of adminsResult.rows) {
-        await notificationService.sendInAppNotification({
+        await notificationService.sendPushNotification({
           userId: admin.id,
-          companyId,
           title: 'Late Arrival',
           body: `${user.first_name} ${user.last_name} arrived ${attendance.minutes_late} minutes late`,
-          type: 'warning',
           data: {
+            companyId,
+            type: 'warning',
             employeeId: userId,
             employeeName: `${user.first_name} ${user.last_name}`,
             minutesLate: attendance.minutes_late,
@@ -464,13 +464,13 @@ class EnhancedAttendanceService {
 
       // Send notifications to all admins
       for (const admin of adminsResult.rows) {
-        await notificationService.sendInAppNotification({
+        await notificationService.sendPushNotification({
           userId: admin.id,
-          companyId,
           title: 'Early Departure',
           body: `${user.first_name} ${user.last_name} left ${attendance.minutes_early} minutes early${departureReason ? `: ${departureReason}` : ''}`,
-          type: 'early_departure',
           data: {
+            companyId,
+            type: 'early_departure',
             employeeId: userId,
             employeeName: `${user.first_name} ${user.last_name}`,
             minutesEarly: attendance.minutes_early,

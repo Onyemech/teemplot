@@ -327,7 +327,7 @@ export class TaskReviewService {
         ${endDate ? 'AND created_at <= $3' : ''}
     `;
 
-    const params = [companyId];
+    const params: (string | Date)[] = [companyId];
     if (startDate) params.push(startDate);
     if (endDate) params.push(endDate);
 

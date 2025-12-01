@@ -81,6 +81,8 @@ export class DocumentValidationService {
     ];
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
+    const requiresManualReview = status === 'suspicious' || confidence < 70;
+    const verificationStatus = status === 'valid' ? 'AI_APPROVED' : status === 'suspicious' ? 'AI_SUSPICIOUS' : 'AI_REJECTED';
 
     return {
       isValid: confidence >= 70,
@@ -90,6 +92,8 @@ export class DocumentValidationService {
       issues,
       requiredCorrections: corrections,
       documentType: 'CAC Certificate',
+      verificationStatus,
+      requiresManualReview,
       metadata: {
         fileSize: analysis.fileSize,
         fileType: analysis.mimeType,
@@ -144,6 +148,8 @@ export class DocumentValidationService {
     ];
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
+    const requiresManualReview = status === 'suspicious' || confidence < 70;
+    const verificationStatus = status === 'valid' ? 'AI_APPROVED' : status === 'suspicious' ? 'AI_SUSPICIOUS' : 'AI_REJECTED';
 
     return {
       isValid: confidence >= 70,
@@ -153,6 +159,8 @@ export class DocumentValidationService {
       issues,
       requiredCorrections: corrections,
       documentType: 'Proof of Address',
+      verificationStatus,
+      requiresManualReview,
       metadata: {
         fileSize: analysis.fileSize,
         fileType: analysis.mimeType,
@@ -207,6 +215,8 @@ export class DocumentValidationService {
     ];
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
+    const requiresManualReview = status === 'suspicious' || confidence < 70;
+    const verificationStatus = status === 'valid' ? 'AI_APPROVED' : status === 'suspicious' ? 'AI_SUSPICIOUS' : 'AI_REJECTED';
 
     return {
       isValid: confidence >= 70,
@@ -216,6 +226,8 @@ export class DocumentValidationService {
       issues,
       requiredCorrections: corrections,
       documentType: 'Company Policy Document',
+      verificationStatus,
+      requiresManualReview,
       metadata: {
         fileSize: analysis.fileSize,
         fileType: analysis.mimeType,
@@ -268,6 +280,8 @@ export class DocumentValidationService {
         issues: ['Validation error occurred'],
         requiredCorrections: ['Re-upload the document or contact support'],
         documentType: analysis.documentType,
+        verificationStatus: 'AI_REJECTED',
+        requiresManualReview: true,
       };
     }
   }

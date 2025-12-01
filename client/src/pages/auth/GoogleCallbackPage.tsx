@@ -2,16 +2,29 @@ import { useEffect, useRef } from 'react';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function GoogleCallbackPage() {
-  const { handleCallback } = useGoogleAuth();
-
+  const { handleGoogleCallback, handleTokenFromUrl } = useGoogleAuth();
   const hasCalled = useRef(false);
 
   useEffect(() => {
     if (!hasCalled.current) {
       hasCalled.current = true;
-      handleCallback();
+      
+      // Check if we have a code (from Google redirect)
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const token = params.get('token');
+
+      if (code) {
+        // Handle OAuth code
+        handleGoogleCallback(code);
+      } else if (token) {
+        handleTokenFromUrl();
+      } else {
+        // No code or token, redirect to login
+        window.location.href = '/login?error=missing_auth_code';
+      }
     }
-  }, []);
+  }, [handleGoogleCallback, handleTokenFromUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -24,7 +37,7 @@ export default function GoogleCallbackPage() {
 
         {/* Loading spinner */}
         <div className="mt-6">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#0F5D5D] border-r-transparent"></div>
         </div>
       </div>
     </div>

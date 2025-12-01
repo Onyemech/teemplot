@@ -1,19 +1,19 @@
 services:
-  # Backend API Service (Docker)
+  # Backend API Service
   - type: web
     name: teemplot-api
-    env: docker
-    region: frankfurt
-    plan: free
-    dockerfilePath: ./server/Dockerfile
-    dockerContext: ./server
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
-      - key: DATABASE_URL
-        sync: false
+      - key: DATABASE_TYPE
+        value: postgres
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
@@ -24,54 +24,37 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      - key: JWT_ACCESS_EXPIRY
-        value: 15m
-      - key: JWT_REFRESH_EXPIRY
-        value: 7d
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: 587
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: EMAIL_FROM
-        value: noreply@teemplot.com
-      - key: PAYSTACK_SECRET_KEY
-        sync: false
-      - key: PAYSTACK_PUBLIC_KEY
-        sync: false
       - key: FRONTEND_URL
-        value: https://teemplot.vercel.app
-      - key: CORS_ORIGIN
-        value: https://teemplot.vercel.app
-      - key: BCRYPT_ROUNDS
-        value: 12
-      - key: RATE_LIMIT_MAX
-        value: 100
-      - key: RATE_LIMIT_WINDOW
-        value: 15m
-      - key: LOG_LEVEL
-        value: info
-      - key: ENABLE_AUTO_CLOCKIN
-        value: true
-      - key: ENABLE_AUTO_CLOCKOUT
-        value: true
-      - key: ENABLE_TASK_REVIEW
-        value: true
-    healthCheckPath: /api/health
+        value: https://teemplot.com
+      - key: ALLOWED_ORIGINS
+        value: https://teemplot.com,https://www.teemplot.com,https://teemplot.vercel.app
+    healthCheckPath: /health
     autoDeploy: true
-    
-  # Frontend (if deploying on Render instead of Vercel)
-  # - type: web
-  #   name: teemplot-frontend
-  #   env: node
-  #   region: frankfurt
-  #   plan: free
-  #   buildCommand: cd client && npm install && npm run build
-  #   startCommand: cd client && npm start
-  #   envVars:
-  #     - key: NEXT_PUBLIC_API_URL
-  #       value: https://teemplot-api.onrender.com/api
-  #   autoDeploy: true
+    branch: main
+
+  # Frontend Static Site (Alternative to Vercel)
+  - type: web
+    name: teemplot-frontend
+    env: static
+    region: oregon
+    plan: starter
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://teemplot-api.onrender.com/api
+      - key: VITE_ENV
+        value: production
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    autoDeploy: true
+    branch: main

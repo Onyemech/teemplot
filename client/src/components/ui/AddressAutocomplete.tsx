@@ -60,10 +60,13 @@ export default function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [internalCity, setInternalCity] = useState(cityValue)
+  const [useFallbackMode, setUseFallbackMode] = useState(false)
+  const [quotaExceeded, setQuotaExceeded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null)
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null)
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
 
   // Initialize Google Places API
   useEffect(() => {
@@ -97,6 +100,9 @@ export default function AddressAutocomplete({
           // Create a dummy div for PlacesService (required by Google API)
           const dummyDiv = document.createElement('div')
           placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv)
+          
+          // Create session token for better autocomplete performance and cost optimization
+          sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
         }
       } catch (error) {
         console.error('Failed to initialize Google Places:', error)
@@ -133,6 +139,85 @@ export default function AddressAutocomplete({
     }
   }
 
+  // Handle use current location
+  const handleUseCurrentLocation = () => {
+    // Check if geolocation is supported
+    if (!('geolocation' in navigator)) {
+      alert('❌ Location services not supported\n\nYour browser doesn\'t support location services. Please:\n1. Use a modern browser (Chrome, Firefox, Safari)\n2. Or enter your address manually above')
+      return
+    }
+
+    setIsLoading(true)
+
+    navigator.geolocation.getCurrentPosition(
+      // Success callback
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords
+
+        // Check if we have Google Geocoder available
+        if (!window.google || !window.google.maps || !window.google.maps.Geocoder) {
+          setIsLoading(false)
+          alert('❌ Geocoding service unavailable\n\nCannot convert your location to an address. Please enter your address manually.')
+          return
+        }
+
+        // Reverse geocode to get readable address
+        const geocoder = new window.google.maps.Geocoder()
+        geocoder.geocode(
+          { location: { lat: latitude, lng: longitude } },
+          (results, status) => {
+            setIsLoading(false)
+
+            if (status === 'OK' && results && results[0]) {
+              const place = results[0]
+              const addressData = extractAddressComponents(place)
+              
+              // Update with current location
+              onChange(place.formatted_address, {
+                ...addressData,
+                latitude,
+                longitude,
+                accuracy: accuracy < 100 ? 'ROOFTOP' : 'APPROXIMATE'
+              })
+
+              // Show success message
+              alert(`✅ Location captured successfully!\n\nAddress: ${place.formatted_address}\nAccuracy: ${Math.round(accuracy)}m\n\nYour office location has been set for attendance tracking.`)
+            } else {
+              alert('❌ Could not determine address\n\nWe got your coordinates but couldn\'t convert them to an address. Please:\n1. Try again\n2. Or enter your address manually')
+            }
+          }
+        )
+      },
+      // Error callback
+      (error) => {
+        setIsLoading(false)
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert('❌ Location access denied\n\nTo use your current location:\n\n1. Click the location icon in your browser\'s address bar\n2. Select "Allow" for location access\n3. Refresh the page and try again\n\nOr enter your address manually above.')
+            break
+          
+          case error.POSITION_UNAVAILABLE:
+            alert('❌ Location unavailable\n\nYour device couldn\'t determine your location. Please:\n\n1. Check if location services are enabled on your device\n2. Make sure you have GPS/Wi-Fi enabled\n3. Try again or enter your address manually')
+            break
+          
+          case error.TIMEOUT:
+            alert('❌ Location request timed out\n\nTaking too long to get your location. Please:\n\n1. Check your internet connection\n2. Make sure location services are enabled\n3. Try again or enter your address manually')
+            break
+          
+          default:
+            alert('❌ Location error\n\nSomething went wrong getting your location. Please:\n\n1. Check your browser settings\n2. Make sure location is enabled\n3. Try again or enter your address manually')
+        }
+      },
+      // Options
+      {
+        enableHighAccuracy: true, // Use GPS for better accuracy
+        timeout: 15000, // 15 seconds timeout
+        maximumAge: 0 // Don't use cached position
+      }
+    )
+  }
+
   // Fetch predictions as user types - biased by city
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
@@ -158,12 +243,16 @@ export default function AddressAutocomplete({
 
       autocompleteServiceRef.current.getPlacePredictions(
         {
-          input: searchQuery,
+          input: searchQuery, // Send raw user input - Google handles typos!
           types: ['address'],
           componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
-          // Location bias for Nigeria (Lagos coordinates as center)
-          location: new window.google.maps.LatLng(6.5244, 3.3792),
-          radius: 100000, // 100km radius
+          // Use locationRestriction instead of bias for harder boundary (Lagos area)
+          locationRestriction: new window.google.maps.LatLngBounds(
+            new window.google.maps.LatLng(6.3, 2.8),  // Southwest Nigeria
+            new window.google.maps.LatLng(6.8, 3.8)   // Northeast Lagos area
+          ),
+          // Session token for better performance and cost optimization
+          sessionToken: sessionTokenRef.current || undefined,
         },
         (results, status) => {
           setIsLoading(false)
@@ -171,6 +260,17 @@ export default function AddressAutocomplete({
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
             setPredictions(results as PlacePrediction[])
             setIsOpen(true)
+            setQuotaExceeded(false) // Reset quota flag on success
+          } else if (
+            status === window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT ||
+            status === window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED
+          ) {
+            // Google API quota exceeded or denied - switch to fallback mode
+            console.warn('Google Places API limit reached, switching to manual input mode')
+            setUseFallbackMode(true)
+            setQuotaExceeded(true)
+            setPredictions([])
+            setIsOpen(false)
           } else {
             setPredictions([])
             setIsOpen(false)
@@ -194,6 +294,8 @@ export default function AddressAutocomplete({
     placesServiceRef.current.getDetails(
       {
         placeId,
+        // Use the same session token for getDetails to complete the session
+        sessionToken: sessionTokenRef.current || undefined,
         fields: [
           'address_components',
           'formatted_address',
@@ -209,6 +311,11 @@ export default function AddressAutocomplete({
         if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
           const addressData = extractAddressComponents(place)
           onChange(place.formatted_address || description, addressData)
+          
+          // Regenerate session token after completing a session
+          if (window.google && window.google.maps && window.google.maps.places) {
+            sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+          }
         } else {
           onChange(description)
         }
@@ -249,6 +356,37 @@ export default function AddressAutocomplete({
       }
     })
 
+    // IMPROVED: Extract street number from formatted address if not found in components
+    // This is common in Nigeria where Google doesn't always separate street numbers
+    if (!streetNumber && place.formatted_address) {
+      const addressParts = place.formatted_address.split(',')[0].trim()
+      // Try to extract number from beginning of address (e.g., "18 Admiralty Way" -> "18")
+      const numberMatch = addressParts.match(/^(\d+[A-Za-z]?)\s/)
+      if (numberMatch) {
+        streetNumber = numberMatch[1]
+        // Remove the number from street name if it was included
+        if (streetName && streetName.startsWith(streetNumber)) {
+          streetName = streetName.substring(streetNumber.length).trim()
+        }
+      }
+      
+      // If street name is empty but we have the first part of address, use it
+      if (!streetName && addressParts) {
+        // Remove the street number we just extracted
+        streetName = addressParts.replace(/^\d+[A-Za-z]?\s/, '').trim()
+      }
+    }
+
+    // Log for debugging (remove in production)
+    console.log('📍 Address Components:', {
+      streetNumber,
+      streetName,
+      city,
+      state,
+      country,
+      formattedAddress: place.formatted_address
+    })
+
     return {
       fullAddress: place.formatted_address || '',
       formattedAddress: place.formatted_address || '',
@@ -265,7 +403,8 @@ export default function AddressAutocomplete({
     }
   }
 
-  if (apiError) {
+  // Fallback mode - Manual input when API fails or quota exceeded
+  if (apiError || useFallbackMode) {
     return (
       <div className={className}>
         {label && (
@@ -275,24 +414,47 @@ export default function AddressAutocomplete({
           </label>
         )}
         
+        {/* Fallback Mode Warning */}
+        {quotaExceeded && (
+          <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start justify-between">
+              <p className="text-xs text-amber-800 flex-1">
+                ⚠️ <strong>Address autocomplete temporarily unavailable</strong> (API limit reached). 
+                Please enter your address manually below.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setUseFallbackMode(false)
+                  setQuotaExceeded(false)
+                }}
+                className="ml-2 text-xs text-amber-700 hover:text-amber-900 underline whitespace-nowrap"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* City Input */}
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">
-            City/Area
+            City/Area <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={internalCity}
             onChange={handleCityChange}
-            placeholder="e.g., Lekki"
+            placeholder="e.g., Lekki, Victoria Island, Ikeja"
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            required
           />
         </div>
 
         {/* Address Input */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">
-            Street Address
+            Street Address <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -300,12 +462,25 @@ export default function AddressAutocomplete({
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            required
           />
+          <p className="mt-1.5 text-xs text-gray-500">
+            Enter your complete street address (e.g., No 18 Admiralty Way)
+          </p>
         </div>
         
-        <p className="mt-2 text-xs text-amber-600">
-          ⚠️ Address search unavailable. Please enter address manually.
-        </p>
+        {!quotaExceeded && (
+          <p className="mt-2 text-xs text-amber-600">
+            ⚠️ Address search unavailable. Please enter address manually.
+          </p>
+        )}
+        
+        {/* Manual Geocoding Note */}
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800">
+            💡 <strong>Note:</strong> You'll need to provide GPS coordinates manually or we'll use the city center as approximate location.
+          </p>
+        </div>
       </div>
     )
   }
@@ -413,6 +588,18 @@ export default function AddressAutocomplete({
               ? `Showing addresses in ${internalCity}, Nigeria` 
               : 'Type your street address (e.g., No 18 Admiralty Way)'}
           </p>
+        )}
+
+        {/* Use Current Location Button - Shows when no predictions and user has typed enough */}
+        {!isLoading && predictions.length === 0 && value.length > 5 && !useFallbackMode && (
+          <button
+            type="button"
+            onClick={handleUseCurrentLocation}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
+          >
+            <MapPin className="h-4 w-4" />
+            I'm at the office now → Use my current location
+          </button>
         )}
       </div>
     </div>

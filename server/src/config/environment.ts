@@ -7,9 +7,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('5000'),
   
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_ANON_KEY: z.string(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string(),
+  // Database - optional for development (uses SQLite), required for production (uses Supabase)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  DATABASE_TYPE: z.enum(['sqlite', 'postgres']).default('sqlite'),
   
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
@@ -33,13 +35,17 @@ const envSchema = z.object({
   PLAN_PROFESSIONAL_PRICE: z.string().default('1500000'),
   PLAN_ENTERPRISE_PRICE: z.string().default('5000000'),
   
-  FRONTEND_URL: z.string().url(),
+  FRONTEND_URL: z.string().url().optional(),
+  
+  // CORS - Intelligent defaults based on environment
+  ALLOWED_ORIGINS: z.string().optional(),
   
   RATE_LIMIT_MAX: z.string().default('100'),
   RATE_LIMIT_TIMEWINDOW: z.string().default('900000'),
   
-  SUPER_ADMIN_EMAIL: z.string().email(),
-  SUPER_ADMIN_PASSWORD: z.string().min(8),
+  // Super admin credentials - OPTIONAL (only needed for super admin operations)
+  SUPER_ADMIN_EMAIL: z.string().email().optional(),
+  SUPER_ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -51,16 +57,89 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
+/**
+ * Intelligent CORS configuration
+ * Automatically detects environment and sets appropriate origins
+ */
+function getAllowedOrigins(): string[] {
+  // If explicitly set, use that
+  if (env.ALLOWED_ORIGINS) {
+    return env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+  }
+
+  const isDev = env.NODE_ENV === 'development';
+  const isProd = env.NODE_ENV === 'production';
+
+  if (isDev) {
+    // Development: Allow localhost on common ports
+    return [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ];
+  }
+
+  if (isProd) {
+    // Production: Allow production domains
+    return [
+      'https://teemplot.com',
+      'https://www.teemplot.com',
+      'https://teemplot.vercel.app',
+      'https://teemplot-frontend.vercel.app',
+    ];
+  }
+
+  // Test environment
+  return ['http://localhost:3000'];
+}
+
+/**
+ * Get frontend URL based on environment
+ */
+function getFrontendUrl(): string {
+  if (env.FRONTEND_URL) {
+    return env.FRONTEND_URL;
+  }
+
+  const isDev = env.NODE_ENV === 'development';
+  return isDev ? 'http://localhost:5173' : 'https://teemplot.com';
+}
+
+/**
+ * Get backend URL based on environment
+ */
+function getBackendUrl(): string {
+  const isDev = env.NODE_ENV === 'development';
+  const port = env.PORT || '5000';
+  
+  if (isDev) {
+    return `http://localhost:${port}`;
+  }
+
+  // Production - will be set via environment variable or default to Render
+  return process.env.BACKEND_URL || `https://teemplot-api.onrender.com`;
+}
+
 export const config_env = {
   isDevelopment: env.NODE_ENV === 'development',
   isProduction: env.NODE_ENV === 'production',
   isTest: env.NODE_ENV === 'test',
   port: parseInt(env.PORT),
   
+  // Intelligent URLs
+  frontendUrl: getFrontendUrl(),
+  backendUrl: getBackendUrl(),
+  allowedOrigins: getAllowedOrigins(),
+  
+  // Database configuration
+  databaseType: env.DATABASE_TYPE,
   supabase: {
-    url: env.SUPABASE_URL,
-    anonKey: env.SUPABASE_ANON_KEY,
-    serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    url: env.SUPABASE_URL || '',
+    anonKey: env.SUPABASE_ANON_KEY || '',
+    serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
   
   jwt: {
@@ -95,15 +174,13 @@ export const config_env = {
     enterprise: parseInt(env.PLAN_ENTERPRISE_PRICE),
   },
   
-  frontendUrl: env.FRONTEND_URL,
-  
   rateLimit: {
     max: parseInt(env.RATE_LIMIT_MAX),
     timeWindow: parseInt(env.RATE_LIMIT_TIMEWINDOW),
   },
   
   superAdmin: {
-    email: env.SUPER_ADMIN_EMAIL,
-    password: env.SUPER_ADMIN_PASSWORD,
+    email: env.SUPER_ADMIN_EMAIL || '',
+    password: env.SUPER_ADMIN_PASSWORD || '',
   },
 };

@@ -13,14 +13,18 @@ import './utils/debugAuth'
 // Auth Pages
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
 
+// Legal Pages
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+
 // Onboarding Pages
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
-import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPageNew'
+import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
 import OnboardingOwnerDetailsPage from './pages/onboarding/OwnerDetailsPage'
 import OnboardingBusinessInfoPage from './pages/onboarding/BusinessInfoPage'
 import OnboardingLogoUploadPage from './pages/onboarding/LogoUploadPage'
-import OnboardingDocumentsPage from './pages/onboarding/DocumentUploadPage'
+import OnboardingDocumentsPage from './pages/onboarding/DocumentsPage'
 import OnboardingSubscriptionPage from './pages/onboarding/SubscriptionPage'
 import OnboardingCompletePage from './pages/onboarding/CompletionPage'
 
@@ -33,6 +37,8 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       
       {/* Auth Callback Routes */}
       <Route path="/auth/callback" element={<GoogleCallbackPage />} />

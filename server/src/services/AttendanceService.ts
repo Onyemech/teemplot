@@ -153,11 +153,12 @@ export class AttendanceService {
         status,
       ]);
 
-      logger.info(`User ${data.userId} clocked in`, {
+      logger.info({
+        userId: data.userId,
         status,
         isWithinFence,
         distance,
-      });
+      }, 'User clocked in');
 
       return result.rows[0];
     });
@@ -300,11 +301,12 @@ export class AttendanceService {
         );
       }
 
-      logger.info(`User ${data.userId} clocked out`, {
+      logger.info({
+        userId: data.userId,
         isEarlyDeparture,
         minutesEarly,
         distance,
-      });
+      }, 'User clocked out');
 
       return result.rows[0];
     });
@@ -408,3 +410,4 @@ export class AttendanceService {
 }
 
 export const attendanceService = new AttendanceService();
+

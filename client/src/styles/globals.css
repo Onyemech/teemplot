@@ -5,6 +5,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smooth scrolling optimization */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Remove scroll blocking */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
