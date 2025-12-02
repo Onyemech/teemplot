@@ -12,7 +12,8 @@ import tasksRoutes from '../src/routes/tasks.routes';
 import leaveRoutes from '../src/routes/leave.routes';
 import dashboardRoutes from '../src/routes/dashboard.routes';
 import companySettingsRoutes from '../src/routes/company-settings.routes';
-// import { employeesRoutes } from '../src/routes/employees.routes'; // TODO: Rewrite for Fastify
+import { employeesRoutes } from '../src/routes/employees.routes';
+import { companyRoutes } from '../src/routes/company.routes';
 import filesRoutes from '../src/routes/files.routes';
 import adminAddressAuditRoutes from '../src/routes/admin-address-audit.routes';
 
@@ -79,7 +80,8 @@ async function buildServerlessApp() {
   await fastify.register(leaveRoutes, { prefix: '/api/leave' });
   await fastify.register(dashboardRoutes, { prefix: '/api/dashboard' });
   await fastify.register(companySettingsRoutes, { prefix: '/api/company-settings' });
-  // await fastify.register(employeesRoutes, { prefix: '/api/employees' }); // TODO: Rewrite for Fastify
+  await fastify.register(employeesRoutes, { prefix: '/api/employees' });
+  await fastify.register(companyRoutes, { prefix: '/api/company' });
   await fastify.register(filesRoutes, { prefix: '/api/files' });
   await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
 
