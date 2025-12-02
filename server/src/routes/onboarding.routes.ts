@@ -209,6 +209,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({
         success: true,
         message: 'Business information saved successfully',
+        data: {
+          companyId: data.companyId
+        }
       });
     } catch (error: any) {
       return reply.code(400).send({

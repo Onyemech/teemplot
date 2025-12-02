@@ -282,6 +282,13 @@ export default function CompanySetupPage() {
           })
         }
       } else if (currentStep === 'documents') {
+        // Verify companyId exists before uploading documents
+        if (!authData.companyId) {
+          throw new Error('Company ID not found. Please complete company setup first.')
+        }
+
+        console.log('📄 Uploading documents for company:', authData.companyId)
+        
         // Upload all documents using hash-based deduplication (only new Files, not URL strings)
         const uploadPromises = [];
         
