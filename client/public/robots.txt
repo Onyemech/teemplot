@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /onboarding/
+Disallow: /auth/
+
+Sitemap: https://teemplot.com/sitemap.xml

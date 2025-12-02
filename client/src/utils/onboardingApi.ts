@@ -1,4 +1,5 @@
 import { authFetch } from './authInterceptor';
+import { requestDeduplicator } from './requestDeduplication';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -31,23 +32,28 @@ export const submitCompanySetup = async (data: {
   dateOfBirth: string
   isOwner: boolean
 }) => {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/onboarding/company-setup`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
-    body: JSON.stringify(data),
-  })
+  return requestDeduplicator.deduplicate(
+    `company-setup-${data.companyId}`,
+    async () => {
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/onboarding/company-setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(data),
+      })
 
-  const result = await response.json()
+      const result = await response.json()
 
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to save company setup')
-  }
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to save company setup')
+      }
 
-  return result
+      return result
+    }
+  )
 }
 
 // Owner Details API
@@ -60,23 +66,28 @@ export const submitOwnerDetails = async (data: {
   ownerPhone: string
   ownerDateOfBirth: string
 }) => {
-  const token = getAuthToken()
-  const response = await fetch(`${API_URL}/onboarding/owner-details`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
-    body: JSON.stringify(data),
-  })
+  return requestDeduplicator.deduplicate(
+    `owner-details-${data.companyId}`,
+    async () => {
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/onboarding/owner-details`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(data),
+      })
 
-  const result = await response.json()
+      const result = await response.json()
 
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to save owner details')
-  }
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to save owner details')
+      }
 
-  return result
+      return result
+    }
+  )
 }
 
 // Business Info API with Geocoding
@@ -104,23 +115,28 @@ export const submitBusinessInfo = async (data: {
   placeId?: string
   geocodingAccuracy?: string
 }) => {
-  const token = getAuthToken()
-  const response = await authFetch(`${API_URL}/onboarding/business-info`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
-    body: JSON.stringify(data),
-  })
+  return requestDeduplicator.deduplicate(
+    `business-info-${data.companyId}`,
+    async () => {
+      const token = getAuthToken()
+      const response = await authFetch(`${API_URL}/onboarding/business-info`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(data),
+      })
 
-  const result = await response.json()
+      const result = await response.json()
 
-  if (!response.ok) {
-    throw new Error(result.message || 'Failed to save business information')
-  }
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to save business information')
+      }
 
-  return result
+      return result
+    }
+  )
 }
 
 // Upload Logo API

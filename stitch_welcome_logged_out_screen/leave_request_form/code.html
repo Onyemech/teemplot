@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Leave Request Form</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#DD6B20", // Orange from buttons
+                        "background-light": "#FFFFFF",
+                        "background-dark": "#121212",
+                    },
+                    fontFamily: {
+                        display: ["Poppins", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "1rem", // 16px
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark text-gray-900 dark:text-gray-100 antialiased">
+<div class="flex flex-col h-screen">
+<header class="flex items-center p-4 border-b border-gray-200 dark:border-gray-800">
+<button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+<span class="material-symbols-outlined text-gray-600 dark:text-gray-300">arrow_back_ios_new</span>
+</button>
+<h1 class="flex-grow text-center text-xl font-semibold text-gray-800 dark:text-gray-200">Leave Request</h1>
+<div class="w-10"></div> 
+</header>
+<main class="flex-grow p-6 overflow-y-auto">
+<div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 rounded-lg p-4 mb-6">
+<h2 class="font-semibold text-gray-800 dark:text-gray-200">Annual Leave Balance</h2>
+<p class="text-3xl font-bold text-blue-600 dark:text-blue-400">14.5 Days</p>
+</div>
+<form class="space-y-6">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="leave-type">Leave Type</label>
+<div class="relative">
+<select class="w-full pl-4 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-primary focus:border-primary appearance-none" id="leave-type" name="leave-type">
+<option>Annual Leave</option>
+<option>Sick Leave</option>
+<option>Unpaid Leave</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="start-date">Start Date</label>
+<div class="relative">
+<input class="w-full pl-4 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-primary focus:border-primary" id="start-date" name="start-date" type="date" value="2024-08-05"/>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined text-base">calendar_today</span>
+</div>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="end-date">End Date</label>
+<div class="relative">
+<input class="w-full pl-4 pr-10 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-primary focus:border-primary" id="end-date" name="end-date" type="date" value="2024-08-07"/>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-700 dark:text-gray-300">
+<span class="material-symbols-outlined text-base">calendar_today</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+<label class="font-medium text-gray-700 dark:text-gray-300" for="half-day">Half day leave</label>
+<label class="relative inline-flex items-center cursor-pointer" for="half-day">
+<input class="sr-only peer" id="half-day" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="reason">Reason (Optional)</label>
+<textarea class="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-primary focus:border-primary" id="reason" name="reason" placeholder="e.g. Family vacation" rows="4"></textarea>
+</div>
+</form>
+</main>
+<footer class="p-6 border-t border-gray-200 dark:border-gray-800">
+<button class="w-full bg-primary text-white font-bold py-4 px-4 rounded-full text-lg shadow-md hover:bg-orange-700 transition duration-200">Submit Request</button>
+</footer>
+</div>
+
+</body></html>

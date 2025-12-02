@@ -283,7 +283,7 @@ function ResetPasswordContent() {
               <p className="text-sm text-red-600 mb-4 text-center">{error}</p>
             )}
 
-            <div className="flex gap-3 mb-6" onPaste={handlePaste}>
+            <div className="flex gap-2 sm:gap-3 mb-6 justify-center" onPaste={handlePaste}>
               {code.map((digit, index) => (
                 <input
                   key={index}
@@ -295,7 +295,8 @@ function ResetPasswordContent() {
                   onChange={e => handleCodeChange(index, e.target.value)}
                   onKeyDown={e => handleKeyDown(index, e)}
                   disabled={loading}
-                  className="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:border-[#1a5f3f] focus:ring-2 focus:ring-[#1a5f3f]/20 outline-none transition-all disabled:opacity-50"
+                  className="w-10 h-12 sm:w-14 sm:h-14 text-center text-lg sm:text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:border-[#1a5f3f] focus:ring-2 focus:ring-[#1a5f3f]/20 outline-none transition-all disabled:opacity-50 touch-manipulation"
+                  aria-label={`Digit ${index + 1}`}
                 />
               ))}
             </div>

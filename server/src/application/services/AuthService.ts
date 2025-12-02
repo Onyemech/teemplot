@@ -199,15 +199,38 @@ export class AuthService {
 
   async sendVerificationCode(email: string): Promise<string> {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    // TODO: Implement email verification code storage using repository pattern
-    // For now, return the code
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store verification code in database
+    await this.userRepository.createVerificationCode({
+      email,
+      code,
+      expiresAt
+    });
+
     return code;
   }
 
   async verifyCode(email: string, code: string): Promise<boolean> {
-    // TODO: Implement email verification code validation using repository pattern
-    // For now, return true for development
-    return true;
+    // Find verification code
+    const verification = await this.userRepository.findVerificationCode(email, code);
+    
+    if (!verification) {
+      return false; // Code not found
+    }
+
+    // Check if expired
+    if (new Date() > new Date(verification.expiresAt)) {
+      return false; // Code expired
+    }
+
+    // Check if already used
+    if (verification.verifiedAt) {
+      return false; // Code already used
+    }
+
+    // Mark as verified
+    await this.userRepository.markVerificationCodeAsUsed(verification.id);
 
     return true;
   }

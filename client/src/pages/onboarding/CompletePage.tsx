@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { LogoLoader } from '@/components/LogoLoader'
+import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
 import { completeOnboarding, getOnboardingAuth } from '@/utils/onboardingApi'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -61,27 +61,11 @@ export default function OnboardingCompletePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-6">
-      <div className="text-center max-w-md">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6">
+      <div className="text-center max-w-md w-full">
         {/* Success Checkmark Animation */}
-        <div className={`
-          w-32 h-32 mx-auto mb-8 rounded-full flex items-center justify-center
-          transition-all duration-500 ease-out
-          ${showContent ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}
-        `}
-          style={{
-            backgroundColor: '#7CB342', // Green color from image
-            animation: showContent ? 'bounce 0.6s ease-out' : 'none'
-          }}
-        >
-          <Check 
-            className="text-white" 
-            size={64} 
-            strokeWidth={3}
-            style={{
-              animation: showContent ? 'checkmark 0.5s ease-out 0.3s both' : 'none'
-            }}
-          />
+        <div className="mb-8">
+          {showContent && <AnimatedCheckmark size="lg" />}
         </div>
 
         {/* Success Message */}
@@ -89,11 +73,11 @@ export default function OnboardingCompletePage() {
           transition-all duration-500 delay-300
           ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
         `}>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Congratulations!
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            Company details submitted
           </h1>
-          <p className="text-lg text-gray-600 mb-8">
-            You're all set up
+          <p className="text-base sm:text-lg text-gray-600 mb-8 px-4">
+            Thank you for completing your company onboarding, your company details has been received by our onboarding team. We will verify your information provided and grant you full access.
           </p>
         </div>
 
@@ -107,35 +91,12 @@ export default function OnboardingCompletePage() {
             size="lg"
             fullWidth
             onClick={handleGoToDashboard}
-            className="bg-[#0F5D5D] hover:bg-[#0a4545] text-white font-semibold py-4 rounded-xl"
+            className="bg-[#0F5D5D] hover:bg-[#0a4545] text-white font-semibold py-3 sm:py-4 rounded-xl"
           >
-            Go to Dashboard
+            Go to dashboard
           </Button>
         </div>
       </div>
-
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes bounce {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
-          }
-        }
-
-        @keyframes checkmark {
-          0% {
-            stroke-dasharray: 100;
-            stroke-dashoffset: 100;
-          }
-          100% {
-            stroke-dasharray: 100;
-            stroke-dashoffset: 0;
-          }
-        }
-      `}</style>
     </div>
   )
 }

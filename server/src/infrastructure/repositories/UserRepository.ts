@@ -95,6 +95,31 @@ async findAllByCompany(companyId: string, filters?: UserFilters): Promise<User[]
   async findByGoogleId(googleId: string): Promise<User | null> {
     return await this.db.findOne(this.tableName, { google_id: googleId, deleted_at: null });
   }
+
+  // Email verification methods
+  async createVerificationCode(data: { email: string; code: string; expiresAt: Date }): Promise<any> {
+    const { randomUUID } = await import('crypto');
+    return await this.db.insert('email_verification_codes', {
+      id: randomUUID(),
+      email: data.email,
+      code: data.code,
+      expires_at: data.expiresAt.toISOString(),
+      created_at: new Date().toISOString()
+    });
+  }
+
+  async findVerificationCode(email: string, code: string): Promise<any> {
+    const results = await this.db.find('email_verification_codes', { email, code });
+    return results.length > 0 ? results[0] : null;
+  }
+
+  async markVerificationCodeAsUsed(id: string): Promise<void> {
+    await this.db.update(
+      'email_verification_codes',
+      { verified_at: new Date().toISOString() },
+      { id }
+    );
+  }
 }
 
 export class SuperAdminRepository implements ISuperAdminRepository {

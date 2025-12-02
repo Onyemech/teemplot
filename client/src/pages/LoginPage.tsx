@@ -24,6 +24,10 @@ export default function LoginPage() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    
+    // Prevent double submission
+    if (loading) return
+    
     setLoading(true)
 
     try {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { Download } from 'lucide-react'
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -48,6 +49,8 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showInstall, setShowInstall] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -56,9 +59,58 @@ export default function Navbar() {
       setIsScrolled(window.scrollY > 20)
     }
     window.addEventListener('scroll', handleScroll)
+
+    // Check if running on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    )
+
+    // Check if already installed
+    const isInstalled =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true
+
+    if (!isMobile || isInstalled) {
+      return
+    }
+
+    // Listen for install prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstall(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    // Listen for app installed
+    const handleAppInstalled = () => {
+      setShowInstall(false)
+      setDeferredPrompt(null)
+    }
+
+    window.addEventListener('appinstalled', handleAppInstalled)
     
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
   }, [])
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return
+
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+
+    if (outcome === 'accepted') {
+      console.log('PWA installed')
+    }
+
+    setDeferredPrompt(null)
+    setShowInstall(false)
+  }
 
   // Prevent hydration mismatch by not applying scroll styles until mounted
   return (
@@ -109,12 +161,23 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-gray-900 hover:text-[#FF5722] transition-colors"
-          >
-            {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            {showInstall && (
+              <button
+                onClick={handleInstall}
+                className="p-2 text-[#0F5D5D] hover:text-[#093737] transition-colors"
+                aria-label="Install App"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-gray-900 hover:text-[#FF5722] transition-colors"
+            >
+              {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
+            </button>
+          </div>
         </div>
 
         {isMobileMenuOpen && (

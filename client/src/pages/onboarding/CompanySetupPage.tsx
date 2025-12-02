@@ -110,13 +110,19 @@ export default function CompanySetupPage() {
 
       // Submit data to backend based on current step
       if (currentStep === 'details') {
-        // Validate that we have coordinates from Google Places
+        // CRITICAL: Validate that we have coordinates from Google Places
+        // This prevents broken geofencing if user types address manually
         if (!formData.latitude || !formData.longitude) {
-          throw new Error('Please select a valid address from the suggestions to capture precise location coordinates')
+          throw new Error('⚠️ Please select your address from the dropdown suggestions. This ensures accurate location tracking for attendance.')
         }
 
         if (!formData.placeId) {
-          throw new Error('Please select an address from Google suggestions for accurate location tracking')
+          throw new Error('⚠️ Please select an address from Google suggestions (not manual entry). This is required for geofencing.')
+        }
+
+        // Validate coordinates are reasonable (not 0,0 or invalid)
+        if (Math.abs(formData.latitude) < 0.001 && Math.abs(formData.longitude) < 0.001) {
+          throw new Error('Invalid coordinates detected. Please select your address from the dropdown again.')
         }
 
         // Submit business information with complete geocoding data
@@ -371,7 +377,15 @@ export default function CompanySetupPage() {
                       geocodingAccuracy: addressData.accuracy || '',
                     })
                   } else {
-                    setFormData({ ...formData, address: value })
+                    // Clear coordinates if user types manually (not from dropdown)
+                    setFormData({ 
+                      ...formData, 
+                      address: value,
+                      latitude: null,
+                      longitude: null,
+                      placeId: '',
+                      formattedAddress: '',
+                    })
                   }
                 }}
                 placeholder="Start typing your business address..."

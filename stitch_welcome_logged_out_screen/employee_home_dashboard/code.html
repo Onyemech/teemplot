@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Employee Home Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#25848d",
+              "background-light": "#f3f4f6",
+              "background-dark": "#111827",
+            },
+            fontFamily: {
+              display: ["Roboto", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+            },
+          },
+        },
+      };
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark">
+<div class="mx-auto max-w-sm">
+<div class="flex flex-col h-screen">
+<header class="bg-primary px-4 py-5 text-white">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<svg class="w-8 h-8" fill="none" viewBox="0 0 162 162" xmlns="http://www.w3.org/2000/svg">
+<path d="M113.883 158.062C113.883 133.585 133.585 113.883 158.062 113.883V47.562C133.585 47.562 113.883 27.8603 113.883 3.38281H47.562C47.562 27.8603 27.8603 47.562 3.38281 47.562V113.883C27.8603 113.883 47.562 133.585 47.562 158.062H113.883Z" stroke="white" stroke-width="6.76562"></path>
+</svg>
+<span class="border-l border-white/50 h-6 mx-2"></span>
+<h1 class="text-lg font-medium tracking-wide">Employee Dashboard</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined text-3xl">notifications</span>
+<span class="absolute top-0 right-0 block h-3 w-3 rounded-full bg-orange-500 ring-2 ring-primary"></span>
+</div>
+<img alt="User profile picture" class="w-10 h-10 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiIFxiATKDMX2YZjqe_Tb1Rcg1v3yzPjLgYFWnnF_c38tFgwAda2HxvjKGH39RtE_nU-g0BdSlEVk_7to1ENbgi0dpup3Za11dxUW1s554RxZbODwWw04PhhAijwyyG9tRaK6F29e88UfmkHYG8kaQCxi84Adtnt8KaVItXbDuGahGKA-s1Ya7DG83za3a-jPBEkXQTfl5sN_fznJAmgaEzmrma0AXtfCGSSN6mRwX0HAThCP5fg0msjOVC53oC2KRrVYOaYzDfvCR"/>
+</div>
+</div>
+</header>
+<main class="flex-grow overflow-y-auto p-4 space-y-4">
+<div class="text-gray-800 dark:text-gray-200">
+<p class="text-lg">Good morning, Sarah.</p>
+<p class="font-semibold text-xl">Today is Oct 26, 2024.</p>
+</div>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-primary">
+<h2 class="font-bold text-lg text-gray-900 dark:text-white mb-4">Attendance Summary</h2>
+<div class="flex items-center justify-around text-center mb-6">
+<div class="text-sm text-gray-500 dark:text-gray-400">
+<p>On Time</p>
+<p>120h (85%)</p>
+</div>
+<div class="relative w-32 h-32">
+<svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+<circle class="text-gray-200 dark:text-gray-700" cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-green-500" cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-dasharray="276.46" stroke-dashoffset="41.469" stroke-linecap="round" stroke-width="12"></circle>
+<circle class="text-orange-500" cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-dasharray="326.72" stroke-dashoffset="277.72" stroke-linecap="round" stroke-width="12"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-xs text-gray-500 dark:text-gray-400">Total Hours:</span>
+<span class="text-2xl font-bold text-gray-900 dark:text-white">142.5</span>
+</div>
+</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">
+<p>Late Arrivals</p>
+<p>22.5h (15%)</p>
+</div>
+</div>
+<div class="flex justify-around items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+<div class="w-8 h-8 flex items-center justify-center bg-green-100 dark:bg-green-900 rounded-full">
+<span class="material-symbols-outlined text-green-600 dark:text-green-400">check</span>
+</div>
+<div>
+<p class="text-sm">On Time:</p>
+<p class="font-bold text-lg text-gray-900 dark:text-white">15 days</p>
+</div>
+</div>
+<div class="w-px h-10 bg-gray-200 dark:bg-gray-700"></div>
+<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+<div class="w-8 h-8 flex items-center justify-center bg-orange-100 dark:bg-orange-900 rounded-full">
+<span class="material-symbols-outlined text-orange-600 dark:text-orange-400">schedule</span>
+</div>
+<div>
+<p class="text-sm">Late:</p>
+<p class="font-bold text-lg text-gray-900 dark:text-white">3 days</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-orange-500">
+<h2 class="font-bold text-lg text-gray-900 dark:text-white mb-2">Task Performance</h2>
+<div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+<span>Tasks Assigned vs. Completed: 18/25</span>
+<span>72%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-4">
+<div class="bg-orange-500 h-2.5 rounded-full" style="width: 72%"></div>
+</div>
+<div class="flex justify-around items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+<div class="w-8 h-8 flex items-center justify-center bg-green-100 dark:bg-green-900 rounded-full">
+<span class="material-symbols-outlined text-green-600 dark:text-green-400">check</span>
+</div>
+<div>
+<p class="text-sm">Completed:</p>
+<p class="font-bold text-lg text-gray-900 dark:text-white">18</p>
+</div>
+</div>
+<div class="w-px h-10 bg-gray-200 dark:bg-gray-700"></div>
+<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+<div class="w-8 h-8 flex items-center justify-center bg-orange-100 dark:bg-orange-900 rounded-full">
+<span class="material-symbols-outlined text-orange-600 dark:text-orange-400">arrow_forward</span>
+</div>
+<div>
+<p class="text-sm">Pending:</p>
+<p class="font-bold text-lg text-gray-900 dark:text-white">7</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-green-500">
+<h2 class="font-bold text-lg text-gray-900 dark:text-white mb-4">Leave Balance</h2>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+<span>Annual Leave: 12 days remaining</span>
+<span class="font-medium text-gray-500 dark:text-gray-400">12/20</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-green-500 h-2 rounded-full" style="width: 60%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+<span>Sick Leave: 5 days remaining</span>
+<span class="font-medium text-gray-500 dark:text-gray-400">5/10</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-green-500 h-2 rounded-full" style="width: 50%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+<span>Casual Leave: 2 days remaining</span>
+<span class="font-medium text-gray-500 dark:text-gray-400">2/5</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-orange-500 h-2 rounded-full" style="width: 40%"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<nav class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 pt-2 pb-4">
+<div class="flex justify-around items-start">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<div class="relative w-full flex justify-center">
+<span class="material-symbols-outlined text-2xl !fill-1">home</span>
+<div class="absolute -top-2 w-10 h-1 bg-primary rounded-full"></div>
+</div>
+<span class="text-xs font-semibold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined text-2xl">list_alt</span>
+<span class="text-xs">Tasks</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined text-2xl">event_busy</span>
+<span class="text-xs">Leave</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-gray-500 dark:text-gray-400" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<span class="text-xs">Profile</span>
+</a>
+</div>
+</nav>
+</div>
+</div>
+
+</body></html>

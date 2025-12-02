@@ -191,7 +191,7 @@ function VerifyEmailContent() {
               Enter the code we just sent to <span className="font-medium">{email}</span>
             </p>
 
-            <div className="flex gap-3 mb-6" onPaste={handlePaste}>
+            <div className="flex gap-2 sm:gap-3 mb-6 justify-center" onPaste={handlePaste}>
               {code.map((digit, index) => (
                 <input
                   key={index}
@@ -202,7 +202,8 @@ function VerifyEmailContent() {
                   value={digit}
                   onChange={e => handleChange(index, e.target.value)}
                   onKeyDown={e => handleKeyDown(index, e)}
-                  className="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  className="w-10 h-12 sm:w-14 sm:h-14 text-center text-lg sm:text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all touch-manipulation"
+                  aria-label={`Digit ${index + 1}`}
                 />
               ))}
             </div>

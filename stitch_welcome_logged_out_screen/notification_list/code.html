@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notification List</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0F5D5D",
+              "secondary": "#FF5722",
+              "background": "#F5F5F5",
+              "text-main": "#212121",
+              "text-subtle": "#616161",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display">
+<div class="relative flex min-h-screen w-full flex-col bg-background overflow-x-hidden">
+<div class="sticky top-0 z-10 flex items-center justify-between gap-4 bg-background/80 px-4 py-3 backdrop-blur-sm">
+<div class="flex h-10 w-10 shrink-0 items-center justify-start text-text-main">
+<span class="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
+</div>
+<h1 class="flex-1 text-center text-lg font-bold text-text-main">Notifications</h1>
+<div class="flex w-10 shrink-0 items-center justify-end">
+<p class="whitespace-nowrap text-sm font-semibold text-primary">Mark all as read</p>
+</div>
+</div>
+<main class="flex-grow">
+<div class="px-4 pt-4">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em] text-text-main">Today</h2>
+</div>
+<div class="mt-2 flex flex-col">
+<div class="flex items-start gap-4 bg-white px-4 py-3">
+<div class="mt-3.5 h-2 w-2 shrink-0 rounded-full bg-primary"></div>
+<div class="flex flex-1 items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-primary">
+<span class="material-symbols-outlined">task_alt</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-text-main">Leave Request Approved</p>
+<p class="text-sm text-text-subtle">Your leave request for Jun 20-22 has been approved.</p>
+</div>
+<div class="flex shrink-0 flex-col items-end gap-2 self-start">
+<p class="text-xs text-text-subtle">5m ago</p>
+<span class="material-symbols-outlined cursor-pointer text-base text-gray-400">close</span>
+</div>
+</div>
+</div>
+<div class="flex items-start gap-4 bg-white px-4 py-3">
+<div class="mt-3.5 h-2 w-2 shrink-0 rounded-full bg-primary"></div>
+<div class="flex flex-1 items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-secondary">
+<span class="material-symbols-outlined">assignment_late</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-text-main">New Task Assigned</p>
+<p class="text-sm text-text-subtle">Review the Q3 performance report.</p>
+</div>
+<div class="flex shrink-0 flex-col items-end gap-2 self-start">
+<p class="text-xs text-text-subtle">1h ago</p>
+<span class="material-symbols-outlined cursor-pointer text-base text-gray-400">close</span>
+</div>
+</div>
+</div>
+<div class="flex items-start gap-4 bg-white px-4 py-3">
+<div class="mt-3.5 h-2 w-2 shrink-0 rounded-full bg-transparent"></div>
+<div class="flex flex-1 items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-500/10 text-text-subtle">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-text-main">Auto Clock-In</p>
+<p class="text-sm text-text-subtle">You were automatically clocked in at 9:01 AM.</p>
+</div>
+<div class="flex shrink-0 flex-col items-end gap-2 self-start">
+<p class="text-xs text-text-subtle">3h ago</p>
+<span class="material-symbols-outlined cursor-pointer text-base text-gray-400">close</span>
+</div>
+</div>
+</div>
+</div>
+<div class="px-4 pt-6">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em] text-text-main">Yesterday</h2>
+</div>
+<div class="mt-2 flex flex-col">
+<div class="flex items-start gap-4 bg-white px-4 py-3">
+<div class="mt-3.5 h-2 w-2 shrink-0 rounded-full bg-transparent"></div>
+<div class="flex flex-1 items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-500">
+<span class="material-symbols-outlined">cancel</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-text-main">Task Rejected</p>
+<p class="text-sm text-text-subtle">Your task 'Finalize budget' was rejected.</p>
+</div>
+<div class="flex shrink-0 flex-col items-end gap-2 self-start">
+<p class="text-xs text-text-subtle">Yesterday</p>
+<span class="material-symbols-outlined cursor-pointer text-base text-gray-400">close</span>
+</div>
+</div>
+</div>
+<div class="flex items-start gap-4 bg-white px-4 py-3">
+<div class="mt-3.5 h-2 w-2 shrink-0 rounded-full bg-transparent"></div>
+<div class="flex flex-1 items-center gap-4">
+<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+<span class="material-symbols-outlined">campaign</span>
+</div>
+<div class="flex-1">
+<p class="font-semibold text-text-main">Company Announcement</p>
+<p class="text-sm text-text-subtle">The office will be closed for the public holiday on Monday.</p>
+</div>
+<div class="flex shrink-0 flex-col items-end gap-2 self-start">
+<p class="text-xs text-text-subtle">Yesterday</p>
+<span class="material-symbols-outlined cursor-pointer text-base text-gray-400">close</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>
