@@ -30,6 +30,7 @@ export default function CompanySetupPage() {
     companyName: '',
     tin: '',
     industry: '',
+    customIndustry: '',
     companySize: '',
     website: '',
     headOffice: '',
@@ -145,7 +146,7 @@ export default function CompanySetupPage() {
           companyId: authData.companyId,
           companyName: formData.companyName,
           taxId: formData.tin,
-          industry: formData.industry,
+          industry: formData.industry === 'other' ? formData.customIndustry : formData.industry,
           employeeCount: parseInt(formData.companySize) || 1,
           website: formData.website ? `http://${formData.website}` : undefined,
           // Legacy address field
@@ -235,9 +236,9 @@ export default function CompanySetupPage() {
     switch (currentStep) {
       case 'details':
         return (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              <div className="p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs md:text-sm">
                 {error}
               </div>
             )}
@@ -306,7 +307,9 @@ export default function CompanySetupPage() {
               label="Industry"
               required
               value={formData.industry}
-              onChange={(value) => setFormData({ ...formData, industry: value })}
+              onChange={(value) => {
+                setFormData({ ...formData, industry: value, customIndustry: value === 'other' ? formData.customIndustry : '' })
+              }}
               placeholder="Select industry"
               options={[
                 { value: 'software', label: 'Software' },
@@ -316,9 +319,24 @@ export default function CompanySetupPage() {
                 { value: 'education', label: 'Education' },
                 { value: 'retail', label: 'Retail' },
                 { value: 'manufacturing', label: 'Manufacturing' },
+                { value: 'other', label: 'Other' },
               ]}
               fullWidth
             />
+
+            {formData.industry === 'other' && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Please specify your industry</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.customIndustry}
+                  onChange={(e) => setFormData({ ...formData, customIndustry: e.target.value })}
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., Logistics, Consulting, etc."
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Company size (Number of employees)</label>
@@ -429,8 +447,8 @@ export default function CompanySetupPage() {
 
       case 'owner':
         return (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="p-4 bg-secondary/50 rounded-lg border border-border">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+            <div className="p-3 md:p-4 bg-secondary/50 rounded-lg border border-border">
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -526,7 +544,7 @@ export default function CompanySetupPage() {
 
       case 'documents':
         return (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">C.A.C document</label>
               <p className="text-xs text-muted-foreground mb-3">This is used to verify the business detail you provided</p>
@@ -731,7 +749,7 @@ export default function CompanySetupPage() {
 
       case 'review':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <p className="text-sm text-muted-foreground font-semibold mb-6">Please take a moment to review your information.</p>
 
             {/* Company Details */}
@@ -977,8 +995,8 @@ export default function CompanySetupPage() {
         onSave={handleSaveProgress}
       />
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
-        <div className="grid grid-cols-12 gap-8">
+      <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+        <div className="flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-8">
           {/* Sidebar - Steps (Hidden on mobile) */}
           <div className="hidden md:block md:col-span-3">
             <div className="space-y-2">
@@ -1007,16 +1025,16 @@ export default function CompanySetupPage() {
           </div>
 
           {/* Main Content (Full width on mobile) */}
-          <div className="col-span-12 md:col-span-9">
-            <div className="bg-white rounded-xl border border-border p-4 md:p-8">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
+          <div className="w-full md:col-span-9">
+            <div className="bg-white rounded-lg md:rounded-xl border border-border p-4 md:p-8">
+              <div className="mb-4 md:mb-6">
+                <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">
                   {currentStep === 'details' && 'Tell us about your company'}
                   {currentStep === 'owner' && 'Tell us about your company owner'}
                   {currentStep === 'documents' && 'Legal company documents'}
                   {currentStep === 'payment' && 'Choose your plan'}
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-sm md:text-base text-muted-foreground">
                   {currentStep === 'details' && 'This information is collected to better understand and serve your company'}
                   {currentStep === 'owner' && 'This is the ultimate beneficial owner of the company. This information should be provided by someone authorized to do so.'}
                   {currentStep === 'documents' && 'These are required documents we need in order to verify that the business information you provided are correct'}
