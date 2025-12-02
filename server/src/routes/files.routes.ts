@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { fileUploadService } from '../services/FileUploadService';
 import { logger } from '../utils/logger';
+import { query } from '../config/database';
 import crypto from 'crypto';
 import multipart from '@fastify/multipart';
 
@@ -158,9 +159,10 @@ export default async function filesRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const { fileId, documentType, purpose, metadata } = request.body as {
+      const { fileId, documentType, companyId, purpose, metadata } = request.body as {
         fileId: string;
         documentType: string;
+        companyId?: string;
         purpose?: string;
         metadata?: Record<string, any>;
       };
@@ -168,8 +170,9 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       logger.info({
         fileId,
         documentType,
+        bodyCompanyId: companyId,
         userId: request.user?.userId,
-        companyId: request.user?.companyId
+        tokenCompanyId: request.user?.companyId
       }, 'Attach file to company request received');
 
       if (!fileId || !documentType) {
@@ -179,21 +182,41 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const companyId = request.user.companyId;
-      if (!companyId) {
+      // Use companyId from request body if provided, otherwise fall back to token
+      const targetCompanyId = companyId || request.user.companyId;
+      
+      if (!targetCompanyId) {
         logger.error({
           userId: request.user?.userId,
           user: request.user
-        }, 'User is not associated with a company');
+        }, 'No company ID provided');
         
         return reply.code(400).send({
           success: false,
-          message: 'User is not associated with a company. Please complete company setup first.'
+          message: 'Company ID is required. Please provide companyId in request body.'
+        });
+      }
+
+      // Verify company exists
+      const companyCheck = await query(
+        'SELECT id FROM companies WHERE id = $1',
+        [targetCompanyId]
+      );
+
+      if (companyCheck.rows.length === 0) {
+        logger.error({
+          companyId: targetCompanyId,
+          userId: request.user?.userId
+        }, 'Company not found');
+        
+        return reply.code(404).send({
+          success: false,
+          message: 'Company not found. Please complete company setup first.'
         });
       }
 
       await fileUploadService.attachFileToCompany({
-        companyId,
+        companyId: targetCompanyId,
         fileId,
         documentType,
         uploadedBy: request.user.userId,

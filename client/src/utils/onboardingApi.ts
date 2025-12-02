@@ -193,7 +193,7 @@ export const uploadLogo = async (_companyId: string, file: File) => {
 
 // Upload Document API with hash-based deduplication
 export const uploadDocument = async (
-  _companyId: string,
+  companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
@@ -259,7 +259,7 @@ export const uploadDocument = async (
   }
   
   // Step 4: Attach file to company
-  console.log('🔗 Attaching file to company:', fileId, documentType)
+  console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
   const attachResponse = await fetch(`${API_URL}/files/attach-to-company`, {
     method: 'POST',
     headers: {
@@ -268,6 +268,7 @@ export const uploadDocument = async (
     },
     body: JSON.stringify({
       fileId,
+      companyId,
       documentType,
       purpose: `Company ${documentType} document`,
       metadata: {
