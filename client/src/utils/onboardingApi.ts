@@ -230,6 +230,7 @@ export const uploadDocument = async (
   
   // Step 3: Upload file if it doesn't exist
   if (!checkResult.data.exists) {
+    console.log('📤 Uploading new file:', file.name, 'hash:', hash.substring(0, 8))
     const formData = new FormData()
     formData.append('document', file)
     formData.append('hash', hash)
@@ -245,16 +246,20 @@ export const uploadDocument = async (
     const uploadResult = await uploadResponse.json()
     
     if (!uploadResponse.ok) {
-      throw new Error(uploadResult.message || 'Failed to upload file')
+      console.error('❌ Upload failed:', uploadResponse.status, uploadResult)
+      throw new Error(uploadResult.message || `Failed to upload file (${uploadResponse.status})`)
     }
     
+    console.log('✅ File uploaded:', uploadResult.data.file.id)
     fileId = uploadResult.data.file.id
   } else {
     // File already exists, use existing file ID
+    console.log('♻️ File already exists, reusing:', checkResult.data.file.id)
     fileId = checkResult.data.file.id
   }
   
   // Step 4: Attach file to company
+  console.log('🔗 Attaching file to company:', fileId, documentType)
   const attachResponse = await fetch(`${API_URL}/files/attach-to-company`, {
     method: 'POST',
     headers: {
@@ -275,9 +280,11 @@ export const uploadDocument = async (
   const attachResult = await attachResponse.json()
   
   if (!attachResponse.ok) {
+    console.error('❌ Attach failed:', attachResponse.status, attachResult)
     throw new Error(attachResult.message || 'Failed to attach document to company')
   }
   
+  console.log('✅ File attached to company successfully')
   return attachResult
 }
 
