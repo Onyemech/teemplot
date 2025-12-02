@@ -241,16 +241,52 @@ class FileUploadService {
 
       const urlColumn = urlColumnMap[request.documentType];
       if (urlColumn) {
-        const fileResult = await query(
-          'SELECT secure_url FROM files WHERE id = $1',
-          [request.fileId]
-        );
-
-        if (fileResult.rows.length > 0) {
-          await query(
-            `UPDATE companies SET ${urlColumn} = $1, updated_at = NOW() WHERE id = $2`,
-            [fileResult.rows[0].secure_url, request.companyId]
+        try {
+          const fileResult = await query(
+            'SELECT secure_url FROM files WHERE id = $1',
+            [request.fileId]
           );
+
+          if (fileResult.rows.length > 0) {
+            const secureUrl = fileResult.rows[0].secure_url;
+            
+            // Use parameterized query with CASE statement to avoid SQL injection
+            if (request.documentType === 'cac') {
+              await query(
+                'UPDATE companies SET cac_document_url = $1, updated_at = NOW() WHERE id = $2',
+                [secureUrl, request.companyId]
+              );
+            } else if (request.documentType === 'proof_of_address') {
+              await query(
+                'UPDATE companies SET proof_of_address_url = $1, updated_at = NOW() WHERE id = $2',
+                [secureUrl, request.companyId]
+              );
+            } else if (request.documentType === 'company_policy') {
+              await query(
+                'UPDATE companies SET company_policy_url = $1, updated_at = NOW() WHERE id = $2',
+                [secureUrl, request.companyId]
+              );
+            }
+            
+            logger.info({
+              companyId: request.companyId,
+              documentType: request.documentType,
+              urlColumn,
+              secureUrl
+            }, 'Updated company document URL');
+          } else {
+            logger.warn({
+              fileId: request.fileId
+            }, 'File not found when trying to update company URL');
+          }
+        } catch (urlUpdateError: any) {
+          logger.error({ 
+            err: urlUpdateError, 
+            fileId: request.fileId,
+            companyId: request.companyId,
+            documentType: request.documentType
+          }, 'Error updating company document URL');
+          // Don't throw - file is already attached to company_files table
         }
       }
 
