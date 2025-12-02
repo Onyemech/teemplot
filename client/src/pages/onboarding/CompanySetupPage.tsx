@@ -24,9 +24,14 @@ export default function CompanySetupPage() {
   const [currentStep, setCurrentStep] = useState<Step>('details')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  
+  // Helper to check if value is a File object
+  const isFile = (value: File | string | null): value is File => {
+    return value instanceof File
+  }
   const [formData, setFormData] = useState({
     // Company details
-    companyLogo: null as File | null,
+    companyLogo: null as File | string | null,
     companyName: '',
     tin: '',
     industry: '',
@@ -58,9 +63,9 @@ export default function CompanySetupPage() {
     ownerDOB: '',
 
     // Documents
-    cacDocument: null as File | null,
-    proofOfAddress: null as File | null,
-    companyPolicies: null as File | null,
+    cacDocument: null as File | string | null,
+    proofOfAddress: null as File | string | null,
+    companyPolicies: null as File | string | null,
   })
 
   const steps = [
@@ -71,11 +76,24 @@ export default function CompanySetupPage() {
     { id: 'payment', label: 'Payments', completed: false },
   ]
 
-  // Load saved progress
+  // Load saved progress and handle URL token
   useEffect(() => {
     const loadProgress = async () => {
+      // FIRST: Check if token is in URL and save it
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlToken = urlParams.get('token')
+      
+      if (urlToken) {
+        if (import.meta.env.MODE === 'development') {
+          console.log('✅ Found token in URL, saving to localStorage')
+        }
+        localStorage.setItem('token', urlToken)
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+      
       const authData = getAuthData()
-      // Fallback to localStorage user if not in onboarding flow (e.g. resumed session)
+      // Fallback to localStorage user if not in onboarding flow
       const user = JSON.parse(localStorage.getItem('user') || '{}')
       const userId = authData?.userId || user?.id
 
@@ -85,14 +103,7 @@ export default function CompanySetupPage() {
           setFormData(prev => ({
             ...prev,
             ...progress.formData,
-            // Restore file objects is tricky, usually we just show them as uploaded
-            // For now we'll keep them null as they need re-upload or different handling
           }))
-
-          // Restore step if needed, but usually we start at 'details' or let the parent router handle it
-          // However, if we want to be specific:
-          // if (progress.currentStep === 2) setCurrentStep('details')
-          // etc.
         }
       }
     }
@@ -106,41 +117,86 @@ export default function CompanySetupPage() {
     try {
       let authData = getAuthData()
       
-      // If no auth data found, try to get from localStorage user
-      if (!authData?.userId || !authData?.companyId) {
-        const userStr = localStorage.getItem('user')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          authData = {
-            userId: user.id,
-            companyId: user.company_id || user.companyId, // Try both formats
-            email: user.email,
-          }
-        }
-      }
-      
-      // If still no companyId, try to get from token
-      if (authData?.userId && !authData?.companyId) {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]))
-            if (payload.companyId) {
-              authData.companyId = payload.companyId
-            }
-          } catch (e) {
-            // Silent fail - token decode error
-          }
-        }
-      }
-      
-      // Final check - only userId is required, companyId might not exist yet during onboarding
+      // COMPREHENSIVE FALLBACK: Try multiple sources for auth data
       if (!authData?.userId) {
-        throw new Error('Please log in again to continue onboarding. Your session may have expired.')
+        // Check if token is in URL (from Google redirect)
+        const urlParams = new URLSearchParams(window.location.search)
+        const urlToken = urlParams.get('token')
+        
+        if (urlToken) {
+          // Save token from URL to localStorage
+          localStorage.setItem('token', urlToken)
+          // Try to decode it
+          try {
+            const payload = JSON.parse(atob(urlToken.split('.')[1]))
+            authData = {
+              userId: payload.userId || payload.sub,
+              companyId: payload.companyId,
+              email: payload.email,
+            }
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname)
+          } catch (e) {
+            console.error('Failed to decode URL token:', e)
+          }
+        }
+        
+        // Try localStorage user
+        if (!authData?.userId) {
+          const userStr = localStorage.getItem('user')
+          if (userStr) {
+            try {
+              const user = JSON.parse(userStr)
+              authData = {
+                userId: user.id,
+                companyId: user.company_id || user.companyId,
+                email: user.email,
+              }
+            } catch (e) {
+              console.error('Failed to parse user from localStorage:', e)
+            }
+          }
+        }
+        
+        // Try to decode from token in localStorage
+        if (!authData?.userId) {
+          const token = localStorage.getItem('token') || localStorage.getItem('auth_token')
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]))
+              authData = {
+                userId: payload.userId || payload.sub,
+                companyId: payload.companyId,
+                email: payload.email,
+              }
+            } catch (e) {
+              console.error('Failed to decode token:', e)
+            }
+          }
+        }
       }
       
-      // If no companyId, we need to create one or get it from the backend
-      if (!authData?.companyId) {
+      // Final check - only userId is required
+      if (!authData?.userId) {
+        const errorMsg = 'Authentication required. Please log in again.'
+        setError(errorMsg)
+        setLoading(false)
+        if (import.meta.env.MODE === 'development') {
+          console.error('❌ No userId found. Checked:', {
+            sessionStorage: !!sessionStorage.getItem('onboarding_auth'),
+            localStorage_user: !!localStorage.getItem('user'),
+            localStorage_token: !!localStorage.getItem('token'),
+            urlToken: !!new URLSearchParams(window.location.search).get('token')
+          })
+        }
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 2000)
+        return
+      }
+      
+      // CompanyId is optional during initial onboarding
+      if (!authData?.companyId && import.meta.env.MODE === 'development') {
         console.warn('⚠️ No companyId found, will be created by backend')
       }
 
@@ -199,12 +255,10 @@ export default function CompanySetupPage() {
           }
         }
 
-        // Upload logo if provided
-        if (formData.companyLogo) {
+        // Upload logo if provided (only if it's a new File, not a URL string)
+        if (formData.companyLogo && isFile(formData.companyLogo)) {
           await uploadLogo(authData.companyId, formData.companyLogo)
         }
-
-        toast.success('Company details saved successfully!')
 
         // If Google auth user, complete onboarding
         if (authData?.isGoogleAuth) {
@@ -223,24 +277,27 @@ export default function CompanySetupPage() {
             ownerDateOfBirth: formData.ownerDOB,
           })
         }
-        toast.success('Owner details saved successfully!')
       } else if (currentStep === 'documents') {
-        // Upload all documents using hash-based deduplication
+        // Upload all documents using hash-based deduplication (only new Files, not URL strings)
         const uploadPromises = [];
         
-        if (formData.cacDocument) {
+        if (formData.cacDocument && isFile(formData.cacDocument)) {
           uploadPromises.push(uploadDocument(authData.companyId, 'cac', formData.cacDocument));
         }
-        if (formData.proofOfAddress) {
+        if (formData.proofOfAddress && isFile(formData.proofOfAddress)) {
           uploadPromises.push(uploadDocument(authData.companyId, 'proof_of_address', formData.proofOfAddress));
         }
-        if (formData.companyPolicies) {
+        if (formData.companyPolicies && isFile(formData.companyPolicies)) {
           uploadPromises.push(uploadDocument(authData.companyId, 'company_policy', formData.companyPolicies));
         }
         
         // Upload all documents in parallel
-        await Promise.all(uploadPromises);
-        toast.success('Documents uploaded successfully!');
+        if (uploadPromises.length > 0) {
+          await Promise.all(uploadPromises);
+          toast.success('Documents uploaded successfully!');
+        } else {
+          toast.success('Documents already uploaded!');
+        }
       }
 
       // Move to next step
@@ -282,7 +339,7 @@ export default function CompanySetupPage() {
                 <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border">
                  {formData.companyLogo ? (
                     <img 
-                      src={URL.createObjectURL(formData.companyLogo)} 
+                      src={formData.companyLogo instanceof File ? URL.createObjectURL(formData.companyLogo) : formData.companyLogo as string} 
                       alt="Logo" 
                       className="w-full h-full object-contain rounded-lg" 
                     />
@@ -607,8 +664,8 @@ export default function CompanySetupPage() {
                       <FileText className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{formData.cacDocument.name}</p>
-                      <p className="text-xs text-gray-500">{formData.cacDocument.size ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                      <p className="text-sm font-medium text-gray-900">{isFile(formData.cacDocument) ? formData.cacDocument.name : 'Uploaded document'}</p>
+                      <p className="text-xs text-gray-500">{isFile(formData.cacDocument) && formData.cacDocument.size ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
                     </div>
                   </div>
                   <button
@@ -671,8 +728,8 @@ export default function CompanySetupPage() {
                       <ImageIcon className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{formData.proofOfAddress.name}</p>
-                      <p className="text-xs text-gray-500">{formData.proofOfAddress.size ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                      <p className="text-sm font-medium text-gray-900">{isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : 'Uploaded document'}</p>
+                      <p className="text-xs text-gray-500">{isFile(formData.proofOfAddress) && formData.proofOfAddress.size ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
                     </div>
                   </div>
                   <button
@@ -735,8 +792,8 @@ export default function CompanySetupPage() {
                       <FileText className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{formData.companyPolicies.name}</p>
-                      <p className="text-xs text-gray-500">{formData.companyPolicies.size ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' : 'Unknown size'}</p>
+                      <p className="text-sm font-medium text-gray-900">{isFile(formData.companyPolicies) ? formData.companyPolicies.name : 'Uploaded document'}</p>
+                      <p className="text-xs text-gray-500">{isFile(formData.companyPolicies) && formData.companyPolicies.size ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
                     </div>
                   </div>
                   <button
@@ -909,8 +966,8 @@ export default function CompanySetupPage() {
                   {formData.cacDocument ? (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">{formData.cacDocument.name}</span>
-                      {formData.cacDocument.size && <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">{isFile(formData.cacDocument) ? formData.cacDocument.name : 'Uploaded'}</span>
+                      {isFile(formData.cacDocument) && formData.cacDocument.size && <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
@@ -921,8 +978,8 @@ export default function CompanySetupPage() {
                   {formData.proofOfAddress ? (
                     <div className="flex items-center gap-2 text-sm">
                       <ImageIcon className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">{formData.proofOfAddress.name}</span>
-                      {formData.proofOfAddress.size && <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">{isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : 'Uploaded'}</span>
+                      {isFile(formData.proofOfAddress) && formData.proofOfAddress.size && <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
@@ -933,8 +990,8 @@ export default function CompanySetupPage() {
                   {formData.companyPolicies ? (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">{formData.companyPolicies.name}</span>
-                      {formData.companyPolicies.size && <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">{isFile(formData.companyPolicies) ? formData.companyPolicies.name : 'Uploaded'}</span>
+                      {isFile(formData.companyPolicies) && formData.companyPolicies.size && <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
@@ -993,24 +1050,31 @@ export default function CompanySetupPage() {
         }
       }
       
-      // Only save if we have valid auth data AND some form data
-      if (authData?.userId && authData?.companyId) {
+      // Only userId is required - companyId is optional during initial onboarding
+      if (authData?.userId) {
         // Check if there's any meaningful data to save
         const hasData = formData.companyName || 
                        formData.tin || 
                        formData.industry || 
                        formData.companySize ||
-                       formData.address
+                       formData.address ||
+                       formData.ownerFirstName ||
+                       formData.ownerLastName
 
         if (hasData) {
+          // Determine current step based on what data exists
+          let currentStepNum = 1
+          if (formData.companyName) currentStepNum = 2
+          if (formData.ownerFirstName) currentStepNum = 3
+          if (formData.cacDocument) currentStepNum = 4
+
           await saveProgress({
             userId: authData.userId,
-            companyId: authData.companyId,
-            currentStep: 2,
-            completedSteps: [1], // Registration completed
+            companyId: authData.companyId || 'pending', // Use 'pending' if no companyId yet
+            currentStep: currentStepNum,
+            completedSteps: Array.from({ length: currentStepNum - 1 }, (_, i) => i + 1),
             formData: formData,
           })
-          toast.success('Progress saved successfully!')
         } else {
           toast.info('Please fill in at least one field before saving')
         }

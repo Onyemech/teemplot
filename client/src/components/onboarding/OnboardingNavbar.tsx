@@ -55,15 +55,17 @@ export default function OnboardingNavbar({
     setSaving(true)
 
     try {
-      // Get auth data from sessionStorage or localStorage
+      // Get auth data from multiple sources
       let authData = null
       
       // Try sessionStorage first (during onboarding)
       const sessionAuth = sessionStorage.getItem('onboarding_auth')
       if (sessionAuth) {
         authData = JSON.parse(sessionAuth)
-      } else {
-        // Try localStorage (logged in user)
+      }
+      
+      // Try localStorage user
+      if (!authData?.userId) {
         const userStr = localStorage.getItem('user')
         if (userStr) {
           const user = JSON.parse(userStr)
@@ -73,47 +75,75 @@ export default function OnboardingNavbar({
           }
         }
       }
+      
+      // Try to decode from token
+      if (!authData?.userId) {
+        const token = localStorage.getItem('token')
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            authData = {
+              userId: payload.userId || payload.sub,
+              companyId: payload.companyId
+            }
+          } catch (e) {
+            if (import.meta.env.MODE === 'development') {
+              console.error('Failed to decode token:', e)
+            }
+          }
+        }
+      }
 
-      if (!authData?.userId || !authData?.companyId) {
-        // If no auth data, just navigate away (user hasn't started onboarding yet)
+      if (!authData?.userId) {
+        // If no userId, just navigate away (user hasn't logged in yet)
         toast.info('No progress to save yet')
         navigate('/')
         return
       }
+      
+      // CompanyId is optional during initial onboarding
+      if (!authData?.companyId && import.meta.env.MODE === 'development') {
+        console.warn('⚠️ No companyId found, saving with userId only')
+      }
 
-      // Call the onSave callback if provided (saves current form data)
+      // Call the onSave callback if provided (this saves current form data to database)
       if (onSave) {
         await onSave()
+        toast.success('Progress saved! You can continue later.')
+      } else {
+        // Fallback: If no onSave callback, save minimal progress
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${API_URL}/onboarding/save-progress`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            userId: authData.userId,
+            companyId: authData.companyId || null,
+            currentStep: currentStep || 1,
+            completedSteps: [],
+            formData: {}
+          }),
+        })
+
+        if (!response.ok) {
+          const result = await response.json()
+          throw new Error(result.message || 'Failed to save progress')
+        }
+
+        toast.success('Progress saved! You can continue later.')
       }
-
-      // Save progress to database
-      const response = await fetch(`${API_URL}/onboarding/save-progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: authData.userId,
-          companyId: authData.companyId,
-          currentStep: currentStep || 1,
-          completedSteps: [],
-          formData: {} // Form data should be saved by individual pages
-        }),
-      })
-
-      if (!response.ok) {
-        const result = await response.json()
-        throw new Error(result.message || 'Failed to save progress')
-      }
-
-      toast.success('Progress saved! You can continue later.')
 
       // Wait a moment for toast to show
       setTimeout(() => {
         navigate('/')
       }, 1000)
     } catch (error: any) {
-      console.error('Save error:', error)
+      if (import.meta.env.MODE === 'development') {
+        console.error('Save error:', error)
+      }
       const message = error.message || 'Failed to save progress. Please try again.'
       toast.error(message)
     } finally {

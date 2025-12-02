@@ -79,31 +79,66 @@ export default function AddressAutocomplete({
           return
         }
 
-        // Load Google Maps script if not already loaded
-        if (!window.google || !window.google.maps) {
-          const script = document.createElement('script')
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
-          script.async = true
-          script.defer = true
-          
-          await new Promise<void>((resolve, reject) => {
-            script.onload = () => resolve()
-            script.onerror = () => reject(new Error('Failed to load Google Maps'))
-            document.head.appendChild(script)
-          })
-        }
-
-        // Initialize services
-        if (window.google && window.google.maps && window.google.maps.places) {
+        // Check if Google Maps is already loaded
+        if (window.google?.maps?.places) {
+          // Already loaded, initialize immediately
           autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-          
-          // Create a dummy div for PlacesService (required by Google API)
           const dummyDiv = document.createElement('div')
           placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv)
-          
-          // Create session token for better autocomplete performance and cost optimization
           sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+          return
         }
+
+        // Check if script is already being loaded
+        const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+        if (existingScript) {
+          // Wait for existing script to load
+          const waitForGoogle = setInterval(() => {
+            if (window.google?.maps?.places) {
+              clearInterval(waitForGoogle)
+              autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+              const dummyDiv = document.createElement('div')
+              placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv)
+              sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+            }
+          }, 100)
+          
+          // Timeout after 10 seconds
+          setTimeout(() => clearInterval(waitForGoogle), 10000)
+          return
+        }
+
+        // Load Google Maps script
+        const script = document.createElement('script')
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=Function.prototype`
+        script.async = true
+        script.defer = true
+        
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => {
+            // Wait for Google Maps to fully initialize
+            const checkGoogle = setInterval(() => {
+              if (window.google?.maps?.places) {
+                clearInterval(checkGoogle)
+                autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+                const dummyDiv = document.createElement('div')
+                placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv)
+                sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+                resolve()
+              }
+            }, 50)
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+              clearInterval(checkGoogle)
+              if (!window.google?.maps?.places) {
+                reject(new Error('Google Maps loaded but places not available'))
+              }
+            }, 5000)
+          }
+          script.onerror = () => reject(new Error('Failed to load Google Maps'))
+          document.head.appendChild(script)
+        })
       } catch (error) {
         console.error('Failed to initialize Google Places:', error)
         setApiError('Failed to load address search')
@@ -249,15 +284,13 @@ export default function AddressAutocomplete({
 
       autocompleteServiceRef.current.getPlacePredictions(
         {
-          input: searchQuery, // Send raw user input - Google handles typos!
-          types: ['address'],
-          componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
-          // Use locationRestriction instead of bias for harder boundary (Lagos area)
-          locationRestriction: new window.google.maps.LatLngBounds(
-            new window.google.maps.LatLng(6.3, 2.8),  // Southwest Nigeria
-            new window.google.maps.LatLng(6.8, 3.8)   // Northeast Lagos area
+          input: searchQuery,
+          componentRestrictions: { country: 'ng' },
+          // Use locationBias for softer preference (not hard restriction)
+          locationBias: new window.google.maps.LatLngBounds(
+            new window.google.maps.LatLng(6.2, 2.7),  // Southwest Nigeria (wider area)
+            new window.google.maps.LatLng(7.0, 4.0)   // Northeast (covers more of Lagos/Ogun)
           ),
-          // Session token for better performance and cost optimization
           sessionToken: sessionTokenRef.current || undefined,
         },
         (results, status) => {

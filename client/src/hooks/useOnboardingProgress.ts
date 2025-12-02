@@ -13,10 +13,23 @@ export interface OnboardingProgressData {
 export function useOnboardingProgress() {
   const saveProgress = useCallback(async (data: OnboardingProgressData) => {
     try {
+      const token = localStorage.getItem('token');
+      
+      // Development logging only
+      if (import.meta.env.MODE === 'development') {
+        console.log('💾 Saving progress:', {
+          userId: data.userId ? '✅' : '❌',
+          companyId: data.companyId ? '✅' : '❌',
+          currentStep: data.currentStep,
+          hasToken: !!token
+        });
+      }
+      
       const response = await fetch(`${API_URL}/onboarding/save-progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(data),
       });
@@ -24,12 +37,17 @@ export function useOnboardingProgress() {
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('❌ Save progress failed:', result);
         throw new Error(result.message || 'Failed to save progress');
+      }
+
+      if (import.meta.env.MODE === 'development') {
+        console.log('✅ Progress saved successfully');
       }
 
       return result;
     } catch (error: any) {
-      console.error('Error saving progress:', error);
+      console.error('❌ Error saving progress:', error.message);
       throw error;
     }
   }, []);

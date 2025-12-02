@@ -1,21 +1,27 @@
 
 export const debugAuth = () => {
-  console.group('🔍 Authentication Debug');
+  // Only run in development mode
+  const isDev = import.meta.env.MODE === 'development';
+  
+  if (!isDev) {
+    console.warn('🔒 Debug auth is disabled in production');
+    return { status: '🔒 Disabled in production' };
+  }
+  
+  console.group('🔍 Authentication Debug (DEV ONLY)');
   
   const onboardingAuth = sessionStorage.getItem('onboarding_auth');
-  console.log('📦 sessionStorage.onboarding_auth:', onboardingAuth);
+  console.log('📦 sessionStorage.onboarding_auth:', onboardingAuth ? '✅ Present' : '❌ Missing');
   if (onboardingAuth) {
     try {
       const parsed = JSON.parse(onboardingAuth);
-      console.log('  ├─ email:', parsed.email);
-      console.log('  ├─ userId:', parsed.userId);
-      console.log('  ├─ companyId:', parsed.companyId);
+      console.log('  ├─ email:', parsed.email ? parsed.email.replace(/(.{3}).*(@.*)/, '$1***$2') : '❌ Missing');
+      console.log('  ├─ userId:', parsed.userId ? '✅ Present' : '❌ Missing');
+      console.log('  ├─ companyId:', parsed.companyId ? '✅ Present' : '❌ Missing');
       console.log('  ├─ token:', parsed.token ? '✅ Present' : '❌ Missing');
       console.log('  └─ isGoogleAuth:', parsed.isGoogleAuth);
       
-      if (parsed.token) {
-        console.log('  Token preview:', parsed.token.substring(0, 20) + '...');
-      }
+      // NEVER log actual token values, even in development
     } catch (e) {
       console.error('  ❌ Failed to parse:', e);
     }
@@ -26,9 +32,7 @@ export const debugAuth = () => {
   // Check localStorage
   const authToken = localStorage.getItem('auth_token');
   console.log('\n📦 localStorage.auth_token:', authToken ? '✅ Present' : '❌ Missing');
-  if (authToken) {
-    console.log('  Token preview:', authToken.substring(0, 20) + '...');
-  }
+  // NEVER log actual token values
   
   const user = localStorage.getItem('user');
   console.log('📦 localStorage.user:', user ? '✅ Present' : '❌ Missing');

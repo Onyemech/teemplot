@@ -451,10 +451,11 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     try {
       const { userId, companyId, currentStep, completedSteps, formData } = request.body as any;
 
-      if (!userId || !companyId || currentStep === undefined) {
+      // Only userId and currentStep are required - companyId might not exist yet during initial onboarding
+      if (!userId || currentStep === undefined) {
         return reply.code(400).send({
           success: false,
-          message: 'Missing required fields: userId, companyId, currentStep',
+          message: 'Missing required fields: userId, currentStep',
         });
       }
 
