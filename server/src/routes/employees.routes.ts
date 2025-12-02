@@ -103,9 +103,28 @@ export async function employeesRoutes(fastify: FastifyInstance) {
 
       const invitation = insertQuery.rows[0];
 
-      // TODO: Send invitation email
+      // Send invitation email
       const invitationLink = `${process.env.FRONTEND_URL}/accept-invitation?token=${invitationToken}`;
-      fastify.log.info(`Invitation link: ${invitationLink}`);
+      
+      try {
+        const { emailService } = await import('../services/EmailService');
+        const inviterQuery = await db.query('SELECT first_name, last_name FROM users WHERE id = $1', [userId]);
+        const inviterName = inviterQuery.rows[0] 
+          ? `${inviterQuery.rows[0].first_name} ${inviterQuery.rows[0].last_name}`
+          : 'Your team';
+        
+        await emailService.sendEmployeeInvitation(
+          email,
+          firstName,
+          company.name,
+          inviterName,
+          role,
+          invitationLink
+        );
+      } catch (emailError: any) {
+        fastify.log.error({ error: emailError }, 'Failed to send invitation email');
+        // Don't fail the request if email fails
+      }
 
       return reply.code(201).send({
         success: true,
