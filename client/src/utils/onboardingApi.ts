@@ -285,6 +285,28 @@ export const uploadDocument = async (
     throw new Error(attachResult.message || 'Failed to attach document to company')
   }
   
+  // If server returned a corrected companyId, update our session
+  if (attachResult.data?.companyId && attachResult.data.companyId !== companyId) {
+    console.log('🔄 Server corrected companyId:', companyId, '→', attachResult.data.companyId)
+    
+    // Update sessionStorage
+    const sessionAuth = sessionStorage.getItem('onboarding_auth')
+    if (sessionAuth) {
+      const auth = JSON.parse(sessionAuth)
+      auth.companyId = attachResult.data.companyId
+      sessionStorage.setItem('onboarding_auth', JSON.stringify(auth))
+    }
+    
+    // Update localStorage
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      user.companyId = attachResult.data.companyId
+      user.company_id = attachResult.data.companyId
+      localStorage.setItem('user', JSON.stringify(user))
+    }
+  }
+  
   console.log('✅ File attached to company successfully')
   return attachResult
 }

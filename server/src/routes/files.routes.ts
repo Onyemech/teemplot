@@ -151,10 +151,7 @@ export default async function filesRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * Attach file to company
-   * POST /api/files/attach-to-company
-   */
+
   fastify.post('/attach-to-company', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
@@ -197,26 +194,48 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Verify company exists
-      const companyCheck = await query(
+      // Verify company exists, if not try to find user's actual company
+      let companyCheck = await query(
         'SELECT id FROM companies WHERE id = $1',
         [targetCompanyId]
       );
 
+      let actualCompanyId = targetCompanyId;
+
       if (companyCheck.rows.length === 0) {
-        logger.error({
+        logger.warn({
           companyId: targetCompanyId,
           userId: request.user?.userId
-        }, 'Company not found');
+        }, 'Company not found, trying to find user\'s actual company');
         
-        return reply.code(404).send({
-          success: false,
-          message: 'Company not found. Please complete company setup first.'
-        });
+        // Try to find the user's actual company
+        const userCheck = await query(
+          'SELECT company_id FROM users WHERE id = $1',
+          [request.user.userId]
+        );
+
+        if (userCheck.rows.length > 0 && userCheck.rows[0].company_id) {
+          actualCompanyId = userCheck.rows[0].company_id;
+          logger.info({
+            oldCompanyId: targetCompanyId,
+            newCompanyId: actualCompanyId,
+            userId: request.user.userId
+          }, 'Found user\'s actual company');
+        } else {
+          logger.error({
+            companyId: targetCompanyId,
+            userId: request.user?.userId
+          }, 'Company not found and user has no company');
+          
+          return reply.code(404).send({
+            success: false,
+            message: 'Company not found. Please complete company setup first.'
+          });
+        }
       }
 
       await fileUploadService.attachFileToCompany({
-        companyId: targetCompanyId,
+        companyId: actualCompanyId,
         fileId,
         documentType,
         uploadedBy: request.user.userId,
@@ -226,7 +245,10 @@ export default async function filesRoutes(fastify: FastifyInstance) {
 
       return reply.code(200).send({
         success: true,
-        message: 'File attached to company successfully'
+        message: 'File attached to company successfully',
+        data: {
+          companyId: actualCompanyId
+        }
       });
     } catch (error: any) {
       logger.error({ 
