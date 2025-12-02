@@ -1,48 +1,47 @@
-import { useState, useEffect } from 'react'
-import { apiClient } from '@/lib/api'
+import { useAuth } from './useAuth'
 import { hasFeatureAccess, type Feature, type SubscriptionPlan } from '@/utils/planFeatures'
 
-interface FeatureAccessState {
-  plan: SubscriptionPlan | null
-  hasAccess: (feature: Feature) => boolean
-  loading: boolean
-  error: string | null
-}
+export function useFeatureAccess() {
+  const { user, loading } = useAuth()
 
-export function useFeatureAccess(): FeatureAccessState {
-  const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const plan: SubscriptionPlan = user?.company?.subscriptionPlan || 'trial'
+  const subscriptionStatus = user?.company?.subscriptionStatus || 'active'
+  const trialEndsAt = user?.company?.trialEndsAt
+  const employeeLimit = user?.company?.employeeLimit || 0
+  const currentEmployeeCount = user?.company?.currentEmployeeCount || 0
 
-  useEffect(() => {
-    fetchPlan()
-  }, [])
+  // Check if trial has expired
+  const isTrialExpired = plan === 'trial' && trialEndsAt && new Date(trialEndsAt) < new Date()
+  
+  // Check if subscription is expired
+  const isSubscriptionExpired = subscriptionStatus === 'expired' || isTrialExpired
 
-  const fetchPlan = async () => {
-    try {
-      setLoading(true)
-      const response = await apiClient.get('/api/company/info')
-      setPlan(response.data.subscription_plan)
-      setError(null)
-    } catch (err: any) {
-      console.error('Failed to fetch plan:', err)
-      setError(err.message || 'Failed to fetch plan')
-      // Default to trial plan on error
-      setPlan('trial')
-    } finally {
-      setLoading(false)
-    }
+  // Check if employee limit reached
+  const isEmployeeLimitReached = currentEmployeeCount >= employeeLimit
+
+  const hasAccess = (feature: Feature): boolean => {
+    // If subscription expired, no access to any features
+    if (isSubscriptionExpired) return false
+    
+    return hasFeatureAccess(plan, feature)
   }
 
-  const checkAccess = (feature: Feature): boolean => {
-    if (!plan) return false
-    return hasFeatureAccess(plan, feature)
+  const canAddEmployee = (): boolean => {
+    if (isSubscriptionExpired) return false
+    return !isEmployeeLimitReached
   }
 
   return {
     plan,
-    hasAccess: checkAccess,
-    loading,
-    error
+    subscriptionStatus,
+    isTrialExpired,
+    isSubscriptionExpired,
+    isEmployeeLimitReached,
+    employeeLimit,
+    currentEmployeeCount,
+    trialEndsAt,
+    hasAccess,
+    canAddEmployee,
+    loading
   }
 }

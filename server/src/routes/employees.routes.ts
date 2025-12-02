@@ -5,6 +5,46 @@ import crypto from 'crypto';
 const db = DatabaseFactory.getPrimaryDatabase();
 
 export async function employeesRoutes(fastify: FastifyInstance) {
+  // Get all employees
+  fastify.get('/', {
+    preHandler: [fastify.authenticate]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = (request.user as any).userId;
+
+      if (!userId) {
+        return reply.code(401).send({ success: false, message: 'Unauthorized' });
+      }
+
+      // Get user's company
+      const userQuery = await db.query(
+        'SELECT company_id, role FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (!userQuery.rows[0]) {
+        return reply.code(404).send({ success: false, message: 'User not found' });
+      }
+
+      const user = userQuery.rows[0];
+
+      // Get all employees in the company
+      const employeesQuery = await db.query(
+        `SELECT id, first_name as "firstName", last_name as "lastName", email, role, position, 
+         avatar, created_at as "createdAt", 'active' as status
+         FROM users 
+         WHERE company_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [user.company_id]
+      );
+
+      return reply.send({ success: true, data: employeesQuery.rows });
+    } catch (error: any) {
+      fastify.log.error('Failed to fetch employees:', error);
+      return reply.code(500).send({ success: false, message: 'Internal server error' });
+    }
+  });
+
   fastify.post('/invite', {
     preHandler: [fastify.authenticate]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -139,6 +179,149 @@ export async function employeesRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       fastify.log.error('Failed to invite employee:', error);
+      return reply.code(500).send({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Get invitation details (public - no auth required)
+  fastify.get('/invitation/:token', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { token } = request.params as any;
+
+      if (!token) {
+        return reply.code(400).send({ success: false, message: 'Token is required' });
+      }
+
+      // Get invitation
+      const invitationQuery = await db.query(
+        `SELECT ei.*, c.name as company_name, c.logo as company_logo
+         FROM employee_invitations ei
+         JOIN companies c ON ei.company_id = c.id
+         WHERE ei.invitation_token = $1`,
+        [token]
+      );
+
+      if (!invitationQuery.rows[0]) {
+        return reply.code(404).send({ success: false, message: 'Invitation not found' });
+      }
+
+      const invitation = invitationQuery.rows[0];
+
+      // Check if expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        return reply.code(400).send({ success: false, message: 'Invitation has expired' });
+      }
+
+      // Check if already accepted
+      if (invitation.status !== 'pending') {
+        return reply.code(400).send({ success: false, message: 'Invitation has already been used' });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          email: invitation.email,
+          firstName: invitation.first_name,
+          lastName: invitation.last_name,
+          role: invitation.role,
+          position: invitation.position,
+          companyName: invitation.company_name,
+          companyLogo: invitation.company_logo
+        }
+      });
+    } catch (error: any) {
+      fastify.log.error('Failed to fetch invitation:', error);
+      return reply.code(500).send({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Accept invitation (public - no auth required)
+  fastify.post('/accept-invitation', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { token, password, firstName, lastName } = request.body as any;
+
+      if (!token || !password || !firstName || !lastName) {
+        return reply.code(400).send({ success: false, message: 'Missing required fields' });
+      }
+
+      // Get invitation
+      const invitationQuery = await db.query(
+        'SELECT * FROM employee_invitations WHERE invitation_token = $1',
+        [token]
+      );
+
+      if (!invitationQuery.rows[0]) {
+        return reply.code(404).send({ success: false, message: 'Invitation not found' });
+      }
+
+      const invitation = invitationQuery.rows[0];
+
+      // Check if expired
+      if (new Date(invitation.expires_at) < new Date()) {
+        return reply.code(400).send({ success: false, message: 'Invitation has expired' });
+      }
+
+      // Check if already accepted
+      if (invitation.status !== 'pending') {
+        return reply.code(400).send({ success: false, message: 'Invitation has already been used' });
+      }
+
+      // Check if user already exists
+      const existingUserQuery = await db.query(
+        'SELECT id FROM users WHERE email = $1',
+        [invitation.email]
+      );
+
+      if (existingUserQuery.rows[0]) {
+        return reply.code(400).send({ success: false, message: 'User already exists' });
+      }
+
+      // Hash password
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const userQuery = await db.query(
+        `INSERT INTO users 
+        (company_id, email, password_hash, first_name, last_name, role, position, email_verified)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+        RETURNING id, email, first_name, last_name, role, company_id`,
+        [invitation.company_id, invitation.email, hashedPassword, firstName, lastName, invitation.role, invitation.position]
+      );
+
+      const user = userQuery.rows[0];
+
+      // Update invitation status
+      await db.query(
+        'UPDATE employee_invitations SET status = $1, accepted_at = NOW() WHERE id = $2',
+        ['accepted', invitation.id]
+      );
+
+      // Generate JWT token
+      const jwt = require('jsonwebtoken');
+      const authToken = jwt.sign(
+        { userId: user.id, email: user.email, role: user.role, companyId: user.company_id },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '7d' }
+      );
+
+      return reply.send({
+        success: true,
+        message: 'Account created successfully',
+        data: {
+          token: authToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            companyId: user.company_id
+          }
+        }
+      });
+    } catch (error: any) {
+      fastify.log.error('Failed to accept invitation:', error);
       return reply.code(500).send({ success: false, message: 'Internal server error' });
     }
   });

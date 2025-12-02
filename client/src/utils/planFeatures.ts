@@ -7,6 +7,7 @@ export type SubscriptionPlan = 'trial' | 'silver' | 'gold'
 export type Feature = 
   | 'attendance'
   | 'leave'
+  | 'employees'
   | 'departments'
   | 'performance'
   | 'tasks'
@@ -28,6 +29,7 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, PlanFeatures> = {
     features: [
       'attendance',
       'leave',
+      'employees',
       'departments',
       'performance',
       'tasks',
@@ -40,14 +42,15 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, PlanFeatures> = {
     description: '30 days of full Gold plan access - all features included'
   },
   silver: {
-    features: ['attendance', 'leave', 'departments'],
+    features: ['attendance', 'leave', 'employees', 'departments'],
     displayName: 'Silver Plan',
-    description: 'Attendance + Leave Management + Department Management'
+    description: 'Attendance + Leave Management + Employee Management + Department Management'
   },
   gold: {
     features: [
       'attendance',
       'leave',
+      'employees',
       'departments',
       'performance',
       'tasks',
@@ -75,6 +78,7 @@ export function getFeatureDisplayName(feature: Feature): string {
   const names: Record<Feature, string> = {
     attendance: 'Attendance Tracking',
     leave: 'Leave Management',
+    employees: 'Employee Management',
     departments: 'Department Management',
     performance: 'Performance Metrics',
     tasks: 'Task Management',

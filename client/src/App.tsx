@@ -8,6 +8,10 @@ import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
+// Dashboard Sub-pages
+import EmployeesPage from './pages/dashboard/EmployeesPage'
+import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
+
 // Debug utilities (available in console as window.debugAuth())
 import './utils/debugAuth'
 
@@ -61,6 +65,8 @@ function App() {
 
       {/* Protected Routes */}
       <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/dashboard/employees" element={<EmployeesPage />} />
+      <Route path="/dashboard/attendance" element={<AttendanceOverviewPage />} />
       <Route path="/superadmin" element={<SuperAdminPage />} />
 
       {/* Catch all */}

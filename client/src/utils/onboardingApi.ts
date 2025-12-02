@@ -5,23 +5,38 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 // Get auth data from sessionStorage or localStorage
 export const getOnboardingAuth = () => {
+  console.log('🔍 Getting onboarding auth...')
+  
   // Try sessionStorage first (during onboarding)
   let authData = sessionStorage.getItem('onboarding_auth')
   if (authData) {
-    return JSON.parse(authData)
+    const parsed = JSON.parse(authData)
+    console.log('✅ Found auth in sessionStorage:', { userId: parsed.userId, companyId: parsed.companyId })
+    return parsed
   }
+  
+  console.log('⚠️ No auth in sessionStorage, checking localStorage...')
   
   // Fallback to localStorage user data
   const userStr = localStorage.getItem('user')
   if (userStr) {
     const user = JSON.parse(userStr)
-    return {
+    const authData = {
       userId: user.id,
       companyId: user.companyId || user.company_id,
       email: user.email
     }
+    console.log('✅ Found user in localStorage:', { userId: authData.userId, companyId: authData.companyId })
+    
+    if (!authData.companyId) {
+      console.error('❌ User found but no companyId:', user)
+      throw new Error('Company information not found. Please complete company setup first.')
+    }
+    
+    return authData
   }
   
+  console.error('❌ No auth data found anywhere')
   throw new Error('No authentication data found. Please register first.')
 }
 

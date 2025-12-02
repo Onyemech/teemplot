@@ -238,14 +238,24 @@ export default function CompanySetupPage() {
         })
         
         // If companyId was created by backend, update our authData
-        if (businessInfoResponse?.data?.companyId && !authData.companyId) {
+        if (businessInfoResponse?.data?.companyId) {
           authData.companyId = businessInfoResponse.data.companyId
-          // Update sessionStorage for onboarding flow only (not sensitive)
+          
+          // Update sessionStorage for onboarding flow
           const onboardingAuth = sessionStorage.getItem('onboarding_auth')
           if (onboardingAuth) {
             const auth = JSON.parse(onboardingAuth)
             auth.companyId = businessInfoResponse.data.companyId
             sessionStorage.setItem('onboarding_auth', JSON.stringify(auth))
+          }
+          
+          // Also update localStorage user data
+          const userStr = localStorage.getItem('user')
+          if (userStr) {
+            const user = JSON.parse(userStr)
+            user.companyId = businessInfoResponse.data.companyId
+            user.company_id = businessInfoResponse.data.companyId
+            localStorage.setItem('user', JSON.stringify(user))
           }
         }
 
