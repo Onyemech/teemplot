@@ -147,6 +147,10 @@ export async function authRoutes(fastify: FastifyInstance) {
         role: user.role,
       });
 
+      // Get company onboarding status
+      const company = await db.findOne('companies', { id: user.company_id });
+      const onboardingCompleted = company?.onboarding_completed || false;
+
       return reply.code(200).send({
         success: true,
         message: 'Email verified successfully',
@@ -159,6 +163,7 @@ export async function authRoutes(fastify: FastifyInstance) {
             lastName: user.last_name,
             role: user.role,
             companyId: user.company_id,
+            onboardingCompleted,
           },
         },
       });
@@ -276,6 +281,10 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Update last login
       await db.update('users', { last_login_at: new Date().toISOString() }, { id: user.id });
 
+      // Get company onboarding status
+      const company = await db.findOne('companies', { id: user.company_id });
+      const onboardingCompleted = company?.onboarding_completed || false;
+
       return reply.code(200).send({
         success: true,
         data: {
@@ -287,6 +296,7 @@ export async function authRoutes(fastify: FastifyInstance) {
             lastName: user.last_name,
             role: user.role,
             companyId: user.company_id,
+            onboardingCompleted,
           },
         },
       });

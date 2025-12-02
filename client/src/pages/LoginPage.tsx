@@ -37,17 +37,23 @@ export default function LoginPage() {
       })
 
       if (response.data.success) {
-        // Store token
-        localStorage.setItem('token', response.data.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.data.user))
+        const { token, user } = response.data.data
+        
+        // Store token and user data
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(user))
 
         toast.success('Login successful! Redirecting...')
 
-        // Determine redirect path
-        const redirectPath = await resumeOnboarding(response.data.data.user.id)
-
-        // Redirect
-        setTimeout(() => navigate(redirectPath), 500)
+        // Check if onboarding is completed
+        if (!user.onboardingCompleted) {
+          // Resume onboarding from where they left off
+          const redirectPath = await resumeOnboarding(user.id)
+          setTimeout(() => navigate(redirectPath), 500)
+        } else {
+          // Go to dashboard
+          setTimeout(() => navigate('/dashboard'), 500)
+        }
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Login failed. Please try again.'

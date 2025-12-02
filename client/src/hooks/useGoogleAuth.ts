@@ -67,7 +67,7 @@ export function useGoogleAuth() {
       }
 
       // Save auth data
-      const { token, user, requiresOnboarding } = result.data;
+      const { token, user, requiresOnboarding, isNewUser } = result.data;
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -82,9 +82,33 @@ export function useGoogleAuth() {
 
       toast.success('Successfully signed in with Google!');
 
-      // Always navigate to onboarding for new users or incomplete onboarding
-      // Only go to dashboard if onboarding is fully completed
+      // Handle onboarding resumption
       if (requiresOnboarding) {
+        // Check if there's saved progress in database
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        try {
+          const progressResponse = await fetch(`${apiUrl}/onboarding/progress/${user.id}`);
+          if (progressResponse.ok) {
+            const progressData = await progressResponse.json();
+            if (progressData.data) {
+              // Resume from saved progress
+              const completedSteps = progressData.data.completedSteps || [];
+              const lastStep = Math.max(0, ...completedSteps);
+              
+              if (lastStep >= 5) navigate('/onboarding/subscription');
+              else if (lastStep >= 4) navigate('/onboarding/documents');
+              else if (lastStep >= 3) navigate('/onboarding/business-info');
+              else if (lastStep >= 2) navigate('/onboarding/owner-details');
+              else navigate('/onboarding/company-setup');
+              
+              return result.data;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to get onboarding progress:', error);
+        }
+        
+        // Default: start from company setup
         navigate('/onboarding/company-setup');
       } else {
         navigate('/dashboard');

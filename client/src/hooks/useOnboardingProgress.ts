@@ -60,22 +60,47 @@ export function useOnboardingProgress() {
       // Try sessionStorage first (onboarding flow)
       const authData = sessionStorage.getItem('onboarding_auth');
       if (authData) {
-        return JSON.parse(authData);
+        const parsed = JSON.parse(authData);
+        if (parsed.userId && parsed.companyId) {
+          return parsed;
+        }
       }
 
-      // Fallback to localStorage (logged in user)
+      // Fallback to localStorage (logged in user resuming onboarding)
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
-        return {
-          userId: user.id,
-          companyId: user.companyId,
-          // Add other fields if needed, but these are the critical ones for saving progress
-        };
+        if (user.id && user.companyId) {
+          return {
+            userId: user.id,
+            companyId: user.companyId,
+            email: user.email,
+            // Preserve any other fields that might be needed
+          };
+        }
+      }
+
+      // Last resort: try to get from token
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Decode JWT to get user info (basic decode, not verification)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.userId && payload.companyId) {
+            return {
+              userId: payload.userId,
+              companyId: payload.companyId,
+              email: payload.email,
+            };
+          }
+        } catch {
+          // Token decode failed, continue
+        }
       }
 
       return null;
-    } catch {
+    } catch (error) {
+      console.error('Error getting auth data:', error);
       return null;
     }
   }, []);

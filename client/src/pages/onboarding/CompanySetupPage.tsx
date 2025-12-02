@@ -103,9 +103,24 @@ export default function CompanySetupPage() {
     setError('')
 
     try {
-      const authData = getAuthData()
+      let authData = getAuthData()
+      
+      // If no auth data found, try to get from localStorage user
       if (!authData?.userId || !authData?.companyId) {
-        throw new Error('Authentication data not found')
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const user = JSON.parse(userStr)
+          authData = {
+            userId: user.id,
+            companyId: user.companyId,
+            email: user.email,
+          }
+        }
+      }
+      
+      // Final check
+      if (!authData?.userId || !authData?.companyId) {
+        throw new Error('Please log in again to continue onboarding. Your session may have expired.')
       }
 
       // Submit data to backend based on current step
@@ -878,18 +893,31 @@ export default function CompanySetupPage() {
   }
 
   const handleSaveProgress = async () => {
-    const authData = getAuthData()
+    let authData = getAuthData()
+    
+    // If no auth data found, try to get from localStorage user
     if (!authData?.userId || !authData?.companyId) {
-      throw new Error('Authentication data not found')
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        authData = {
+          userId: user.id,
+          companyId: user.companyId,
+          email: user.email,
+        }
+      }
     }
-
-    await saveProgress({
-      userId: authData.userId,
-      companyId: authData.companyId,
-      currentStep: 2,
-      completedSteps: [1], // Registration completed
-      formData: formData,
-    })
+    
+    // Only save if we have valid auth data
+    if (authData?.userId && authData?.companyId) {
+      await saveProgress({
+        userId: authData.userId,
+        companyId: authData.companyId,
+        currentStep: 2,
+        completedSteps: [1], // Registration completed
+        formData: formData,
+      })
+    }
   }
 
   // Handle Google auth onboarding completion
