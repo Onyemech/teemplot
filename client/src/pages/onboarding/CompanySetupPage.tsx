@@ -668,8 +668,18 @@ export default function CompanySetupPage() {
                       <FileText className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{isFile(formData.cacDocument) ? formData.cacDocument.name : 'Uploaded document'}</p>
-                      <p className="text-xs text-gray-500">{isFile(formData.cacDocument) && formData.cacDocument.size ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {isFile(formData.cacDocument) 
+                          ? formData.cacDocument.name 
+                          : (formData.cacDocument as any)?.name || 'Uploaded document'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {isFile(formData.cacDocument) && formData.cacDocument.size 
+                          ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' 
+                          : (formData.cacDocument as any)?.size 
+                            ? ((formData.cacDocument as any).size / 1024).toFixed(0) + 'KB'
+                            : 'File uploaded'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -732,8 +742,18 @@ export default function CompanySetupPage() {
                       <ImageIcon className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : 'Uploaded document'}</p>
-                      <p className="text-xs text-gray-500">{isFile(formData.proofOfAddress) && formData.proofOfAddress.size ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {isFile(formData.proofOfAddress) 
+                          ? formData.proofOfAddress.name 
+                          : (formData.proofOfAddress as any)?.name || 'Uploaded document'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {isFile(formData.proofOfAddress) && formData.proofOfAddress.size 
+                          ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' 
+                          : (formData.proofOfAddress as any)?.size 
+                            ? ((formData.proofOfAddress as any).size / 1024).toFixed(0) + 'KB'
+                            : 'File uploaded'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -796,8 +816,18 @@ export default function CompanySetupPage() {
                       <FileText className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{isFile(formData.companyPolicies) ? formData.companyPolicies.name : 'Uploaded document'}</p>
-                      <p className="text-xs text-gray-500">{isFile(formData.companyPolicies) && formData.companyPolicies.size ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' : 'File uploaded'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {isFile(formData.companyPolicies) 
+                          ? formData.companyPolicies.name 
+                          : (formData.companyPolicies as any)?.name || 'Uploaded document'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {isFile(formData.companyPolicies) && formData.companyPolicies.size 
+                          ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' 
+                          : (formData.companyPolicies as any)?.size 
+                            ? ((formData.companyPolicies as any).size / 1024).toFixed(0) + 'KB'
+                            : 'File uploaded'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -1073,12 +1103,38 @@ export default function CompanySetupPage() {
           if (formData.ownerFirstName) currentStepNum = 3
           if (formData.cacDocument) currentStepNum = 4
 
+          // Prepare formData for saving (can't serialize File objects)
+          const formDataToSave = {
+            ...formData,
+            // Save file metadata instead of File objects
+            cacDocument: formData.cacDocument ? {
+              name: isFile(formData.cacDocument) ? formData.cacDocument.name : formData.cacDocument,
+              size: isFile(formData.cacDocument) ? formData.cacDocument.size : null,
+              uploaded: true
+            } : null,
+            proofOfAddress: formData.proofOfAddress ? {
+              name: isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : formData.proofOfAddress,
+              size: isFile(formData.proofOfAddress) ? formData.proofOfAddress.size : null,
+              uploaded: true
+            } : null,
+            companyPolicies: formData.companyPolicies ? {
+              name: isFile(formData.companyPolicies) ? formData.companyPolicies.name : formData.companyPolicies,
+              size: isFile(formData.companyPolicies) ? formData.companyPolicies.size : null,
+              uploaded: true
+            } : null,
+            companyLogo: formData.companyLogo ? {
+              name: isFile(formData.companyLogo) ? formData.companyLogo.name : formData.companyLogo,
+              size: isFile(formData.companyLogo) ? formData.companyLogo.size : null,
+              uploaded: true
+            } : null,
+          }
+
           await saveProgress({
             userId: authData.userId,
             companyId: authData.companyId || 'pending', // Use 'pending' if no companyId yet
             currentStep: currentStepNum,
             completedSteps: Array.from({ length: currentStepNum - 1 }, (_, i) => i + 1),
-            formData: formData,
+            formData: formDataToSave,
           })
         } else {
           toast.info('Please fill in at least one field before saving')
