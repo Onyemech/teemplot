@@ -296,6 +296,7 @@ export default function AddressAutocomplete({
 
     setIsLoading(true)
     setIsOpen(false)
+    setPredictions([]) // Clear predictions immediately
 
     placesServiceRef.current.getDetails(
       {
@@ -312,7 +313,7 @@ export default function AddressAutocomplete({
         ]
       },
       (place, status) => {
-        setIsLoading(false)
+        setIsLoading(false) // Stop loading
 
         if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
           const addressData = extractAddressComponents(place)
@@ -323,6 +324,7 @@ export default function AddressAutocomplete({
             sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
           }
         } else {
+          setIsLoading(false) // Ensure loading stops on error too
           onChange(description)
         }
       }

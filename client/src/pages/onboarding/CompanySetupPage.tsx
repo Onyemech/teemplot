@@ -106,22 +106,51 @@ export default function CompanySetupPage() {
     try {
       let authData = getAuthData()
       
+      // Debug: Log what we have
+      console.log('🔍 Initial authData:', authData)
+      console.log('🔍 localStorage.user:', localStorage.getItem('user'))
+      console.log('🔍 sessionStorage.onboarding_auth:', sessionStorage.getItem('onboarding_auth'))
+      
       // If no auth data found, try to get from localStorage user
       if (!authData?.userId || !authData?.companyId) {
         const userStr = localStorage.getItem('user')
         if (userStr) {
           const user = JSON.parse(userStr)
+          console.log('🔍 Parsed user object:', user)
           authData = {
             userId: user.id,
-            companyId: user.companyId,
+            companyId: user.company_id || user.companyId, // Try both formats
             email: user.email,
           }
         }
       }
       
-      // Final check
-      if (!authData?.userId || !authData?.companyId) {
+      // If still no companyId, try to get from token
+      if (authData?.userId && !authData?.companyId) {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            console.log('🔍 Token payload:', payload)
+            if (payload.companyId) {
+              authData.companyId = payload.companyId
+            }
+          } catch (e) {
+            console.error('Failed to decode token:', e)
+          }
+        }
+      }
+      
+      console.log('🔍 Final authData:', authData)
+      
+      // Final check - only userId is required, companyId might not exist yet during onboarding
+      if (!authData?.userId) {
         throw new Error('Please log in again to continue onboarding. Your session may have expired.')
+      }
+      
+      // If no companyId, we need to create one or get it from the backend
+      if (!authData?.companyId) {
+        console.warn('⚠️ No companyId found, will be created by backend')
       }
 
       // Submit data to backend based on current step
@@ -142,8 +171,8 @@ export default function CompanySetupPage() {
         }
 
         // Submit business information with complete geocoding data
-        await submitBusinessInfo({
-          companyId: authData.companyId,
+        const businessInfoResponse = await submitBusinessInfo({
+          companyId: authData.companyId || 'temp', // Backend will create if needed
           companyName: formData.companyName,
           taxId: formData.tin,
           industry: formData.industry === 'other' ? formData.customIndustry : formData.industry,
@@ -166,6 +195,19 @@ export default function CompanySetupPage() {
           placeId: formData.placeId,
           geocodingAccuracy: formData.geocodingAccuracy,
         })
+        
+        // If companyId was created by backend, update our authData
+        if (businessInfoResponse?.data?.companyId && !authData.companyId) {
+          authData.companyId = businessInfoResponse.data.companyId
+          // Update localStorage
+          const userStr = localStorage.getItem('user')
+          if (userStr) {
+            const user = JSON.parse(userStr)
+            user.companyId = businessInfoResponse.data.companyId
+            user.company_id = businessInfoResponse.data.companyId
+            localStorage.setItem('user', JSON.stringify(user))
+          }
+        }
 
         // Upload logo if provided
         if (formData.companyLogo) {
@@ -930,30 +972,64 @@ export default function CompanySetupPage() {
   }
 
   const handleSaveProgress = async () => {
-    let authData = getAuthData()
-    
-    // If no auth data found, try to get from localStorage user
-    if (!authData?.userId || !authData?.companyId) {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const user = JSON.parse(userStr)
-        authData = {
-          userId: user.id,
-          companyId: user.companyId,
-          email: user.email,
+    try {
+      let authData = getAuthData()
+      
+      // If no auth data found, try to get from localStorage user
+      if (!authData?.userId || !authData?.companyId) {
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const user = JSON.parse(userStr)
+          authData = {
+            userId: user.id,
+            companyId: user.company_id || user.companyId, // Try both formats
+            email: user.email,
+          }
         }
       }
-    }
-    
-    // Only save if we have valid auth data
-    if (authData?.userId && authData?.companyId) {
-      await saveProgress({
-        userId: authData.userId,
-        companyId: authData.companyId,
-        currentStep: 2,
-        completedSteps: [1], // Registration completed
-        formData: formData,
-      })
+      
+      // If still no companyId, try token
+      if (authData?.userId && !authData?.companyId) {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            if (payload.companyId) {
+              authData.companyId = payload.companyId
+            }
+          } catch (e) {
+            console.error('Failed to decode token:', e)
+          }
+        }
+      }
+      
+      // Only save if we have valid auth data AND some form data
+      if (authData?.userId && authData?.companyId) {
+        // Check if there's any meaningful data to save
+        const hasData = formData.companyName || 
+                       formData.tin || 
+                       formData.industry || 
+                       formData.companySize ||
+                       formData.address
+
+        if (hasData) {
+          await saveProgress({
+            userId: authData.userId,
+            companyId: authData.companyId,
+            currentStep: 2,
+            completedSteps: [1], // Registration completed
+            formData: formData,
+          })
+          toast.success('Progress saved successfully!')
+        } else {
+          toast.info('Please fill in at least one field before saving')
+        }
+      } else {
+        toast.error('Unable to save progress. Please log in again.')
+      }
+    } catch (error: any) {
+      console.error('Failed to save progress:', error)
+      toast.error(error.message || 'Failed to save progress')
     }
   }
 
