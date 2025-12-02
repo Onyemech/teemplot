@@ -977,10 +977,10 @@ export default function CompanySetupPage() {
         onSave={handleSaveProgress}
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="grid grid-cols-12 gap-8">
-          {/* Sidebar - Steps */}
-          <div className="col-span-3">
+          {/* Sidebar - Steps (Hidden on mobile) */}
+          <div className="hidden md:block md:col-span-3">
             <div className="space-y-2">
               {steps.map((step, index) => {
                 const isActive = step.id === currentStep
@@ -1006,9 +1006,9 @@ export default function CompanySetupPage() {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="col-span-9">
-            <div className="bg-white rounded-xl border border-border p-8">
+          {/* Main Content (Full width on mobile) */}
+          <div className="col-span-12 md:col-span-9">
+            <div className="bg-white rounded-xl border border-border p-4 md:p-8">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2">
                   {currentStep === 'details' && 'Tell us about your company'}

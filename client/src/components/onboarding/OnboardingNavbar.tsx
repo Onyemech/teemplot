@@ -123,35 +123,44 @@ export default function OnboardingNavbar({
 
   return (
     <div className="border-b border-gray-200 bg-white sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Left side - Logo and step indicator */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
             <img
               src="/logo.png"
               alt="Teemplot"
-              className="h-12 w-auto cursor-pointer"
+              className="h-10 md:h-12 w-auto cursor-pointer"
               onClick={() => navigate('/')}
             />
             {showSteps && currentStep && (
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">
-                  Step {currentStep} of {totalSteps}
-                </span>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalSteps }).map((_, index) => (
-                    <div
-                      key={index}
-                      className={`h-1.5 w-8 rounded-full transition-colors ${index < currentStep
-                          ? 'bg-primary-600'
-                          : index === currentStep - 1
-                            ? 'bg-primary-400'
-                            : 'bg-gray-200'
-                        }`}
-                    />
-                  ))}
+              <>
+                {/* Mobile: Step text below logo */}
+                <div className="md:hidden">
+                  <span className="text-xs font-semibold text-gray-700">
+                    Step {currentStep} of {totalSteps}
+                  </span>
                 </div>
-              </div>
+                {/* Desktop: Step indicator with bars */}
+                <div className="hidden md:flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    Step {currentStep} of {totalSteps}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalSteps }).map((_, index) => (
+                      <div
+                        key={index}
+                        className={`h-1.5 w-8 rounded-full transition-colors ${index < currentStep
+                            ? 'bg-primary-600'
+                            : index === currentStep - 1
+                              ? 'bg-primary-400'
+                              : 'bg-gray-200'
+                          }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
@@ -203,7 +212,7 @@ export default function OnboardingNavbar({
             </div>
 
             <button
-              className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 md:px-4 py-2 text-xs md:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               onClick={handleSaveAndExit}
               disabled={saving}
             >
@@ -211,6 +220,26 @@ export default function OnboardingNavbar({
             </button>
           </div>
         </div>
+
+        {/* Mobile Progress Bar - More prominent */}
+        {showSteps && currentStep && (
+          <div className="md:hidden mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalSteps }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`h-2 flex-1 rounded-full transition-all duration-300 ${
+                    index < currentStep
+                      ? 'bg-primary-600'
+                      : index === currentStep - 1
+                        ? 'bg-primary-400'
+                        : 'bg-gray-200'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

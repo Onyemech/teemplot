@@ -64,7 +64,6 @@ export class TaskRepository implements ITaskRepository {
     if (task.status === 'pending' || task.status === 'in_progress') {
       stats.pendingTasks++;
 
-      // Overdue pending tasks
       if (task.due_date && new Date(task.due_date) < new Date()) {
         stats.overdueTasks++;
       }
