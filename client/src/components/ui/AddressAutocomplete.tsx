@@ -505,17 +505,18 @@ export default function AddressAutocomplete({
       {/* City Input Field */}
       <div className="mb-3">
         <label className="block text-xs font-medium text-gray-600 mb-1.5">
-          City/Area
+          City/Area <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={internalCity}
           onChange={handleCityChange}
-          placeholder="e.g., Lekki, Victoria Island, Ikeja"
+          placeholder="e.g., Lekki, Victoria Island, Ikeja, Ikoyi, Surulere"
           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all"
+          required
         />
         <p className="mt-1 text-xs text-gray-500">
-          Enter your city/area first for accurate Nigerian address suggestions
+          💡 <strong>Enter your city/area first</strong> (e.g., "Lekki" or "Victoria Island") for accurate Nigerian address suggestions
         </p>
       </div>
 
@@ -537,7 +538,7 @@ export default function AddressAutocomplete({
                   setIsOpen(true)
                 }
               }}
-              placeholder={placeholder}
+              placeholder="e.g., 18 Admiralty Way, 23 Adeola Odeku Street, Plot 1234 Adetokunbo Ademola"
               className={`
                 w-full pl-10 pr-10 py-2.5 border rounded-lg
                 transition-all duration-200
@@ -593,8 +594,8 @@ export default function AddressAutocomplete({
         {!error && !apiError && (
           <p className="mt-1.5 text-xs text-gray-500">
             {internalCity 
-              ? `Showing addresses in ${internalCity}, Nigeria` 
-              : 'Type your street address (e.g., No 18 Admiralty Way)'}
+              ? `✅ Showing addresses in ${internalCity}, Nigeria. Type your street number and name.` 
+              : '⚠️ Please enter city/area above first, then type your street address here'}
           </p>
         )}
 

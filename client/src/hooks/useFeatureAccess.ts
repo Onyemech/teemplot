@@ -27,8 +27,8 @@ export function useFeatureAccess(): FeatureAccessState {
     } catch (err: any) {
       console.error('Failed to fetch plan:', err)
       setError(err.message || 'Failed to fetch plan')
-      // Default to free plan on error
-      setPlan('free')
+      // Default to trial plan on error
+      setPlan('trial')
     } finally {
       setLoading(false)
     }

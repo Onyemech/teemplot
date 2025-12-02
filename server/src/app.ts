@@ -153,8 +153,9 @@ export async function buildApp() {
   await app.register(onboardingRoutes, { prefix: '/api/onboarding' });
 
   // Import and register employees routes
-  const { employeesRoutes } = await import('./routes/employees.routes');
-  await app.register(employeesRoutes, { prefix: '/api/employees' });
+  // TODO: Implement Fastify-compatible employees routes
+  // const { employeesRoutes } = await import('./routes/employees.routes');
+  // await app.register(employeesRoutes, { prefix: '/api/employees' });
 
   // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
@@ -181,8 +182,9 @@ export async function buildApp() {
   await app.register(dashboardRoutes.default, { prefix: '/api/dashboard' });
 
   // Import and register company routes
-  const companyRoutes = await import('./routes/company.routes');
-  await app.register(companyRoutes.default, { prefix: '/api/company' });
+  // TODO: Implement Fastify-compatible company routes
+  // const companyRoutes = await import('./routes/company.routes');
+  // await app.register(companyRoutes.default, { prefix: '/api/company' });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

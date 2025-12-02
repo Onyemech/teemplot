@@ -117,7 +117,7 @@ export default function InviteEmployeeModal({
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="John"
-                    disabled={!canInvite}
+                    disabled={!canAddMore}
                   />
                 </div>
 
@@ -132,7 +132,7 @@ export default function InviteEmployeeModal({
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Doe"
-                    disabled={!canInvite}
+                    disabled={!canAddMore}
                   />
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default function InviteEmployeeModal({
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="john.doe@company.com"
-                  disabled={!canInvite}
+                  disabled={!canAddMore}
                 />
               </div>
 
@@ -161,7 +161,7 @@ export default function InviteEmployeeModal({
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'staff' })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                  disabled={!canInvite}
+                  disabled={!canAddMore}
                 >
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
@@ -179,7 +179,7 @@ export default function InviteEmployeeModal({
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Software Engineer"
-                  disabled={!canInvite}
+                  disabled={!canAddMore}
                 />
               </div>
 

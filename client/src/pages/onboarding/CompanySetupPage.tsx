@@ -106,17 +106,11 @@ export default function CompanySetupPage() {
     try {
       let authData = getAuthData()
       
-      // Debug: Log what we have
-      console.log('🔍 Initial authData:', authData)
-      console.log('🔍 localStorage.user:', localStorage.getItem('user'))
-      console.log('🔍 sessionStorage.onboarding_auth:', sessionStorage.getItem('onboarding_auth'))
-      
       // If no auth data found, try to get from localStorage user
       if (!authData?.userId || !authData?.companyId) {
         const userStr = localStorage.getItem('user')
         if (userStr) {
           const user = JSON.parse(userStr)
-          console.log('🔍 Parsed user object:', user)
           authData = {
             userId: user.id,
             companyId: user.company_id || user.companyId, // Try both formats
@@ -131,17 +125,14 @@ export default function CompanySetupPage() {
         if (token) {
           try {
             const payload = JSON.parse(atob(token.split('.')[1]))
-            console.log('🔍 Token payload:', payload)
             if (payload.companyId) {
               authData.companyId = payload.companyId
             }
           } catch (e) {
-            console.error('Failed to decode token:', e)
+            // Silent fail - token decode error
           }
         }
       }
-      
-      console.log('🔍 Final authData:', authData)
       
       // Final check - only userId is required, companyId might not exist yet during onboarding
       if (!authData?.userId) {
@@ -199,13 +190,12 @@ export default function CompanySetupPage() {
         // If companyId was created by backend, update our authData
         if (businessInfoResponse?.data?.companyId && !authData.companyId) {
           authData.companyId = businessInfoResponse.data.companyId
-          // Update localStorage
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            const user = JSON.parse(userStr)
-            user.companyId = businessInfoResponse.data.companyId
-            user.company_id = businessInfoResponse.data.companyId
-            localStorage.setItem('user', JSON.stringify(user))
+          // Update sessionStorage for onboarding flow only (not sensitive)
+          const onboardingAuth = sessionStorage.getItem('onboarding_auth')
+          if (onboardingAuth) {
+            const auth = JSON.parse(onboardingAuth)
+            auth.companyId = businessInfoResponse.data.companyId
+            sessionStorage.setItem('onboarding_auth', JSON.stringify(auth))
           }
         }
 
