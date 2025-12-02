@@ -180,6 +180,10 @@ export async function buildApp() {
   const dashboardRoutes = await import('./routes/dashboard.routes');
   await app.register(dashboardRoutes.default, { prefix: '/api/dashboard' });
 
+  // Import and register company routes
+  const companyRoutes = await import('./routes/company.routes');
+  await app.register(companyRoutes.default, { prefix: '/api/company' });
+
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {
     autoAttendanceService.initialize();

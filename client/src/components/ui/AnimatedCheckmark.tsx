@@ -1,85 +1,75 @@
-import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 
 interface AnimatedCheckmarkProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  onAnimationComplete?: () => void
-}
-
-const sizeMap = {
-  sm: { circle: 'w-16 h-16', icon: 32 },
-  md: { circle: 'w-24 h-24', icon: 48 },
-  lg: { circle: 'w-32 h-32', icon: 64 },
-  xl: { circle: 'w-40 h-40', icon: 80 },
+  size?: 'sm' | 'md' | 'lg'
+  delay?: number
+  onComplete?: () => void
 }
 
 export default function AnimatedCheckmark({ 
-  size = 'lg',
-  onAnimationComplete 
+  size = 'md', 
+  delay = 0,
+  onComplete 
 }: AnimatedCheckmarkProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const { circle, icon } = sizeMap[size]
+
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-16 h-16',
+    lg: 'w-24 h-24'
+  }
+
+  const checkSizes = {
+    sm: 'w-4 h-4',
+    md: 'w-8 h-8',
+    lg: 'w-12 h-12'
+  }
 
   useEffect(() => {
-    // Trigger animation after mount
-    const timer = setTimeout(() => setIsVisible(true), 100)
-    
-    // Call completion callback after animation
-    if (onAnimationComplete) {
-      const completionTimer = setTimeout(onAnimationComplete, 1000)
-      return () => {
-        clearTimeout(timer)
-        clearTimeout(completionTimer)
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+      if (onComplete) {
+        setTimeout(onComplete, 800) // After animation completes
       }
-    }
-    
+    }, delay)
+
     return () => clearTimeout(timer)
-  }, [onAnimationComplete])
+  }, [delay, onComplete])
 
   return (
-    <>
-      <div 
-        className={`
-          ${circle} mx-auto rounded-full flex items-center justify-center
-          transition-all duration-500 ease-out
-          ${isVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}
-        `}
+    <div
+      className={`${sizeClasses[size]} rounded-full bg-green-500 flex items-center justify-center transition-all duration-500 ${
+        isVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+      }`}
+      style={{
+        animation: isVisible ? 'bounce 0.5s ease-out' : 'none'
+      }}
+    >
+      <Check 
+        className={`${checkSizes[size]} text-white transition-all duration-300 ${
+          isVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+        }`}
         style={{
-          backgroundColor: '#7CB342',
-          animation: isVisible ? 'bounce 0.6s ease-out' : 'none'
+          animation: isVisible ? 'checkDraw 0.3s ease-out 0.2s both' : 'none'
         }}
-      >
-        <Check 
-          className="text-white" 
-          size={icon}
-          strokeWidth={3}
-          style={{
-            animation: isVisible ? 'checkmark 0.5s ease-out 0.3s both' : 'none'
-          }}
-        />
-      </div>
-
+      />
       <style>{`
         @keyframes bounce {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
-          }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
         }
-
-        @keyframes checkmark {
-          0% {
-            stroke-dasharray: 100;
-            stroke-dashoffset: 100;
+        @keyframes checkDraw {
+          0% { 
+            transform: scale(0) rotate(-45deg);
+            opacity: 0;
           }
-          100% {
-            stroke-dasharray: 100;
-            stroke-dashoffset: 0;
+          100% { 
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
           }
         }
       `}</style>
-    </>
+    </div>
   )
 }

@@ -5,33 +5,56 @@ export class DashboardService {
 
   async getDashboardStats(userId: string) {
     try {
+      // First get user's company
+      const userQuery = await this.db.query(
+        'SELECT company_id FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (!userQuery.rows[0]) {
+        throw new Error('User not found');
+      }
+      
+      const companyId = userQuery.rows[0].company_id;
+
       // Get counts using raw SQL for better performance
       const statsQuery = `
         SELECT 
-          (SELECT COUNT(*) FROM properties WHERE user_id = $1 AND deleted_at IS NULL) as properties_count,
-          (SELECT COUNT(*) FROM services WHERE user_id = $1 AND status = 'active') as services_count,
-          (SELECT COUNT(*) FROM orders WHERE user_id = $1 AND status IN ('pending', 'processing')) as pending_orders,
-          (SELECT COUNT(*) FROM real_estate_leads WHERE user_id = $1 AND status = 'new') as new_leads,
-          (SELECT COUNT(*) FROM event_planning_leads WHERE user_id = $1 AND status = 'inquiry') as event_inquiries,
-          (SELECT COUNT(*) FROM customers WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '7 days') as new_customers,
-          (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE user_id = $1 AND payment_status = 'paid' AND created_at >= NOW() - INTERVAL '30 days') as revenue_30days
+          (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as total_employees,
+          (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
+           WHERE company_id = $1 
+           AND DATE(clock_in_time) = CURRENT_DATE 
+           AND clock_in_time IS NOT NULL) as present_today,
+          (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
+           WHERE company_id = $1 
+           AND DATE(clock_in_time) = CURRENT_DATE 
+           AND is_late_arrival = true) as late_today,
+          (SELECT COUNT(*) FROM users 
+           WHERE company_id = $1 
+           AND deleted_at IS NULL
+           AND id NOT IN (
+             SELECT DISTINCT user_id FROM attendance_records 
+             WHERE company_id = $1 
+             AND DATE(clock_in_time) = CURRENT_DATE
+           )) as absent_today,
+          (SELECT COUNT(*) FROM tasks 
+           WHERE company_id = $1 
+           AND status IN ('pending', 'in_progress')) as pending_tasks,
+          (SELECT COUNT(*) FROM tasks 
+           WHERE company_id = $1 
+           AND status = 'completed') as completed_tasks
       `;
 
-      const result = await this.db.query(statsQuery, [userId]);
+      const result = await this.db.query(statsQuery, [companyId]);
       const stats = result.rows[0];
 
-      // Calculate total revenue
-      const revenue30Days = Number(stats.revenue_30days || 0);
-
       return {
-        totalUsers: 1, // Current user
-        totalProperties: Number(stats.properties_count || 0),
-        activeServices: Number(stats.services_count || 0),
-        pendingOrders: Number(stats.pending_orders || 0),
-        newLeads: Number(stats.new_leads || 0),
-        eventInquiries: Number(stats.event_inquiries || 0),
-        revenue30Days: revenue30Days.toString(),
-        newCustomersWeek: Number(stats.new_customers || 0),
+        totalEmployees: Number(stats.total_employees || 0),
+        presentToday: Number(stats.present_today || 0),
+        lateToday: Number(stats.late_today || 0),
+        absentToday: Number(stats.absent_today || 0),
+        pendingTasks: Number(stats.pending_tasks || 0),
+        completedTasks: Number(stats.completed_tasks || 0),
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);

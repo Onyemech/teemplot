@@ -296,11 +296,30 @@ export default function CompanySetupPage() {
                 type="text"
                 required
                 value={formData.tin}
-                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => {
+                  const value = e.target.value
+                  // Allow empty string (for backspace/delete)
+                  if (value === '') {
+                    setFormData({ ...formData, tin: '' })
+                    return
+                  }
+                  // Only allow numbers and hyphens (for formatting like 123-456-789)
+                  if (/^[0-9-]+$/.test(value)) {
+                    setFormData({ ...formData, tin: value })
+                  } else {
+                    toast.error('Tax ID can only contain numbers and hyphens')
+                  }
+                }}
+                onKeyDown={(e) => {
+                  // Prevent letters and special characters except hyphen
+                  if (!/[0-9-]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault()
+                  }
+                }}
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                 placeholder="123-456-789-000"
               />
-              <p className="text-xs text-muted-foreground mt-1">This is required for tax monitoring purposes.</p>
+              <p className="text-xs text-muted-foreground mt-1">This is required for tax monitoring purposes. Numbers only.</p>
             </div>
 
             <Dropdown

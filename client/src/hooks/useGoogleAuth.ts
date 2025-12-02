@@ -67,7 +67,7 @@ export function useGoogleAuth() {
       }
 
       // Save auth data
-      const { token, user, requiresOnboarding, isNewUser } = result.data;
+      const { token, user, requiresOnboarding } = result.data;
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
