@@ -17,9 +17,10 @@ const getAuthToken = () => {
   const authData = sessionStorage.getItem('onboarding_auth')
   if (authData) {
     const parsed = JSON.parse(authData)
-    return parsed.token
+    if (parsed.token) return parsed.token
   }
-  return localStorage.getItem('auth_token')
+  // Try both token keys
+  return localStorage.getItem('token') || localStorage.getItem('auth_token')
 }
 
 // Company Setup API
