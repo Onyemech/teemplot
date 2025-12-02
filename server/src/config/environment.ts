@@ -7,7 +7,6 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('5000'),
   
-  // Database - optional for development (uses SQLite), required for production (uses Supabase)
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -37,13 +36,11 @@ const envSchema = z.object({
   
   FRONTEND_URL: z.string().url().optional(),
   
-  // CORS - Intelligent defaults based on environment
   ALLOWED_ORIGINS: z.string().optional(),
   
   RATE_LIMIT_MAX: z.string().default('100'),
   RATE_LIMIT_TIMEWINDOW: z.string().default('900000'),
   
-  // Super admin credentials - OPTIONAL (only needed for super admin operations)
   SUPER_ADMIN_EMAIL: z.string().email().optional(),
   SUPER_ADMIN_PASSWORD: z.string().min(8).optional(),
 });

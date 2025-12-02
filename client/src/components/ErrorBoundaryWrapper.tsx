@@ -32,7 +32,6 @@ class ErrorBoundaryWrapper extends Component<Props, State> {
       this.props.onError(error, errorInfo);
     }
 
-    // Log to error tracking service in production
     if (import.meta.env.PROD) {
       // TODO: Send to Sentry or similar service
       // Sentry.captureException(error, { extra: errorInfo });
