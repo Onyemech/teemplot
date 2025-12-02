@@ -564,7 +564,7 @@ export default function CompanySetupPage() {
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Legal first name</label>
                 <input
@@ -572,7 +572,7 @@ export default function CompanySetupPage() {
                   required
                   value={formData.ownerFirstName}
                   onChange={(e) => setFormData({ ...formData, ownerFirstName: e.target.value })}
-                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   placeholder="John"
                 />
               </div>
@@ -583,7 +583,7 @@ export default function CompanySetupPage() {
                   required
                   value={formData.ownerLastName}
                   onChange={(e) => setFormData({ ...formData, ownerLastName: e.target.value })}
-                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   placeholder="Doe"
                 />
               </div>
@@ -629,7 +629,8 @@ export default function CompanySetupPage() {
                 required
                 value={formData.ownerDOB}
                 onChange={(e) => setFormData({ ...formData, ownerDOB: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                max={new Date().toISOString().split('T')[0]}
               />
             </div>
 

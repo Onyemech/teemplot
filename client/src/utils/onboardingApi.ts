@@ -3,13 +3,26 @@ import { requestDeduplicator } from './requestDeduplication';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
-// Get auth data from sessionStorage
+// Get auth data from sessionStorage or localStorage
 export const getOnboardingAuth = () => {
-  const authData = sessionStorage.getItem('onboarding_auth')
-  if (!authData) {
-    throw new Error('No authentication data found. Please register first.')
+  // Try sessionStorage first (during onboarding)
+  let authData = sessionStorage.getItem('onboarding_auth')
+  if (authData) {
+    return JSON.parse(authData)
   }
-  return JSON.parse(authData)
+  
+  // Fallback to localStorage user data
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    const user = JSON.parse(userStr)
+    return {
+      userId: user.id,
+      companyId: user.companyId || user.company_id,
+      email: user.email
+    }
+  }
+  
+  throw new Error('No authentication data found. Please register first.')
 }
 
 // Get auth token

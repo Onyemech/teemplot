@@ -2,8 +2,16 @@ import { FastifyInstance } from 'fastify';
 import { fileUploadService } from '../services/FileUploadService';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
+import multipart from '@fastify/multipart';
 
 export default async function filesRoutes(fastify: FastifyInstance) {
+  // Register multipart for file uploads
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    }
+  });
+
   /**
    * Check if file exists by hash (before uploading)
    * POST /api/files/check
