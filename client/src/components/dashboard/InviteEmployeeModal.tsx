@@ -3,23 +3,21 @@ import { X, Mail, User, Briefcase } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
+import { useEmployeeLimit } from '@/hooks/useEmployeeLimit'
 
 interface InviteEmployeeModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  currentPlan: 'free' | 'silver' | 'gold'
-  currentEmployeeCount: number
 }
 
 export default function InviteEmployeeModal({
   isOpen,
   onClose,
-  onSuccess,
-  currentPlan,
-  currentEmployeeCount
+  onSuccess
 }: InviteEmployeeModalProps) {
   const toast = useToast()
+  const { declaredLimit, currentCount, canAddMore, remaining } = useEmployeeLimit()
   const [loading, setLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState({
@@ -30,21 +28,11 @@ export default function InviteEmployeeModal({
     position: ''
   })
 
-  // Plan limits
-  const planLimits = {
-    free: 10,
-    silver: 50,
-    gold: Infinity
-  }
-
-  const limit = planLimits[currentPlan]
-  const canInvite = currentEmployeeCount < limit
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!canInvite) {
-      toast.error(`You've reached the ${currentPlan} plan limit of ${limit} employees. Please upgrade your plan.`)
+    if (!canAddMore) {
+      toast.error(`You've reached your declared employee limit of ${declaredLimit} employees. Contact support to increase your limit.`)
       return
     }
 
@@ -104,17 +92,14 @@ export default function InviteEmployeeModal({
               </button>
             </div>
 
-            {!canInvite && (
+            {!canAddMore && (
               <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-700 font-medium">
-                  You've reached your plan limit of {limit} employees
+                  You've reached your declared employee limit of {declaredLimit} employees
                 </p>
-                <button
-                  onClick={() => window.location.href = '/dashboard/settings/billing'}
-                  className="mt-2 text-sm text-red-600 underline hover:text-red-800"
-                >
-                  Upgrade your plan
-                </button>
+                <p className="mt-1 text-xs text-red-600">
+                  Contact support to increase your employee limit
+                </p>
               </div>
             )}
 
@@ -208,7 +193,7 @@ export default function InviteEmployeeModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !canInvite}
+                  disabled={loading || !canAddMore}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Sending...' : 'Send Invitation'}
@@ -216,9 +201,7 @@ export default function InviteEmployeeModal({
               </div>
 
               <div className="text-xs text-gray-500 text-center">
-                {currentPlan === 'free' && `${currentEmployeeCount}/${limit} employees used`}
-                {currentPlan === 'silver' && `${currentEmployeeCount}/${limit} employees used`}
-                {currentPlan === 'gold' && `${currentEmployeeCount} employees`}
+                {currentCount}/{declaredLimit} employees • {remaining} {remaining === 1 ? 'slot' : 'slots'} remaining
               </div>
             </form>
           </>

@@ -37,10 +37,10 @@ router.post('/invite', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Only owners and admins can invite employees' })
     }
 
-    // Get company details and check plan limits
+    // Get company details
     const { data: company, error: companyError } = await db
       .from('companies')
-      .select('id, name, subscription_plan, employee_count')
+      .select('id, name, employee_count')
       .eq('id', user.company_id)
       .single()
 
@@ -48,19 +48,23 @@ router.post('/invite', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Company not found' })
     }
 
-    // Check plan limits
-    const planLimits: Record<string, number> = {
-      free: 10,
-      silver: 50,
-      gold: Infinity
-    }
+    // Check against declared employee limit (what user specified during onboarding)
+    // Get current actual employee count
+    const { data: currentEmployees, error: countError } = await db
+      .from('users')
+      .select('id', { count: 'exact' })
+      .eq('company_id', company.id)
+      .is('deleted_at', null)
 
-    const limit = planLimits[company.subscription_plan] || 10
+    const currentCount = currentEmployees?.length || 0
+    const declaredLimit = company.employee_count // What user said during onboarding
     
-    if (company.employee_count >= limit) {
+    if (currentCount >= declaredLimit) {
       return res.status(403).json({ 
-        message: `You've reached the ${company.subscription_plan} plan limit of ${limit} employees. Please upgrade your plan.`,
-        code: 'PLAN_LIMIT_REACHED'
+        message: `You've reached your declared employee limit of ${declaredLimit} employees. Contact support to increase your limit.`,
+        code: 'EMPLOYEE_LIMIT_REACHED',
+        currentCount,
+        declaredLimit
       })
     }
 

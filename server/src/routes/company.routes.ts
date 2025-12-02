@@ -35,7 +35,20 @@ router.get('/info', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Company not found' })
     }
 
-    res.json(company)
+    // Get actual current employee count
+    const { data: currentEmployees } = await db
+      .from('users')
+      .select('id', { count: 'exact' })
+      .eq('company_id', company.id)
+      .is('deleted_at', null)
+
+    const currentCount = currentEmployees?.length || 0
+
+    res.json({
+      ...company,
+      current_employee_count: currentCount, // Actual current count
+      employee_count: company.employee_count // Declared limit from onboarding
+    })
   } catch (error) {
     console.error('Failed to fetch company info:', error)
     res.status(500).json({ message: 'Internal server error' })
@@ -65,7 +78,7 @@ router.get('/subscription-status', authenticateToken, async (req, res) => {
     // Get subscription details
     const { data: company, error: companyError } = await db
       .from('companies')
-      .select('subscription_plan, subscription_status, subscription_end_date, subscription_start_date')
+      .select('subscription_plan, subscription_status, subscription_end_date, subscription_start_date, trial_start_date, trial_end_date')
       .eq('id', user.company_id)
       .single()
 
@@ -77,7 +90,9 @@ router.get('/subscription-status', authenticateToken, async (req, res) => {
       subscriptionPlan: company.subscription_plan,
       subscriptionStatus: company.subscription_status,
       subscriptionEndDate: company.subscription_end_date,
-      subscriptionStartDate: company.subscription_start_date
+      subscriptionStartDate: company.subscription_start_date,
+      trialStartDate: company.trial_start_date,
+      trialEndDate: company.trial_end_date
     })
   } catch (error) {
     console.error('Failed to fetch subscription status:', error)

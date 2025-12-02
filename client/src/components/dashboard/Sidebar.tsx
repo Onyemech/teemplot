@@ -14,14 +14,20 @@ import {
   ChevronRight,
   UserPlus,
   ClipboardList,
-  LayoutGrid
+  LayoutGrid,
+  Lock,
+  Calendar,
+  TrendingUp
 } from 'lucide-react'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { type Feature } from '@/utils/planFeatures'
 
 interface NavItem {
   label: string
   href: string
   icon: any
   submenu?: NavItem[]
+  feature?: Feature // Required feature for access
 }
 
 const navigation: NavItem[] = [
@@ -34,16 +40,24 @@ const navigation: NavItem[] = [
     label: 'Analytics',
     href: '/dashboard/analytics',
     icon: BarChart3,
+    feature: 'analytics', // Gold only
   },
   {
     label: 'Attendance',
     href: '/dashboard/attendance',
     icon: Clock,
+    feature: 'attendance', // All plans
     submenu: [
-      { label: 'Overview', href: '/dashboard/attendance', icon: LayoutGrid },
-      { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus },
-      { label: 'Multiple Clock-in Setup', href: '/dashboard/attendance/setup', icon: ClipboardList },
+      { label: 'Overview', href: '/dashboard/attendance', icon: LayoutGrid, feature: 'attendance' },
+      { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus, feature: 'attendance' },
+      { label: 'Multiple Clock-in Setup', href: '/dashboard/attendance/setup', icon: ClipboardList, feature: 'attendance' },
     ],
+  },
+  {
+    label: 'Leave Management',
+    href: '/dashboard/leave',
+    icon: Calendar,
+    feature: 'leave', // Silver and Gold
   },
   {
     label: 'Employees',
@@ -54,11 +68,25 @@ const navigation: NavItem[] = [
     label: 'Departments',
     href: '/dashboard/departments',
     icon: Building2,
+    feature: 'departments', // Gold only
+  },
+  {
+    label: 'Tasks',
+    href: '/dashboard/tasks',
+    icon: ClipboardList,
+    feature: 'tasks', // Gold only
+  },
+  {
+    label: 'Performance',
+    href: '/dashboard/performance',
+    icon: TrendingUp,
+    feature: 'performance', // Gold only
   },
   {
     label: 'Wallet',
     href: '/dashboard/wallet',
     icon: Wallet,
+    feature: 'wallet', // Gold only
   },
 ]
 
@@ -67,11 +95,13 @@ const reporting: NavItem[] = [
     label: 'Audit logs',
     href: '/dashboard/audit-logs',
     icon: FileText,
+    feature: 'audit_logs', // Gold only
   },
   {
     label: 'Reports',
     href: '/dashboard/reports',
     icon: BarChart3,
+    feature: 'reports', // Gold only
   },
 ]
 
@@ -79,6 +109,7 @@ export default function Sidebar() {
   const location = useLocation()
   const pathname = location.pathname
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance'])
+  const { hasAccess, plan, loading } = useFeatureAccess()
 
   const toggleExpand = (label: string) => {
     setExpandedItems(prev =>
@@ -100,30 +131,42 @@ export default function Sidebar() {
     const hasSubmenu = item.submenu && item.submenu.length > 0
     const isExpanded = expandedItems.includes(item.label)
     const Icon = item.icon
+    
+    // Check feature access
+    const hasFeatureAccess = !item.feature || hasAccess(item.feature)
+    const isLocked = item.feature && !hasFeatureAccess
 
     return (
       <div>
-        <Link to={hasSubmenu ? '#' : item.href}
+        <Link 
+          to={hasSubmenu ? '#' : (isLocked ? '#' : item.href)}
           onClick={(e) => {
             if (hasSubmenu) {
               e.preventDefault()
               toggleExpand(item.label)
+            } else if (isLocked) {
+              e.preventDefault()
+              // Show upgrade modal or redirect to billing
+              window.location.href = '/dashboard/settings/billing'
             }
           }}
           className={`
             flex items-center justify-between px-4 py-2.5 rounded-lg transition-all duration-200
             ${isSubmenu ? 'pl-12 text-sm' : ''}
-            ${active 
+            ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
+            ${active && !isLocked
               ? 'bg-accent/10 text-accent font-medium' 
               : 'text-foreground/70 hover:bg-secondary hover:text-foreground'
             }
           `}
+          title={isLocked ? `Upgrade to ${plan === 'free' ? 'Silver or Gold' : 'Gold'} plan to access this feature` : ''}
         >
           <div className="flex items-center gap-3">
-            <Icon className={`w-5 h-5 ${active ? 'text-accent' : ''}`} />
+            <Icon className={`w-5 h-5 ${active && !isLocked ? 'text-accent' : ''}`} />
             <span>{item.label}</span>
+            {isLocked && <Lock className="w-3 h-3 ml-1" />}
           </div>
-          {hasSubmenu && (
+          {hasSubmenu && !isLocked && (
             isExpanded ? (
               <ChevronDown className="w-4 h-4" />
             ) : (
@@ -132,7 +175,7 @@ export default function Sidebar() {
           )}
         </Link>
 
-        {hasSubmenu && isExpanded && (
+        {hasSubmenu && isExpanded && !isLocked && (
           <div className="mt-1 space-y-1">
             {item.submenu!.map((subItem) => (
               <NavLink key={subItem.href} item={subItem} isSubmenu />
@@ -140,6 +183,14 @@ export default function Sidebar() {
           </div>
         )}
       </div>
+    )
+  }
+  
+  if (loading) {
+    return (
+      <aside className="w-64 h-screen bg-background border-r border-border flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </aside>
     )
   }
 
