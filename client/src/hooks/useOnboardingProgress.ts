@@ -61,7 +61,8 @@ export function useOnboardingProgress() {
       const authData = sessionStorage.getItem('onboarding_auth');
       if (authData) {
         const parsed = JSON.parse(authData);
-        if (parsed.userId && parsed.companyId) {
+        // During onboarding, userId is required but companyId might not exist yet
+        if (parsed.userId) {
           return parsed;
         }
       }
@@ -70,10 +71,11 @@ export function useOnboardingProgress() {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
-        if (user.id && user.companyId) {
+        // userId is required, companyId is optional during onboarding
+        if (user.id) {
           return {
             userId: user.id,
-            companyId: user.companyId,
+            companyId: user.companyId || null,
             email: user.email,
             // Preserve any other fields that might be needed
           };
@@ -86,10 +88,10 @@ export function useOnboardingProgress() {
         try {
           // Decode JWT to get user info (basic decode, not verification)
           const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload.userId && payload.companyId) {
+          if (payload.userId) {
             return {
               userId: payload.userId,
-              companyId: payload.companyId,
+              companyId: payload.companyId || null,
               email: payload.email,
             };
           }

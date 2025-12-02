@@ -108,7 +108,7 @@ async function buildServerlessApp() {
   return fastify;
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   try {
     // Initialize app if not already done
     if (!app) {
@@ -137,3 +137,5 @@ export default async function handler(req: any, res: any) {
     }
   }
 }
+
+export default handler;

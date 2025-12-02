@@ -165,10 +165,9 @@ export default function Navbar() {
             {showInstall && (
               <button
                 onClick={handleInstall}
-                className="p-2 text-[#0F5D5D] hover:text-[#093737] transition-colors"
-                aria-label="Install App"
+                className="bg-gray-600 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
               >
-                <Download className="w-5 h-5" />
+                Install App
               </button>
             )}
             <button

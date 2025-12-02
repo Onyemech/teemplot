@@ -109,11 +109,10 @@ export class EmailService {
     if (new Date(record.expires_at) < new Date()) return false;
     if (record.verified_at) return false;
 
-    // Mark as verified (update method now handles tables without updated_at)
-    await this.db.update(
-      'email_verification_codes',
-      { verified_at: new Date().toISOString() },
-      { id: record.id }
+    // Mark as verified
+    await this.db.query(
+      'UPDATE email_verification_codes SET verified_at = $1 WHERE id = $2',
+      [new Date().toISOString(), record.id]
     );
 
     return true;
@@ -136,9 +135,7 @@ export class EmailService {
       content: `
         <h2 style="color: #1a2332; margin: 0 0 20px 0; font-size: 26px; font-weight: 700;">Email Verification</h2>
         
-        <p style="color: #4a5568; font-size: 15px; margin: 0 0 20px 0;">
-          Hello <strong>${firstName}</strong>,
-        </p>
+    
 
         <p style="color: #4a5568; font-size: 15px; margin: 0 0 30px 0;">
           You have requested to verify your email address. Please use the verification code below:
