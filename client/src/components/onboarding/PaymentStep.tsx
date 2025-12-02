@@ -176,6 +176,10 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
             try {
               const authData = getOnboardingAuth()
               
+              if (!authData.companyId || !authData.userId) {
+                throw new Error('Session expired. Please refresh the page and try again, or start onboarding from the beginning.')
+              }
+              
               // Submit plan selection
               const planKey = `${selectedPlan}_${billingCycle}` as 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly'
               await submitPlanSelection({
@@ -199,7 +203,15 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
               onComplete()
             } catch (error: any) {
               console.error('Failed to complete onboarding:', error)
-              toast.error(error.message || 'Failed to complete onboarding')
+              const errorMsg = error.message || 'Failed to complete onboarding'
+              toast.error(errorMsg)
+              
+              // If auth error, suggest clearing storage
+              if (errorMsg.includes('authentication') || errorMsg.includes('Session expired')) {
+                setTimeout(() => {
+                  toast.error('Try clearing your browser data (Ctrl+Shift+Delete) and starting fresh')
+                }, 2000)
+              }
             } finally {
               setLoading(false)
             }

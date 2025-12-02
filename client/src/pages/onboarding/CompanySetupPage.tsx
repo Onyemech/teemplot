@@ -100,9 +100,20 @@ export default function CompanySetupPage() {
       if (userId) {
         const progress = await getProgress(userId)
         if (progress && progress.formData) {
+          // Clean up document fields - if they're metadata objects, keep them as is
+          // but ensure they won't cause render errors
+          const cleanedFormData = {
+            ...progress.formData,
+            // Documents are already uploaded, just mark them as such
+            cacDocument: progress.formData.cacDocument || null,
+            proofOfAddress: progress.formData.proofOfAddress || null,
+            companyPolicies: progress.formData.companyPolicies || null,
+            companyLogo: progress.formData.companyLogo || null,
+          }
+          
           setFormData(prev => ({
             ...prev,
-            ...progress.formData,
+            ...cleanedFormData,
           }))
         }
       }
