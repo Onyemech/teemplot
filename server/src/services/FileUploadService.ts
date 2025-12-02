@@ -209,6 +209,24 @@ class FileUploadService {
    */
   async attachFileToCompany(request: AttachFileToCompanyRequest): Promise<void> {
     try {
+      logger.info({
+        companyId: request.companyId,
+        fileId: request.fileId,
+        documentType: request.documentType,
+        uploadedBy: request.uploadedBy
+      }, 'Starting to attach file to company');
+
+      // Validate inputs
+      if (!request.companyId) {
+        throw new Error('Company ID is required');
+      }
+      if (!request.fileId) {
+        throw new Error('File ID is required');
+      }
+      if (!request.documentType) {
+        throw new Error('Document type is required');
+      }
+
       // Deactivate any existing active file for this document type
       await query(
         `UPDATE company_files
@@ -216,6 +234,8 @@ class FileUploadService {
          WHERE company_id = $1 AND document_type = $2 AND is_active = TRUE`,
         [request.companyId, request.documentType]
       );
+
+      logger.info({ companyId: request.companyId, documentType: request.documentType }, 'Deactivated existing files');
 
       // Create new company_files record
       await query(
@@ -226,11 +246,13 @@ class FileUploadService {
           request.companyId,
           request.fileId,
           request.documentType,
-          request.uploadedBy,
+          request.uploadedBy || null,
           request.purpose || null,
           JSON.stringify(request.metadata || {})
         ]
       );
+
+      logger.info({ companyId: request.companyId, fileId: request.fileId }, 'Created company_files record');
 
       // Update company table with document URL (for backward compatibility)
       const urlColumnMap: Record<string, string> = {

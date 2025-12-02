@@ -165,6 +165,13 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         metadata?: Record<string, any>;
       };
 
+      logger.info({
+        fileId,
+        documentType,
+        userId: request.user?.userId,
+        companyId: request.user?.companyId
+      }, 'Attach file to company request received');
+
       if (!fileId || !documentType) {
         return reply.code(400).send({
           success: false,
@@ -174,9 +181,14 @@ export default async function filesRoutes(fastify: FastifyInstance) {
 
       const companyId = request.user.companyId;
       if (!companyId) {
+        logger.error({
+          userId: request.user?.userId,
+          user: request.user
+        }, 'User is not associated with a company');
+        
         return reply.code(400).send({
           success: false,
-          message: 'User is not associated with a company'
+          message: 'User is not associated with a company. Please complete company setup first.'
         });
       }
 
