@@ -68,7 +68,12 @@ export default function AddressAutocomplete({
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null)
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
 
-  // Initialize Google Places API
+  useEffect(() => {
+    if (cityValue !== undefined && cityValue !== internalCity) {
+      setInternalCity(cityValue)
+    }
+  }, [cityValue])
+
   useEffect(() => {
     const initializeGooglePlaces = async () => {
       try {

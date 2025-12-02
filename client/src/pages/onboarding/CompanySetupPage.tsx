@@ -26,12 +26,12 @@ export default function CompanySetupPage() {
   const [error, setError] = useState('')
   
   // Helper to check if value is a File object
-  const isFile = (value: File | string | null): value is File => {
+  const isFile = (value: any): value is File => {
     return value instanceof File
   }
   const [formData, setFormData] = useState({
     // Company details
-    companyLogo: null as File | string | null,
+    companyLogo: null as File | { name: string; size: number; uploaded: boolean } | string | null,
     companyName: '',
     tin: '',
     industry: '',
@@ -62,10 +62,10 @@ export default function CompanySetupPage() {
     ownerPhone: '',
     ownerDOB: '',
 
-    // Documents
-    cacDocument: null as File | string | null,
-    proofOfAddress: null as File | string | null,
-    companyPolicies: null as File | string | null,
+    // Documents (can be File object, metadata object from saved progress, or null)
+    cacDocument: null as File | { name: string; size: number; uploaded: boolean } | string | null,
+    proofOfAddress: null as File | { name: string; size: number; uploaded: boolean } | string | null,
+    companyPolicies: null as File | { name: string; size: number; uploaded: boolean } | string | null,
   })
 
   const steps = [
@@ -1007,8 +1007,16 @@ export default function CompanySetupPage() {
                   {formData.cacDocument ? (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">{isFile(formData.cacDocument) ? formData.cacDocument.name : 'Uploaded'}</span>
-                      {isFile(formData.cacDocument) && formData.cacDocument.size && <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">
+                        {isFile(formData.cacDocument) 
+                          ? formData.cacDocument.name 
+                          : (formData.cacDocument as any)?.name || 'Uploaded'}
+                      </span>
+                      {isFile(formData.cacDocument) && formData.cacDocument.size ? (
+                        <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>
+                      ) : (formData.cacDocument as any)?.size ? (
+                        <span className="text-muted-foreground">({((formData.cacDocument as any).size / 1024).toFixed(0)}KB)</span>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
@@ -1019,8 +1027,16 @@ export default function CompanySetupPage() {
                   {formData.proofOfAddress ? (
                     <div className="flex items-center gap-2 text-sm">
                       <ImageIcon className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">{isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : 'Uploaded'}</span>
-                      {isFile(formData.proofOfAddress) && formData.proofOfAddress.size && <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">
+                        {isFile(formData.proofOfAddress) 
+                          ? formData.proofOfAddress.name 
+                          : (formData.proofOfAddress as any)?.name || 'Uploaded'}
+                      </span>
+                      {isFile(formData.proofOfAddress) && formData.proofOfAddress.size ? (
+                        <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>
+                      ) : (formData.proofOfAddress as any)?.size ? (
+                        <span className="text-muted-foreground">({((formData.proofOfAddress as any).size / 1024).toFixed(0)}KB)</span>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
@@ -1031,8 +1047,16 @@ export default function CompanySetupPage() {
                   {formData.companyPolicies ? (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">{isFile(formData.companyPolicies) ? formData.companyPolicies.name : 'Uploaded'}</span>
-                      {isFile(formData.companyPolicies) && formData.companyPolicies.size && <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>}
+                      <span className="font-medium">
+                        {isFile(formData.companyPolicies) 
+                          ? formData.companyPolicies.name 
+                          : (formData.companyPolicies as any)?.name || 'Uploaded'}
+                      </span>
+                      {isFile(formData.companyPolicies) && formData.companyPolicies.size ? (
+                        <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>
+                      ) : (formData.companyPolicies as any)?.size ? (
+                        <span className="text-muted-foreground">({((formData.companyPolicies as any).size / 1024).toFixed(0)}KB)</span>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not uploaded</p>
