@@ -1,7 +1,7 @@
 import { authFetch } from './authInterceptor';
 import { requestDeduplicator } from './requestDeduplication';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 // All API calls now use httpOnly cookies - no manual token management needed!
 

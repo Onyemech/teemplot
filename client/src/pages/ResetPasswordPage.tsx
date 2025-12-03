@@ -6,7 +6,7 @@ import BackButton from '@/components/ui/BackButton'
 import { Lock, Check, Eye, EyeOff } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 // Password validation helper
 const validatePassword = (password: string) => {

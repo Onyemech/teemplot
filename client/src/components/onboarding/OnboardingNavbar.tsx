@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 interface OnboardingNavbarProps {
   currentStep?: number

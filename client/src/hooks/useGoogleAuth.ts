@@ -44,7 +44,7 @@ export function useGoogleAuth() {
       setLoading(true);
 
       // Send code to backend for verification with timeout
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -74,7 +74,7 @@ export function useGoogleAuth() {
       // Handle onboarding resumption
       if (requiresOnboarding) {
         // Check if there's saved progress in database
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         try {
           const progressResponse = await fetch(`${apiUrl}/onboarding/progress/${user.id}`);
           if (progressResponse.ok) {
@@ -132,7 +132,7 @@ export function useGoogleAuth() {
         localStorage.setItem('token', token);
 
         // Fetch user data
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         fetch(`${apiUrl}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,

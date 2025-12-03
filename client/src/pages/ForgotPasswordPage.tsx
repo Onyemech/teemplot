@@ -6,7 +6,7 @@ import BackButton from '@/components/ui/BackButton'
 import { Mail } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
