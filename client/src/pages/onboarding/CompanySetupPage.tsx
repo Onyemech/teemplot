@@ -94,8 +94,13 @@ export default function CompanySetupPage() {
       const userId = authData?.userId || user?.id
 
       if (userId) {
+        // Wait a moment for authentication cookie to be available
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
         const progress = await getProgress(userId)
         if (progress && progress.formData) {
+          console.log('📥 Loading saved progress:', progress)
+          
           // Clean up document fields - convert any objects to proper format
           // to prevent "Objects are not valid as a React child" errors
           const cleanDoc = (doc: any) => {
@@ -124,6 +129,10 @@ export default function CompanySetupPage() {
             ...prev,
             ...cleanedFormData,
           }))
+          
+          console.log('✅ Progress loaded and form populated')
+        } else {
+          console.log('ℹ️ No saved progress found')
         }
       }
     }

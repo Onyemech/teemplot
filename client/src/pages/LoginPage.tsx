@@ -42,6 +42,9 @@ export default function LoginPage() {
         // Backend sets httpOnly cookies automatically - no client-side storage needed
         toast.success('Login successful! Redirecting...')
 
+        // Wait a moment for cookie to be set before fetching progress
+        await new Promise(resolve => setTimeout(resolve, 100))
+
         // Check if onboarding is completed
         if (!user.onboardingCompleted) {
           // Resume onboarding from where they left off
