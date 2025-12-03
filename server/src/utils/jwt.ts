@@ -20,20 +20,24 @@ export function setAuthCookies(
   refreshToken: string,
   isProduction: boolean
 ) {
+  // For cross-domain cookies (frontend and backend on different domains)
+  // we need sameSite: 'none' and secure: true
+  const cookieOptions = {
+    httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
+    secure: true, // Always use HTTPS (required for sameSite: 'none')
+    sameSite: isProduction ? 'none' as const : 'lax' as const, // Allow cross-domain in production
+    path: '/',
+  };
+
   // Access token - short-lived (15 minutes)
   reply.cookie('accessToken', accessToken, {
-    httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
-    secure: isProduction, // HTTPS only in production
-    sameSite: 'strict', // CSRF protection
-    path: '/',
+    ...cookieOptions,
     maxAge: 15 * 60 // 15 minutes in seconds
   });
 
   // Refresh token - long-lived (7 days)
   reply.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'strict',
+    ...cookieOptions,
     path: '/api/auth/refresh', // Only sent to refresh endpoint
     maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
   });

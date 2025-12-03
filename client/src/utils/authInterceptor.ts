@@ -29,7 +29,9 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
     
     // Check for 401
     if (response.status === 401) {
-      const data = await response.json().catch(() => ({}));
+      // Clone the response so we can read the body without consuming it
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.json().catch(() => ({}));
       
       if (data.requiresLogin) {
         // Clear auth and redirect
