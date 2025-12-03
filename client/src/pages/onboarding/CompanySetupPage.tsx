@@ -82,13 +82,9 @@ export default function CompanySetupPage() {
       // FIRST: Check if token is in URL and save it
       const urlParams = new URLSearchParams(window.location.search)
       const urlToken = urlParams.get('token')
-      
+      // Google OAuth now sets httpOnly cookies - no need to handle URL token
       if (urlToken) {
-        if (import.meta.env.MODE === 'development') {
-          console.log('✅ Found token in URL, saving to localStorage')
-        }
-        localStorage.setItem('token', urlToken)
-        // Clean URL
+        // Clean URL (token no longer used)
         window.history.replaceState({}, '', window.location.pathname)
       }
       
@@ -106,18 +102,18 @@ export default function CompanySetupPage() {
             if (!doc) return null
             // If it's already a File object, keep it
             if (doc instanceof File) return doc
-            // If it's a string (URL), keep it
+            // If it's a string (filename or URL), keep it as-is
             if (typeof doc === 'string') return doc
-            // If it's an object with metadata, keep it but ensure it's safe
+            // If it's an object with metadata, convert to string (filename only)
             if (typeof doc === 'object' && doc.name) {
-              return { name: String(doc.name), size: Number(doc.size || 0), uploaded: Boolean(doc.uploaded) }
+              return String(doc.name)
             }
             return null
           }
           
           const cleanedFormData = {
             ...progress.formData,
-            // Clean document fields to prevent render errors
+            // Clean document fields to prevent render errors - store as strings
             cacDocument: cleanDoc(progress.formData.cacDocument),
             proofOfAddress: cleanDoc(progress.formData.proofOfAddress),
             companyPolicies: cleanDoc(progress.formData.companyPolicies),
@@ -151,21 +147,9 @@ export default function CompanySetupPage() {
         const urlToken = urlParams.get('token')
         
         if (urlToken) {
-          // Save token from URL to localStorage
-          localStorage.setItem('token', urlToken)
-          // Try to decode it
-          try {
-            const payload = JSON.parse(atob(urlToken.split('.')[1]))
-            authData = {
-              userId: payload.userId || payload.sub,
-              companyId: payload.companyId,
-              email: payload.email,
-            }
-            // Clean URL
-            window.history.replaceState({}, '', window.location.pathname)
-          } catch (e) {
-            console.error('Failed to decode URL token:', e)
-          }
+          // Google OAuth now sets httpOnly cookies - no need to handle URL token
+          // Just clean the URL
+          window.history.replaceState({}, '', window.location.pathname)
         }
         
         // Try localStorage user
@@ -185,25 +169,10 @@ export default function CompanySetupPage() {
           }
         }
         
-        // Try to decode from token in localStorage
-        if (!authData?.userId) {
-          const token = localStorage.getItem('token') || localStorage.getItem('auth_token')
-          if (token) {
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1]))
-              authData = {
-                userId: payload.userId || payload.sub,
-                companyId: payload.companyId,
-                email: payload.email,
-              }
-            } catch (e) {
-              console.error('Failed to decode token:', e)
-            }
-          }
-        }
+        // No token fallback needed - httpOnly cookies handle auth
       }
       
-      // Simplified check - if no auth, just proceed anyway
+      // If no auth data, user needs to log in
       if (!authData?.userId) {
         // Try one more time from URL or create temporary
         const urlParams = new URLSearchParams(window.location.search)
@@ -264,23 +233,7 @@ export default function CompanySetupPage() {
         // If companyId was created by backend, update our authData
         if (businessInfoResponse?.data?.companyId) {
           authData.companyId = businessInfoResponse.data.companyId
-          
-          // Update sessionStorage for onboarding flow
-          const onboardingAuth = sessionStorage.getItem('onboarding_auth')
-          if (onboardingAuth) {
-            const auth = JSON.parse(onboardingAuth)
-            auth.companyId = businessInfoResponse.data.companyId
-            sessionStorage.setItem('onboarding_auth', JSON.stringify(auth))
-          }
-          
-          // Also update localStorage user data
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            const user = JSON.parse(userStr)
-            user.companyId = businessInfoResponse.data.companyId
-            user.company_id = businessInfoResponse.data.companyId
-            localStorage.setItem('user', JSON.stringify(user))
-          }
+          // No need to update storage - backend manages auth via httpOnly cookies
         }
 
         // Upload logo if provided (only if it's a new File, not a URL string)
@@ -368,11 +321,26 @@ export default function CompanySetupPage() {
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border">
                  {formData.companyLogo ? (
-                    <img 
-                      src={formData.companyLogo instanceof File ? URL.createObjectURL(formData.companyLogo) : formData.companyLogo as string} 
-                      alt="Logo" 
-                      className="w-full h-full object-contain rounded-lg" 
-                    />
+                    isFile(formData.companyLogo) ? (
+                      <img 
+                        src={URL.createObjectURL(formData.companyLogo)} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain rounded-lg" 
+                      />
+                    ) : typeof formData.companyLogo === 'string' ? (
+                      <img 
+                        src={formData.companyLogo} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain rounded-lg" 
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <ImageIcon className="w-6 h-6 text-green-600 mb-1" />
+                        <span className="text-xs text-gray-600">
+                          {(formData.companyLogo as any)?.name || 'Uploaded'}
+                        </span>
+                      </div>
+                    )
                   ) : (
                     <img src="/logo.png" alt="Default Logo" className="w-full h-full object-contain opacity-50" />
                   )}
@@ -702,7 +670,9 @@ export default function CompanySetupPage() {
                       <p className="text-sm font-medium text-gray-900">
                         {isFile(formData.cacDocument) 
                           ? formData.cacDocument.name 
-                          : (formData.cacDocument as any)?.name || 'Uploaded document'}
+                          : typeof formData.cacDocument === 'string'
+                            ? formData.cacDocument
+                            : (formData.cacDocument as any)?.name || 'Uploaded document'}
                       </p>
                       <p className="text-xs text-gray-500">
                         {isFile(formData.cacDocument) && formData.cacDocument.size 
@@ -776,7 +746,9 @@ export default function CompanySetupPage() {
                       <p className="text-sm font-medium text-gray-900">
                         {isFile(formData.proofOfAddress) 
                           ? formData.proofOfAddress.name 
-                          : (formData.proofOfAddress as any)?.name || 'Uploaded document'}
+                          : typeof formData.proofOfAddress === 'string'
+                            ? formData.proofOfAddress
+                            : (formData.proofOfAddress as any)?.name || 'Uploaded document'}
                       </p>
                       <p className="text-xs text-gray-500">
                         {isFile(formData.proofOfAddress) && formData.proofOfAddress.size 
@@ -850,7 +822,9 @@ export default function CompanySetupPage() {
                       <p className="text-sm font-medium text-gray-900">
                         {isFile(formData.companyPolicies) 
                           ? formData.companyPolicies.name 
-                          : (formData.companyPolicies as any)?.name || 'Uploaded document'}
+                          : typeof formData.companyPolicies === 'string'
+                            ? formData.companyPolicies
+                            : (formData.companyPolicies as any)?.name || 'Uploaded document'}
                       </p>
                       <p className="text-xs text-gray-500">
                         {isFile(formData.companyPolicies) && formData.companyPolicies.size 
@@ -1034,7 +1008,9 @@ export default function CompanySetupPage() {
                       <span className="font-medium">
                         {isFile(formData.cacDocument) 
                           ? formData.cacDocument.name 
-                          : (formData.cacDocument as any)?.name || 'Uploaded'}
+                          : typeof formData.cacDocument === 'string'
+                            ? formData.cacDocument
+                            : (formData.cacDocument as any)?.name || 'Uploaded'}
                       </span>
                       {isFile(formData.cacDocument) && formData.cacDocument.size ? (
                         <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>
@@ -1054,7 +1030,9 @@ export default function CompanySetupPage() {
                       <span className="font-medium">
                         {isFile(formData.proofOfAddress) 
                           ? formData.proofOfAddress.name 
-                          : (formData.proofOfAddress as any)?.name || 'Uploaded'}
+                          : typeof formData.proofOfAddress === 'string'
+                            ? formData.proofOfAddress
+                            : (formData.proofOfAddress as any)?.name || 'Uploaded'}
                       </span>
                       {isFile(formData.proofOfAddress) && formData.proofOfAddress.size ? (
                         <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>
@@ -1074,7 +1052,9 @@ export default function CompanySetupPage() {
                       <span className="font-medium">
                         {isFile(formData.companyPolicies) 
                           ? formData.companyPolicies.name 
-                          : (formData.companyPolicies as any)?.name || 'Uploaded'}
+                          : typeof formData.companyPolicies === 'string'
+                            ? formData.companyPolicies
+                            : (formData.companyPolicies as any)?.name || 'Uploaded'}
                       </span>
                       {isFile(formData.companyPolicies) && formData.companyPolicies.size ? (
                         <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>
@@ -1125,20 +1105,7 @@ export default function CompanySetupPage() {
         }
       }
       
-      // If still no companyId, try token
-      if (authData?.userId && !authData?.companyId) {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]))
-            if (payload.companyId) {
-              authData.companyId = payload.companyId
-            }
-          } catch (e) {
-            console.error('Failed to decode token:', e)
-          }
-        }
-      }
+      // CompanyId comes from httpOnly cookie via getUser() - no localStorage needed
       
       // Only userId is required - companyId is optional during initial onboarding
       if (authData?.userId) {
@@ -1161,27 +1128,35 @@ export default function CompanySetupPage() {
           // Prepare formData for saving (can't serialize File objects)
           const formDataToSave = {
             ...formData,
-            // Save file metadata instead of File objects
-            cacDocument: formData.cacDocument ? {
-              name: isFile(formData.cacDocument) ? formData.cacDocument.name : formData.cacDocument,
-              size: isFile(formData.cacDocument) ? formData.cacDocument.size : null,
-              uploaded: true
-            } : null,
-            proofOfAddress: formData.proofOfAddress ? {
-              name: isFile(formData.proofOfAddress) ? formData.proofOfAddress.name : formData.proofOfAddress,
-              size: isFile(formData.proofOfAddress) ? formData.proofOfAddress.size : null,
-              uploaded: true
-            } : null,
-            companyPolicies: formData.companyPolicies ? {
-              name: isFile(formData.companyPolicies) ? formData.companyPolicies.name : formData.companyPolicies,
-              size: isFile(formData.companyPolicies) ? formData.companyPolicies.size : null,
-              uploaded: true
-            } : null,
-            companyLogo: formData.companyLogo ? {
-              name: isFile(formData.companyLogo) ? formData.companyLogo.name : formData.companyLogo,
-              size: isFile(formData.companyLogo) ? formData.companyLogo.size : null,
-              uploaded: true
-            } : null,
+            // Save file metadata instead of File objects - store as string name only
+            cacDocument: formData.cacDocument ? (
+              isFile(formData.cacDocument) 
+                ? formData.cacDocument.name 
+                : typeof formData.cacDocument === 'string'
+                  ? formData.cacDocument
+                  : (formData.cacDocument as any)?.name || 'uploaded'
+            ) : null,
+            proofOfAddress: formData.proofOfAddress ? (
+              isFile(formData.proofOfAddress) 
+                ? formData.proofOfAddress.name 
+                : typeof formData.proofOfAddress === 'string'
+                  ? formData.proofOfAddress
+                  : (formData.proofOfAddress as any)?.name || 'uploaded'
+            ) : null,
+            companyPolicies: formData.companyPolicies ? (
+              isFile(formData.companyPolicies) 
+                ? formData.companyPolicies.name 
+                : typeof formData.companyPolicies === 'string'
+                  ? formData.companyPolicies
+                  : (formData.companyPolicies as any)?.name || 'uploaded'
+            ) : null,
+            companyLogo: formData.companyLogo ? (
+              isFile(formData.companyLogo) 
+                ? formData.companyLogo.name 
+                : typeof formData.companyLogo === 'string'
+                  ? formData.companyLogo
+                  : (formData.companyLogo as any)?.name || 'uploaded'
+            ) : null,
           }
 
           await saveProgress({
@@ -1236,15 +1211,10 @@ export default function CompanySetupPage() {
         throw new Error(data.message || 'Failed to complete onboarding')
       }
 
-      // Update token and user data
-      localStorage.setItem('auth_token', data.data.token)
-
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      user.companyId = data.data.companyId
-      localStorage.setItem('user', JSON.stringify(user))
-
-      // Clear onboarding auth data
-      sessionStorage.removeItem('onboarding_auth')
+      // Backend sets httpOnly cookies automatically - no client-side storage needed
+      // Clear any old onboarding data
+      sessionStorage.clear()
+      localStorage.clear()
     } catch (error) {
       console.error('Failed to complete Google onboarding:', error)
       throw error

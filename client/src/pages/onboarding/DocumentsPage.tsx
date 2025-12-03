@@ -7,7 +7,8 @@ import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
 import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
-import { uploadDocument, getOnboardingAuth } from '@/utils/onboardingApi'
+import { uploadDocument } from '@/utils/onboardingApi'
+import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
 
 interface UploadedFile {
@@ -114,17 +115,21 @@ export default function DocumentsPage() {
     setLoading(true)
 
     try {
-      // Get auth data
-      const authData = getOnboardingAuth()
+      // Get user from httpOnly cookie
+      const user = await getUser()
+      
+      if (!user || !user.companyId) {
+        throw new Error('Session expired. Please log in again.')
+      }
       
       // Upload CAC document
-      await uploadDocument(authData.companyId, 'cac', documents.cac.file)
+      await uploadDocument(user.companyId, 'cac', documents.cac.file)
       
       // Upload proof of address
-      await uploadDocument(authData.companyId, 'proof_of_address', documents.proofOfAddress.file)
+      await uploadDocument(user.companyId, 'proof_of_address', documents.proofOfAddress.file)
       
       // Upload company policies
-      await uploadDocument(authData.companyId, 'company_policy', documents.companyPolicies.file)
+      await uploadDocument(user.companyId, 'company_policy', documents.companyPolicies.file)
       
       // Store document info in session storage for reference
       sessionStorage.setItem('onboarding_documents', JSON.stringify({

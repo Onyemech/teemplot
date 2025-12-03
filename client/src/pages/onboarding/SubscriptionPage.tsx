@@ -5,7 +5,8 @@ import { Check, ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import Card from '@/components/ui/Card'
-import { submitPlanSelection, getOnboardingAuth } from '@/utils/onboardingApi'
+import { submitPlanSelection } from '@/utils/onboardingApi'
+import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
 
 interface Plan {
@@ -68,8 +69,12 @@ export default function SubscriptionPage() {
     setLoading(true)
 
     try {
-      // Get auth data
-      const authData = getOnboardingAuth()
+      // Get user from httpOnly cookie
+      const user = await getUser()
+      
+      if (!user || !user.companyId) {
+        throw new Error('Session expired. Please log in again.')
+      }
       
       // Get business info for company size
       const businessInfo = sessionStorage.getItem('onboarding_business_info')
@@ -83,7 +88,7 @@ export default function SubscriptionPage() {
       
       // Submit plan selection to backend
       await submitPlanSelection({
-        companyId: authData.companyId,
+        companyId: user.companyId,
         plan: planMap[selectedPlan] as any,
         companySize: parseInt(companySize),
       })

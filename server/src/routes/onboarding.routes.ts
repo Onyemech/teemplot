@@ -450,7 +450,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Save onboarding progress
-  fastify.post('/save-progress', async (request, reply) => {
+  fastify.post('/save-progress', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
     try {
       const { userId, companyId, currentStep, completedSteps, formData } = request.body as any;
 
@@ -485,7 +487,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Get onboarding progress
-  fastify.get('/progress/:userId', async (request, reply) => {
+  fastify.get('/progress/:userId', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
     try {
       const { userId } = request.params as any;
 

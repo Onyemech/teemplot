@@ -1,106 +1,66 @@
 /**
  * Centralized Authentication Utilities
- * Single source of truth for auth token and user data management
+ * Uses httpOnly cookies - NO client-side token storage
  */
 
-const TOKEN_KEY = 'token'
-const USER_KEY = 'user'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-export interface AuthData {
-  token: string
-  user: {
-    id: string
-    email: string
-    firstName: string
-    lastName: string
-    role: string
-    companyId: string
-  }
+export interface User {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: string
+  companyId: string
 }
 
 /**
- * Save authentication data (token + user)
- * Use this EVERYWHERE after login/register/oauth
- */
-export function saveAuth(token: string, user: any): void {
-  try {
-    localStorage.setItem(TOKEN_KEY, token)
-    localStorage.setItem(USER_KEY, JSON.stringify(user))
-    
-    // Clean up old keys for backward compatibility
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('accessToken')
-  } catch (error) {
-    console.error('Failed to save auth data:', error)
-  }
-}
-
-/**
- * Get authentication token
+ * Get current user from server
  * Returns null if not authenticated
  */
-export function getAuthToken(): string | null {
+export async function getUser(): Promise<User | null> {
   try {
-    // Check primary key first
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (token) return token
+    const response = await fetch(`${API_URL}/auth/me`, {
+      credentials: 'include', // Send cookies
+    });
     
-    // Fallback to old keys for backward compatibility
-    return localStorage.getItem('auth_token') || localStorage.getItem('accessToken')
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.data;
   } catch (error) {
-    console.error('Failed to get auth token:', error)
-    return null
-  }
-}
-
-/**
- * Get user data
- * Returns null if not authenticated
- */
-export function getUser(): any | null {
-  try {
-    const userStr = localStorage.getItem(USER_KEY)
-    if (!userStr) return null
-    return JSON.parse(userStr)
-  } catch (error) {
-    console.error('Failed to get user data:', error)
-    return null
+    console.error('Failed to get user:', error);
+    return null;
   }
 }
 
 /**
  * Check if user is authenticated
  */
-export function isAuthenticated(): boolean {
-  return !!getAuthToken()
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getUser();
+  return !!user;
 }
 
 /**
- * Clear all authentication data
- * Use this on logout or auth errors
+ * Logout user
  */
-export function clearAuth(): void {
+export async function logout(): Promise<void> {
   try {
-    // Clear all possible token keys
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('accessToken')
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
     
-    // Clear onboarding data
-    sessionStorage.clear()
+    // Clear any remaining client-side data
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Redirect to login
+    window.location.href = '/login';
   } catch (error) {
-    console.error('Failed to clear auth data:', error)
-  }
-}
-
-/**
- * Update user data without changing token
- */
-export function updateUser(user: any): void {
-  try {
-    localStorage.setItem(USER_KEY, JSON.stringify(user))
-  } catch (error) {
-    console.error('Failed to update user data:', error)
+    console.error('Failed to logout:', error);
+    // Force redirect anyway
+    window.location.href = '/login';
   }
 }

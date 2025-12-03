@@ -89,27 +89,8 @@ function VerifyEmailContent() {
           role: data.data.user.role,
         }
         
-        // Save to localStorage for persistence
-        const { saveAuth } = await import('@/utils/auth')
-        saveAuth(data.data.token, userData)
+        // Backend sets httpOnly cookies automatically - no client-side storage needed!
         
-        // Store in sessionStorage for onboarding flow
-        const existingAuth = sessionStorage.getItem('onboarding_auth')
-        if (existingAuth) {
-          const authData = JSON.parse(existingAuth)
-          authData.token = data.data.token
-          authData.companyId = data.data.user.companyId
-          sessionStorage.setItem('onboarding_auth', JSON.stringify(authData))
-        } else {
-          // Fallback: create new auth data
-          sessionStorage.setItem('onboarding_auth', JSON.stringify({
-            email,
-            token: data.data.token,
-            userId: data.data.user.id,
-            companyId: data.data.user.companyId,
-          }))
-        }
-
         // After email verification, proceed to company setup
         navigate('/onboarding/company-setup')
       } else {

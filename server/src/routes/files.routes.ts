@@ -179,24 +179,24 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Use companyId from request body if provided, otherwise fall back to token
-      const targetCompanyId = companyId || request.user.companyId;
+      // ALWAYS use companyId from JWT token (most reliable source)
+      const targetCompanyId = request.user.companyId;
       
       if (!targetCompanyId) {
         logger.error({
           userId: request.user?.userId,
           user: request.user
-        }, 'No company ID provided');
+        }, 'No company ID in JWT token');
         
         return reply.code(400).send({
           success: false,
-          message: 'Company ID is required. Please provide companyId in request body.'
+          message: 'Authentication error: No company ID in session. Please log in again.'
         });
       }
 
-      // Verify company exists, if not try to find user's actual company
+      // Verify company exists
       let companyCheck = await query(
-        'SELECT id FROM companies WHERE id = $1',
+        'SELECT id, name FROM companies WHERE id = $1',
         [targetCompanyId]
       );
 
@@ -206,30 +206,64 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         logger.warn({
           companyId: targetCompanyId,
           userId: request.user?.userId
-        }, 'Company not found, trying to find user\'s actual company');
+        }, 'Company from JWT not found in database, trying to find/create user\'s company');
         
-        // Try to find the user's actual company
+        // Try to find the user's actual company from database
         const userCheck = await query(
-          'SELECT company_id FROM users WHERE id = $1',
+          'SELECT company_id, email FROM users WHERE id = $1',
           [request.user.userId]
         );
 
         if (userCheck.rows.length > 0 && userCheck.rows[0].company_id) {
           actualCompanyId = userCheck.rows[0].company_id;
-          logger.info({
-            oldCompanyId: targetCompanyId,
-            newCompanyId: actualCompanyId,
-            userId: request.user.userId
-          }, 'Found user\'s actual company');
+          
+          // Verify this company exists
+          const actualCompanyCheck = await query(
+            'SELECT id, name FROM companies WHERE id = $1',
+            [actualCompanyId]
+          );
+          
+          if (actualCompanyCheck.rows.length > 0) {
+            logger.info({
+              jwtCompanyId: targetCompanyId,
+              dbCompanyId: actualCompanyId,
+              userId: request.user.userId
+            }, 'Using user\'s company from database instead of JWT');
+          } else {
+            // Company doesn't exist - create a placeholder
+            logger.warn({
+              companyId: actualCompanyId,
+              userId: request.user.userId
+            }, 'Company missing, creating placeholder company');
+            
+            try {
+              await query(
+                `INSERT INTO companies (id, name, email, subscription_plan, subscription_status, is_active, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+                 ON CONFLICT (id) DO NOTHING`,
+                [actualCompanyId, 'Pending Setup', userCheck.rows[0].email, 'trial', 'active', true]
+              );
+              
+              logger.info({
+                companyId: actualCompanyId,
+                userId: request.user.userId
+              }, 'Created placeholder company');
+            } catch (createError: any) {
+              logger.error({
+                err: createError,
+                companyId: actualCompanyId
+              }, 'Failed to create placeholder company');
+            }
+          }
         } else {
           logger.error({
             companyId: targetCompanyId,
             userId: request.user?.userId
-          }, 'Company not found and user has no company');
+          }, 'Company not found and user has no company_id in database');
           
           return reply.code(404).send({
             success: false,
-            message: 'Company not found. Please complete company setup first.'
+            message: 'Company not found. Please complete registration and company setup first.'
           });
         }
       }

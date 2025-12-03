@@ -3,53 +3,7 @@ import { requestDeduplicator } from './requestDeduplication';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
-// Get auth data from sessionStorage or localStorage
-export const getOnboardingAuth = () => {
-  console.log('🔍 Getting onboarding auth...')
-  
-  // Try sessionStorage first (during onboarding)
-  let authData = sessionStorage.getItem('onboarding_auth')
-  if (authData) {
-    const parsed = JSON.parse(authData)
-    console.log('✅ Found auth in sessionStorage:', { userId: parsed.userId, companyId: parsed.companyId })
-    return parsed
-  }
-  
-  console.log('⚠️ No auth in sessionStorage, checking localStorage...')
-  
-  // Fallback to localStorage user data
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    const user = JSON.parse(userStr)
-    const authData = {
-      userId: user.id,
-      companyId: user.companyId || user.company_id,
-      email: user.email
-    }
-    console.log('✅ Found user in localStorage:', { userId: authData.userId, companyId: authData.companyId })
-    
-    if (!authData.companyId) {
-      console.error('❌ User found but no companyId:', user)
-      throw new Error('Company information not found. Please complete company setup first.')
-    }
-    
-    return authData
-  }
-  
-  console.error('❌ No auth data found anywhere')
-  throw new Error('No authentication data found. Please register first.')
-}
-
-// Get auth token
-const getAuthToken = () => {
-  const authData = sessionStorage.getItem('onboarding_auth')
-  if (authData) {
-    const parsed = JSON.parse(authData)
-    if (parsed.token) return parsed.token
-  }
-  // Use centralized auth utility - check localStorage directly to avoid circular import
-  return localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('accessToken')
-}
+// All API calls now use httpOnly cookies - no manual token management needed!
 
 // Company Setup API
 export const submitCompanySetup = async (data: {
@@ -64,13 +18,12 @@ export const submitCompanySetup = async (data: {
   return requestDeduplicator.deduplicate(
     `company-setup-${data.companyId}`,
     async () => {
-      const token = getAuthToken()
       const response = await fetch(`${API_URL}/onboarding/company-setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
+        credentials: 'include', // Send cookies automatically
         body: JSON.stringify(data),
       })
 
@@ -98,13 +51,12 @@ export const submitOwnerDetails = async (data: {
   return requestDeduplicator.deduplicate(
     `owner-details-${data.companyId}`,
     async () => {
-      const token = getAuthToken()
       const response = await fetch(`${API_URL}/onboarding/owner-details`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
+        credentials: 'include',
         body: JSON.stringify(data),
       })
 
@@ -127,9 +79,7 @@ export const submitBusinessInfo = async (data: {
   industry?: string
   employeeCount: number
   website?: string
-  // Legacy address field
   address: string
-  // Detailed geocoding data from Google Places
   formattedAddress?: string
   streetNumber?: string
   streetName?: string
@@ -137,23 +87,20 @@ export const submitBusinessInfo = async (data: {
   stateProvince?: string
   country?: string
   postalCode?: string
-  // Required coordinates for geofencing
   officeLatitude: number
   officeLongitude: number
-  // Google Places metadata
   placeId?: string
   geocodingAccuracy?: string
 }) => {
   return requestDeduplicator.deduplicate(
     `business-info-${data.companyId}`,
     async () => {
-      const token = getAuthToken()
       const response = await authFetch(`${API_URL}/onboarding/business-info`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
+        credentials: 'include',
         body: JSON.stringify(data),
       })
 
@@ -170,15 +117,12 @@ export const submitBusinessInfo = async (data: {
 
 // Upload Logo API
 export const uploadLogo = async (_companyId: string, file: File) => {
-  const token = getAuthToken()
   const formData = new FormData()
   formData.append('file', file)
 
   const response = await fetch(`${API_URL}/onboarding/upload-logo`, {
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
+    credentials: 'include',
     body: formData,
   })
 
@@ -197,8 +141,6 @@ export const uploadDocument = async (
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
-  const token = getAuthToken()
-  
   // Step 1: Compute file hash
   const buffer = await file.arrayBuffer()
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
@@ -210,8 +152,8 @@ export const uploadDocument = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
+    credentials: 'include',
     body: JSON.stringify({
       hash,
       filename: file.name,
@@ -237,9 +179,7 @@ export const uploadDocument = async (
     
     const uploadResponse = await fetch(`${API_URL}/files/upload`, {
       method: 'POST',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
+      credentials: 'include',
       body: formData
     })
     
@@ -253,7 +193,6 @@ export const uploadDocument = async (
     console.log('✅ File uploaded:', uploadResult.data.file.id)
     fileId = uploadResult.data.file.id
   } else {
-    // File already exists, use existing file ID
     console.log('♻️ File already exists, reusing:', checkResult.data.file.id)
     fileId = checkResult.data.file.id
   }
@@ -264,8 +203,8 @@ export const uploadDocument = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
+    credentials: 'include',
     body: JSON.stringify({
       fileId,
       companyId,
@@ -285,28 +224,6 @@ export const uploadDocument = async (
     throw new Error(attachResult.message || 'Failed to attach document to company')
   }
   
-  // If server returned a corrected companyId, update our session
-  if (attachResult.data?.companyId && attachResult.data.companyId !== companyId) {
-    console.log('🔄 Server corrected companyId:', companyId, '→', attachResult.data.companyId)
-    
-    // Update sessionStorage
-    const sessionAuth = sessionStorage.getItem('onboarding_auth')
-    if (sessionAuth) {
-      const auth = JSON.parse(sessionAuth)
-      auth.companyId = attachResult.data.companyId
-      sessionStorage.setItem('onboarding_auth', JSON.stringify(auth))
-    }
-    
-    // Update localStorage
-    const userStr = localStorage.getItem('user')
-    if (userStr) {
-      const user = JSON.parse(userStr)
-      user.companyId = attachResult.data.companyId
-      user.company_id = attachResult.data.companyId
-      localStorage.setItem('user', JSON.stringify(user))
-    }
-  }
-  
   console.log('✅ File attached to company successfully')
   return attachResult
 }
@@ -317,13 +234,12 @@ export const submitPlanSelection = async (data: {
   plan: 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly' | 'free'
   companySize: number
 }) => {
-  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/select-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
+    credentials: 'include',
     body: JSON.stringify(data),
   })
 
@@ -341,13 +257,12 @@ export const completeOnboarding = async (data: {
   companyId: string
   userId: string
 }) => {
-  const token = getAuthToken()
   const response = await fetch(`${API_URL}/onboarding/complete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
+    credentials: 'include',
     body: JSON.stringify(data),
   })
 

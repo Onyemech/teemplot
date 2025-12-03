@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { submitPlanSelection, completeOnboarding, getOnboardingAuth } from '@/utils/onboardingApi'
+import { submitPlanSelection, completeOnboarding } from '@/utils/onboardingApi'
+import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
 
 interface PaymentStepProps {
@@ -174,30 +175,28 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
           onClick={async () => {
             setLoading(true)
             try {
-              const authData = getOnboardingAuth()
+              // Get user from httpOnly cookie (server validates automatically)
+              const user = await getUser()
               
-              if (!authData.companyId || !authData.userId) {
-                throw new Error('Session expired. Please refresh the page and try again, or start onboarding from the beginning.')
+              if (!user || !user.companyId) {
+                throw new Error('Session expired. Please log in again.')
               }
               
               // Submit plan selection
               const planKey = `${selectedPlan}_${billingCycle}` as 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly'
               await submitPlanSelection({
-                companyId: authData.companyId,
+                companyId: user.companyId,
                 plan: planKey,
                 companySize: numberOfEmployees,
               })
 
               // Complete onboarding
               await completeOnboarding({
-                companyId: authData.companyId,
-                userId: authData.userId,
+                companyId: user.companyId,
+                userId: user.id,
               })
 
               toast.success('Onboarding completed successfully!')
-              
-              // Clear onboarding data
-              sessionStorage.removeItem('onboarding_auth')
               
               // Call parent completion handler
               onComplete()
@@ -206,10 +205,10 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
               const errorMsg = error.message || 'Failed to complete onboarding'
               toast.error(errorMsg)
               
-              // If auth error, suggest clearing storage
-              if (errorMsg.includes('authentication') || errorMsg.includes('Session expired')) {
+              // If auth error, redirect to login
+              if (errorMsg.includes('Session expired') || errorMsg.includes('log in')) {
                 setTimeout(() => {
-                  toast.error('Try clearing your browser data (Ctrl+Shift+Delete) and starting fresh')
+                  window.location.href = '/login'
                 }, 2000)
               }
             } finally {

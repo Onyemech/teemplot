@@ -13,6 +13,7 @@ import {
   logSecurityEvent,
   detectSuspiciousActivity,
 } from '../middleware/security.middleware';
+import { setAuthCookies, clearAuthCookies, createAccessTokenPayload, createRefreshTokenPayload } from '../utils/jwt';
 
 const RegisterSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -139,13 +140,19 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Generate JWT token
-      const token = fastify.jwt.sign({
-        userId: user.id,
+      // Generate JWT tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: user.id,
         companyId: user.company_id,
         email: user.email,
         role: user.role,
       });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
 
       // Get company onboarding status
       const company = await db.findOne('companies', { id: user.company_id });
@@ -155,7 +162,6 @@ export async function authRoutes(fastify: FastifyInstance) {
         success: true,
         message: 'Email verified successfully',
         data: {
-          token,
           user: {
             id: user.id,
             email: user.email,
@@ -270,13 +276,19 @@ export async function authRoutes(fastify: FastifyInstance) {
         details: { email }
       });
 
-      // Generate JWT token
-      const token = fastify.jwt.sign({
-        userId: user.id,
+      // Generate JWT tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: user.id,
         companyId: user.company_id,
-        role: user.role,
         email: user.email,
+        role: user.role,
       });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
 
       // Update last login
       await db.update('users', { last_login_at: new Date().toISOString() }, { id: user.id });
@@ -288,7 +300,6 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({
         success: true,
         data: {
-          token,
           user: {
             id: user.id,
             email: user.email,
@@ -345,14 +356,67 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Logout
-  fastify.post('/logout', {
-    preHandler: [fastify.authenticate],
-  }, async (_request, reply) => {
-    // TODO: Invalidate token (add to blacklist)
+  fastify.post('/logout', async (_request, reply) => {
+    // Clear httpOnly cookies
+    clearAuthCookies(reply);
+    
     return reply.code(200).send({
       success: true,
       message: 'Logged out successfully',
     });
+  });
+
+  // Refresh token endpoint
+  fastify.post('/refresh', async (request, reply) => {
+    try {
+      const refreshToken = request.cookies.refreshToken;
+      
+      if (!refreshToken) {
+        return reply.code(401).send({
+          success: false,
+          message: 'No refresh token provided',
+        });
+      }
+
+      // Verify refresh token
+      const decoded = fastify.jwt.verify(refreshToken) as { userId: string };
+      
+      // Get user data
+      const user = await db.findOne('users', { id: decoded.userId });
+      
+      if (!user) {
+        return reply.code(401).send({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Generate new tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: user.id,
+        companyId: user.company_id,
+        email: user.email,
+        role: user.role,
+      });
+      const newAccessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const newRefreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+
+      // Set new httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, newAccessToken, newRefreshToken, isProduction);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Token refreshed successfully',
+      });
+    } catch (error: any) {
+      // Invalid or expired refresh token
+      clearAuthCookies(reply);
+      return reply.code(401).send({
+        success: false,
+        message: 'Invalid refresh token',
+      });
+    }
   });
 
   // Forgot password - Send verification code
@@ -462,13 +526,19 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Handle OAuth callback
       const result = await customGoogleAuthService.handleCallback(code);
 
-      // Generate JWT token
-      const token = fastify.jwt.sign({
-        userId: result.user.id,
+      // Generate JWT tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: result.user.id,
         companyId: result.user.company_id,
-        role: result.user.role,
         email: result.user.email,
+        role: result.user.role,
       });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
 
       // Log successful login
       await logSecurityEvent({
@@ -483,14 +553,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         }
       });
 
-      // Redirect to frontend with token
+      // Redirect to frontend (cookies are set automatically)
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       
       // New users or users who haven't completed onboarding should go to onboarding
       // Only redirect to dashboard if onboarding is completed
       const redirectUrl = result.requiresOnboarding
-        ? `${frontendUrl}/onboarding/company-setup?token=${token}&isNewUser=${result.isNewUser}`
-        : `${frontendUrl}/dashboard?token=${token}`;
+        ? `${frontendUrl}/onboarding/company-setup?isNewUser=${result.isNewUser}`
+        : `${frontendUrl}/dashboard`;
 
       return reply.redirect(redirectUrl);
     } catch (error: any) {
@@ -510,13 +580,19 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Handle OAuth callback
       const result = await customGoogleAuthService.handleCallback(code);
 
-      // Generate JWT token
-      const token = fastify.jwt.sign({
-        userId: result.user.id,
+      // Generate JWT tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: result.user.id,
         companyId: result.user.company_id,
-        role: result.user.role,
         email: result.user.email,
+        role: result.user.role,
       });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
 
       // Log successful login
       await logSecurityEvent({
@@ -534,7 +610,6 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({
         success: true,
         data: {
-          token,
           user: {
             id: result.user.id,
             email: result.user.email,

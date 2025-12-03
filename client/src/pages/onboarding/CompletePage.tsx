@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import { LogoLoader } from '@/components/LogoLoader'
 import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
-import { completeOnboarding, getOnboardingAuth } from '@/utils/onboardingApi'
+import { completeOnboarding } from '@/utils/onboardingApi'
+import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function OnboardingCompletePage() {
@@ -15,13 +16,17 @@ export default function OnboardingCompletePage() {
   useEffect(() => {
     const completeOnboardingProcess = async () => {
       try {
-        // Get auth data
-        const authData = getOnboardingAuth()
+        // Get user from httpOnly cookie
+        const user = await getUser()
+        
+        if (!user || !user.companyId) {
+          throw new Error('Session expired. Please log in again.')
+        }
         
         // Call complete onboarding API
         await completeOnboarding({
-          companyId: authData.companyId,
-          userId: authData.userId,
+          companyId: user.companyId,
+          userId: user.id,
         })
         
         // Mark onboarding as complete

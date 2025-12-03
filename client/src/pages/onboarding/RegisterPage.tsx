@@ -65,14 +65,8 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Registration failed')
       }
 
-      // Store auth data for later stages (token will be added after verification)
-      sessionStorage.setItem('onboarding_auth', JSON.stringify({
-        email: formData.email,
-        userId: data.data.userId,
-        companyId: data.data.companyId,
-        token: data.data.token || null, // Token if provided
-      }))
-
+      // No need to store anything - backend will set httpOnly cookies after verification
+      
       // Show success toast
       toast.success('Account created! Check your email for verification code.')
 

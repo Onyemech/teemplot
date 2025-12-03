@@ -66,19 +66,8 @@ export function useGoogleAuth() {
         throw new Error(result.message || 'Google authentication failed');
       }
 
-      // Save auth data
-      const { token, user, requiresOnboarding } = result.data;
-      
-      const { saveAuth } = await import('@/utils/auth')
-      saveAuth(token, user)
-
-      // Save auth data to session storage for onboarding
-      sessionStorage.setItem('onboarding_auth', JSON.stringify({
-        userId: user.id,
-        companyId: user.companyId,
-        email: user.email,
-        isGoogleAuth: true,
-      }));
+      // Backend sets httpOnly cookies automatically - no client-side storage needed!
+      const { user, requiresOnboarding } = result.data;
 
       toast.success('Successfully signed in with Google!');
 
@@ -152,15 +141,7 @@ export function useGoogleAuth() {
           .then(res => res.json())
           .then(result => {
             if (result.success) {
-              localStorage.setItem('user', JSON.stringify(result.data));
-              
-              // Save auth data to session storage for onboarding
-              sessionStorage.setItem('onboarding_auth', JSON.stringify({
-                userId: result.data.id,
-                companyId: result.data.companyId,
-                email: result.data.email,
-                isGoogleAuth: true,
-              }));
+              // Backend sets httpOnly cookies automatically - no client-side storage needed!
 
               toast.success('Successfully signed in with Google!');
 

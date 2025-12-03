@@ -104,9 +104,18 @@ export async function buildApp() {
     }
   });
 
-  // JWT plugin
+  // Cookie plugin (must be registered before JWT)
+  await app.register(require('@fastify/cookie'), {
+    secret: process.env.COOKIE_SECRET || process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
+  });
+
+  // JWT plugin with cookie support
   await app.register(jwt, {
     secret: process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
+    cookie: {
+      cookieName: 'accessToken',
+      signed: false // We use httpOnly instead of signing
+    }
   });
 
   // JWT verification decorator

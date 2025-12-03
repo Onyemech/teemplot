@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { env } from '@/config/env'
-import { getAuthToken, clearAuth } from '@/utils/auth'
 
 export const apiClient = axios.create({
   baseURL: env.apiUrl,
@@ -8,27 +7,34 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
+  withCredentials: true, // Send cookies automatically
 })
 
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+// No need for Authorization header - cookies are sent automatically
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      clearAuth()
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If 401 and haven't tried refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Try to refresh token
+        await axios.post(`${env.apiUrl}/auth/refresh`, {}, { withCredentials: true });
+        // Retry original request
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed, redirect to login
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
       }
     }
-    return Promise.reject(error)
+    
+    return Promise.reject(error);
   }
 )
