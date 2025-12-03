@@ -35,5 +35,5 @@ export interface IDatabase {
   close(): Promise<void>;
 
  
-  getType(): 'postgres' | 'sqlite' | 'convex';
+  getType(): 'postgres' | 'convex';
 }

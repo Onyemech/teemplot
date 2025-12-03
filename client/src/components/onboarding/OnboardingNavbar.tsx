@@ -112,13 +112,12 @@ export default function OnboardingNavbar({
         toast.success('Progress saved! You can continue later.')
       } else {
         // Fallback: If no onSave callback, save minimal progress
-        const token = localStorage.getItem('token')
         const response = await fetch(`${API_URL}/onboarding/save-progress`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` }),
           },
+          credentials: 'include', // Use httpOnly cookies for auth
           body: JSON.stringify({
             userId: authData.userId,
             companyId: authData.companyId || null,

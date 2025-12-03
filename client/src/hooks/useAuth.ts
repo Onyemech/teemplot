@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { apiClient } from '@/lib/api'
 
 export type UserRole = 'owner' | 'admin' | 'staff'
 export type SubscriptionPlan = 'trial' | 'silver' | 'gold'
@@ -32,34 +31,19 @@ export function useAuth() {
 
   const fetchUser = async () => {
     try {
-      const { isAuthenticated, getUser } = await import('@/utils/auth')
+      const { getUser } = await import('@/utils/auth')
       
-      // Check if token exists before making request
-      if (!isAuthenticated()) {
+      // Fetch user from server (uses httpOnly cookies)
+      const userData = await getUser()
+      
+      if (userData) {
+        setUser(userData as User)
+      } else {
         setUser(null)
-        setLoading(false)
-        return
       }
-
-      // Try to get cached user first
-      const cachedUser = getUser()
-      if (cachedUser) {
-        setUser(cachedUser)
-      }
-
-      // Then fetch fresh data from server
-      const response = await apiClient.get('/auth/me')
-      setUser(response.data)
-      
-      // Update cached user
-      const { updateUser } = await import('@/utils/auth')
-      updateUser(response.data)
     } catch (error: any) {
       console.error('Failed to fetch user:', error)
-      // Only clear user if it's an auth error
-      if (error.response?.status === 401) {
-        setUser(null)
-      }
+      setUser(null)
     } finally {
       setLoading(false)
     }

@@ -78,17 +78,6 @@ function VerifyEmailContent() {
       const data = await response.json()
 
       if (data.success) {
-        // Store token and user data
-        const userData = {
-          id: data.data.user.id,
-          email: data.data.user.email,
-          companyId: data.data.user.companyId,
-          company_id: data.data.user.companyId,
-          firstName: data.data.user.firstName,
-          lastName: data.data.user.lastName,
-          role: data.data.user.role,
-        }
-        
         // Backend sets httpOnly cookies automatically - no client-side storage needed!
         
         // After email verification, proceed to company setup

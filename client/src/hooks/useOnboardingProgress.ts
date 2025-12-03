@@ -13,15 +13,12 @@ export interface OnboardingProgressData {
 export function useOnboardingProgress() {
   const saveProgress = useCallback(async (data: OnboardingProgressData) => {
     try {
-      const token = localStorage.getItem('token');
-      
       // Development logging only
       if (import.meta.env.MODE === 'development') {
         console.log('💾 Saving progress:', {
           userId: data.userId ? '✅' : '❌',
           companyId: data.companyId ? '✅' : '❌',
           currentStep: data.currentStep,
-          hasToken: !!token
         });
       }
       
@@ -29,8 +26,8 @@ export function useOnboardingProgress() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
+        credentials: 'include', // Use httpOnly cookies for auth
         body: JSON.stringify(data),
       });
 
@@ -64,12 +61,8 @@ export function useOnboardingProgress() {
 
   const getProgress = useCallback(async (userId: string) => {
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-      
       const response = await fetch(`${API_URL}/onboarding/progress/${userId}`, {
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
+        credentials: 'include', // Use httpOnly cookies for auth
       });
 
       if (response.status === 404) {

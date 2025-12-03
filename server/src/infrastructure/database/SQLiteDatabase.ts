@@ -218,8 +218,8 @@ export class SQLiteDatabase implements IDatabase {
     logger.info('SQLite database connection closed');
   }
 
-  getType(): 'sqlite' {
-    return 'sqlite';
+  getType(): 'postgres' {
+    return 'postgres';
   }
 
   /**

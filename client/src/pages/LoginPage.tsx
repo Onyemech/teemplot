@@ -37,12 +37,9 @@ export default function LoginPage() {
       })
 
       if (response.data.success) {
-        const { token, user } = response.data.data
+        const { user } = response.data.data
         
-        // Store token and user data using centralized utility
-        const { saveAuth } = await import('@/utils/auth')
-        saveAuth(token, user)
-
+        // Backend sets httpOnly cookies automatically - no client-side storage needed
         toast.success('Login successful! Redirecting...')
 
         // Check if onboarding is completed

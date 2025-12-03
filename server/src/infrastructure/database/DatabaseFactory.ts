@@ -1,10 +1,9 @@
 import { IDatabase } from './IDatabase';
 import { PostgresDatabase } from './PostgresDatabase';
-import { SQLiteDatabase } from './SQLiteDatabase';
 import { ConvexDatabase } from './ConvexDatabase';
 import { logger } from '../../utils/logger';
 
-export type DatabaseType = 'postgres' | 'sqlite' | 'convex';
+export type DatabaseType = 'postgres' | 'convex';
 
 export class DatabaseFactory {
   private static instance: IDatabase | null = null;
@@ -24,9 +23,6 @@ export class DatabaseFactory {
     logger.info(`Initializing ${dbType} database for ${env} environment`);
 
     switch (dbType) {
-      case 'sqlite':
-        this.instance = new SQLiteDatabase();
-        break;
       case 'postgres':
         this.instance = new PostgresDatabase();
         break;
@@ -34,7 +30,7 @@ export class DatabaseFactory {
         this.instance = new ConvexDatabase();
         break;
       default:
-        throw new Error(`Unsupported database type: ${dbType}`);
+        throw new Error(`Unsupported database type: ${dbType}. Only 'postgres' and 'convex' are supported.`);
     }
 
     return this.instance;
@@ -61,9 +57,9 @@ export class DatabaseFactory {
 
   /**
    * Smart detection of database type based on environment
+   * ALWAYS uses Postgres (Supabase) - SQLite removed
    */
   private static detectDatabaseType(): DatabaseType {
-    const env = process.env.NODE_ENV;
     const forceDb = process.env.FORCE_DATABASE_TYPE as DatabaseType;
 
     // Explicit override
@@ -72,27 +68,14 @@ export class DatabaseFactory {
       return forceDb;
     }
 
-    // Development: Use SQLite for easy local development
-    if (env === 'development' || env === 'test') {
-      if (process.env.DEV_DATABASE_URL?.includes('sqlite')) {
-        return 'sqlite';
-      }
-      // Check if SQLite file exists
-      const fs = require('fs');
-      const sqlitePath = process.env.SQLITE_PATH || './data/teemplot.db';
-      if (fs.existsSync(sqlitePath) || !process.env.DATABASE_URL) {
-        return 'sqlite';
-      }
-    }
-
-    // Production: Use Supabase (Postgres)
+    // ALWAYS use Postgres (Supabase) for all environments
     if (process.env.DATABASE_URL || process.env.SUPABASE_URL) {
+      logger.info('Using Postgres (Supabase) database');
       return 'postgres';
     }
 
-    // Fallback to SQLite
-    logger.warn('No database configured, falling back to SQLite');
-    return 'sqlite';
+    // No fallback - require DATABASE_URL
+    throw new Error('DATABASE_URL is required. Please configure Supabase connection.');
   }
 
   /**

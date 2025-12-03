@@ -150,10 +150,7 @@ export default function AcceptInvitationPage() {
         throw new Error(data.message || 'Failed to accept invitation')
       }
 
-      // Store auth token and user data
-      const { saveAuth } = await import('@/utils/auth')
-      saveAuth(data.data.token, data.data.user)
-
+      // Backend sets httpOnly cookies automatically - no client-side storage needed
       toast.success('Welcome to the team! Redirecting to dashboard...')
 
       setTimeout(() => {

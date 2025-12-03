@@ -15,7 +15,7 @@ async function start() {
 
     logger.info(`🚀 Server running on http://${HOST}:${PORT}`);
     logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
-    logger.info(`🗄️  Database: ${process.env.NODE_ENV === 'production' ? 'PostgreSQL (Supabase)' : 'SQLite (Local)'}`);
+    logger.info(`🗄️  Database: PostgreSQL (Supabase)`);
     logger.info(`🔐 Security: Enabled`);
     logger.info(`📝 API Docs: http://${HOST}:${PORT}/health`);
   } catch (error: any) {

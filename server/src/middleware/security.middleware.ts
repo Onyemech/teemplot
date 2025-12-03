@@ -2,10 +2,6 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../utils/logger';
 import { superAdminNotificationService } from '../services/SuperAdminNotificationService';
 
-/**
- * Rate limiting configuration
- * Prevents brute force attacks and DDoS
- */
 export const rateLimitConfig = {
   global: {
     max: 100, // requests
@@ -296,18 +292,29 @@ export function detectSuspiciousActivity(request: FastifyRequest): {
   suspicious: boolean;
   reason?: string;
 } {
-  // Check for SQL injection patterns in URL
-  const sqlPatterns = /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b)/i;
-  if (sqlPatterns.test(request.url)) {
-    // Notify superadmin of SQL injection attempt
-    superAdminNotificationService.notifySecurityEvent('SQL Injection Attempt', {
-      url: request.url,
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-      timestamp: new Date().toISOString(),
-    }).catch(err => logger.error('Failed to notify superadmin:', err));
-    
-    return { suspicious: true, reason: 'SQL injection attempt detected' };
+  // Whitelist legitimate routes that contain SQL-like keywords
+  const whitelistedRoutes = [
+    '/api/onboarding/select-plan',
+    '/api/company/select',
+    '/api/subscription/select',
+  ];
+  
+  const isWhitelisted = whitelistedRoutes.some(route => request.url.includes(route));
+  
+  // Check for SQL injection patterns in URL (but skip whitelisted routes)
+  if (!isWhitelisted) {
+    const sqlPatterns = /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b)/i;
+    if (sqlPatterns.test(request.url)) {
+      // Notify superadmin of SQL injection attempt
+      superAdminNotificationService.notifySecurityEvent('SQL Injection Attempt', {
+        url: request.url,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        timestamp: new Date().toISOString(),
+      }).catch(err => logger.error('Failed to notify superadmin:', err));
+      
+      return { suspicious: true, reason: 'SQL injection attempt detected' };
+    }
   }
   
   // Check for XSS patterns
