@@ -100,15 +100,28 @@ export default function CompanySetupPage() {
       if (userId) {
         const progress = await getProgress(userId)
         if (progress && progress.formData) {
-          // Clean up document fields - if they're metadata objects, keep them as is
-          // but ensure they won't cause render errors
+          // Clean up document fields - convert any objects to proper format
+          // to prevent "Objects are not valid as a React child" errors
+          const cleanDoc = (doc: any) => {
+            if (!doc) return null
+            // If it's already a File object, keep it
+            if (doc instanceof File) return doc
+            // If it's a string (URL), keep it
+            if (typeof doc === 'string') return doc
+            // If it's an object with metadata, keep it but ensure it's safe
+            if (typeof doc === 'object' && doc.name) {
+              return { name: String(doc.name), size: Number(doc.size || 0), uploaded: Boolean(doc.uploaded) }
+            }
+            return null
+          }
+          
           const cleanedFormData = {
             ...progress.formData,
-            // Documents are already uploaded, just mark them as such
-            cacDocument: progress.formData.cacDocument || null,
-            proofOfAddress: progress.formData.proofOfAddress || null,
-            companyPolicies: progress.formData.companyPolicies || null,
-            companyLogo: progress.formData.companyLogo || null,
+            // Clean document fields to prevent render errors
+            cacDocument: cleanDoc(progress.formData.cacDocument),
+            proofOfAddress: cleanDoc(progress.formData.proofOfAddress),
+            companyPolicies: cleanDoc(progress.formData.companyPolicies),
+            companyLogo: cleanDoc(progress.formData.companyLogo),
           }
           
           setFormData(prev => ({
