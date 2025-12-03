@@ -5,7 +5,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 interface InvitationData {
   email: string

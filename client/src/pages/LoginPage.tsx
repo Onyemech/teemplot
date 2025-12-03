@@ -7,7 +7,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 export default function LoginPage() {
   const navigate = useNavigate()
