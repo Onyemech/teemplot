@@ -21,7 +21,7 @@ export function setAuthCookies(
   isProduction: boolean
 ) {
   // Access token - short-lived (15 minutes)
-  reply.setCookie('accessToken', accessToken, {
+  reply.cookie('accessToken', accessToken, {
     httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
     secure: isProduction, // HTTPS only in production
     sameSite: 'strict', // CSRF protection
@@ -30,7 +30,7 @@ export function setAuthCookies(
   });
 
   // Refresh token - long-lived (7 days)
-  reply.setCookie('refreshToken', refreshToken, {
+  reply.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'strict',
