@@ -38,7 +38,7 @@ export function setAuthCookies(
   // Refresh token - long-lived (7 days)
   reply.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
-    path: '/api/auth/refresh', // Only sent to refresh endpoint
+    path: '/', // Available to all endpoints
     maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
   });
 }
@@ -47,8 +47,14 @@ export function setAuthCookies(
  * Clear authentication cookies
  */
 export function clearAuthCookies(reply: FastifyReply) {
-  reply.clearCookie('accessToken', { path: '/' });
-  reply.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    path: '/',
+    domain: isProduction ? '.teemplot.com' : undefined,
+  };
+  
+  reply.clearCookie('accessToken', cookieOptions);
+  reply.clearCookie('refreshToken', cookieOptions);
 }
 
 /**

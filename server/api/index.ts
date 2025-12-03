@@ -29,10 +29,37 @@ async function buildServerlessApp() {
     trustProxy: true,
   });
 
-  // Register plugins
+  // Register plugins with proper CORS
   await fastify.register(cors, {
-    origin: true,
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'https://teemplot.com',
+        'https://www.teemplot.com',
+        'https://teemplot.vercel.app',
+        'https://teemplot-frontend.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ];
+      
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Check if origin is allowed
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('[CORS] Origin not allowed:', origin);
+        callback(new Error('Not allowed by CORS'), false);
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
   });
 
   await fastify.register(helmet, {
