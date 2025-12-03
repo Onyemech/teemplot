@@ -20,12 +20,12 @@ export function setAuthCookies(
   refreshToken: string,
   isProduction: boolean
 ) {
-  // For cross-domain cookies (frontend and backend on different domains)
-  // we need sameSite: 'none' and secure: true
+  // With api.teemplot.com subdomain, we can use same-site cookies
   const cookieOptions = {
     httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
-    secure: true, // Always use HTTPS (required for sameSite: 'none')
-    sameSite: isProduction ? 'none' as const : 'lax' as const, // Allow cross-domain in production
+    secure: true, // Always use HTTPS
+    sameSite: 'lax' as const, // Can use 'lax' now (same root domain)
+    domain: isProduction ? '.teemplot.com' : undefined, // Share across *.teemplot.com
     path: '/',
   };
 

@@ -79,12 +79,27 @@ export default function CompanySetupPage() {
   // Load saved progress and handle URL token
   useEffect(() => {
     const loadProgress = async () => {
-      // FIRST: Check if token is in URL and save it
+      // FIRST: Check if token is in URL and save it (fallback for cross-domain cookie issues)
       const urlParams = new URLSearchParams(window.location.search)
       const urlToken = urlParams.get('token')
-      // Google OAuth now sets httpOnly cookies - no need to handle URL token
       if (urlToken) {
-        // Clean URL (token no longer used)
+        // Save token to localStorage as fallback
+        localStorage.setItem('auth_token', urlToken)
+        // Also decode and save user data
+        try {
+          const payload = JSON.parse(atob(urlToken.split('.')[1]))
+          const userData = {
+            id: payload.userId,
+            companyId: payload.companyId,
+            email: payload.email,
+            role: payload.role
+          }
+          localStorage.setItem('user', JSON.stringify(userData))
+          sessionStorage.setItem('onboarding_auth', JSON.stringify(userData))
+        } catch (e) {
+          console.error('Failed to decode token:', e)
+        }
+        // Clean URL
         window.history.replaceState({}, '', window.location.pathname)
       }
       
@@ -209,9 +224,17 @@ export default function CompanySetupPage() {
         // Simplified validation - allow proceeding even without perfect address
         // Backend will handle defaults if needed
 
+        // Get the actual companyId from user data
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        const actualCompanyId = authData.companyId || user.companyId || user.company_id
+        
+        if (!actualCompanyId) {
+          throw new Error('Company ID not found. Please try logging in again.')
+        }
+        
         // Submit business information with complete geocoding data
         const businessInfoResponse = await submitBusinessInfo({
-          companyId: authData.companyId || 'temp', // Backend will create if needed
+          companyId: actualCompanyId,
           companyName: formData.companyName,
           taxId: formData.tin,
           industry: formData.industry === 'other' ? formData.customIndustry : formData.industry,

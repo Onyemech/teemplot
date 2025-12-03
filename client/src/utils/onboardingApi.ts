@@ -95,11 +95,18 @@ export const submitBusinessInfo = async (data: {
   return requestDeduplicator.deduplicate(
     `business-info-${data.companyId}`,
     async () => {
+      // Get token as fallback for cross-domain cookie issues
+      const token = localStorage.getItem('auth_token')
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      
       const response = await authFetch(`${API_URL}/onboarding/business-info`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify(data),
       })

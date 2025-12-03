@@ -553,7 +553,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         }
       });
 
-      // Redirect to frontend (cookies are set automatically)
+      // Redirect to frontend (cookies work with subdomain)
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       
       // New users or users who haven't completed onboarding should go to onboarding
