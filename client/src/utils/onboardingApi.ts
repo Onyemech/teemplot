@@ -47,9 +47,8 @@ const getAuthToken = () => {
     const parsed = JSON.parse(authData)
     if (parsed.token) return parsed.token
   }
-  // Use centralized auth utility
-  const { getAuthToken: getCentralizedToken } = require('./auth')
-  return getCentralizedToken()
+  // Use centralized auth utility - check localStorage directly to avoid circular import
+  return localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('accessToken')
 }
 
 // Company Setup API
