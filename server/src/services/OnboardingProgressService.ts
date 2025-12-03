@@ -41,7 +41,7 @@ export class OnboardingProgressService {
         current_step: currentStep,
         completed_steps: JSON.stringify(completedSteps),
         form_data: JSON.stringify(formData),
-        last_saved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       if (existing) {
@@ -84,7 +84,7 @@ export class OnboardingProgressService {
         currentStep: progress.current_step,
         completedSteps: JSON.parse(progress.completed_steps || '[]'),
         formData: JSON.parse(progress.form_data || '{}'),
-        lastSavedAt: progress.last_saved_at,
+        lastSavedAt: progress.updated_at,
       };
     } catch (error: any) {
       logger.error(`Failed to get onboarding progress: ${error?.message}`);
