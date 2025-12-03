@@ -22,8 +22,8 @@ export function useGoogleAuth() {
       }, 10000); // 10 second timeout
       
       // Redirect to our backend Google OAuth endpoint
-      const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-      window.location.href = `${backendUrl}/api/auth/google`;
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      window.location.href = `${backendUrl}/auth/google`;
       
       // Clear timeout if redirect happens (though this code won't run after redirect)
       clearTimeout(timeout);
