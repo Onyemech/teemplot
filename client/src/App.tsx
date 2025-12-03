@@ -8,6 +8,9 @@ import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
+// Dashboard Layout
+import DashboardLayout from './layouts/DashboardLayout'
+
 // Dashboard Sub-pages
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
@@ -63,10 +66,13 @@ function App() {
         <Route path="complete" element={<OnboardingCompletePage />} />
       </Route>
 
-      {/* Protected Routes */}
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/dashboard/employees" element={<EmployeesPage />} />
-      <Route path="/dashboard/attendance" element={<AttendanceOverviewPage />} />
+      {/* Protected Routes with Dashboard Layout */}
+      <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="attendance" element={<AttendanceOverviewPage />} />
+      </Route>
+      
       <Route path="/superadmin" element={<SuperAdminPage />} />
 
       {/* Catch all */}

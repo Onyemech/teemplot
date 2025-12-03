@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react'
 import { 
-  Users, 
-  Clock, 
-  UserCheck, 
-  UserX, 
-  LogOut, 
-  Calendar,
   Download,
   Filter,
   Search,
@@ -125,129 +119,106 @@ export default function AttendanceOverviewPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="h-full bg-gray-50 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Attendance Overview</h1>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Attendance Overview</h1>
         
         <div className="flex items-center gap-3">
           {/* Date Navigation */}
-          <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-200">
-            <button
-              onClick={handlePreviousDay}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
-              {format(selectedDate, 'EEEE, MMM dd, yyyy')}
-            </span>
-            <button
-              onClick={handleNextDay}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
+          <button
+            onClick={handlePreviousDay}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <span className="text-sm font-medium text-gray-700 min-w-[180px] text-center">
+            {format(selectedDate, 'EEEE, MMM dd, yyyy')}
+          </span>
+          <button
+            onClick={handleNextDay}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-gray-600" />
+          </button>
 
           {/* Invite Employee Button */}
           <button
             onClick={() => navigate('/dashboard/employees')}
-            className="bg-[#0F5D5D] hover:bg-[#0a4444] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+            className="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors ml-4"
           >
             <UserPlus className="w-5 h-5" />
-            <span className="hidden sm:inline">Invite Employee</span>
+            Invite Employee
           </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
+      <div className="grid grid-cols-7 gap-4 mb-6">
         <StatCard
           label="Total Employees"
           value={stats?.totalEmployees || 0}
-          icon={Users}
-          color="bg-gray-100"
-          textColor="text-gray-700"
         />
         <StatCard
           label="Total Clock in"
           value={stats?.totalClockIn || 0}
-          icon={Clock}
-          color="bg-blue-100"
-          textColor="text-blue-700"
         />
         <StatCard
           label="Early Clock in"
           value={stats?.earlyClockIn || 0}
-          icon={UserCheck}
-          color="bg-green-100"
-          textColor="text-green-700"
         />
         <StatCard
           label="Late Clock in"
           value={stats?.lateClockIn || 0}
-          icon={Clock}
-          color="bg-orange-100"
-          textColor="text-orange-700"
         />
         <StatCard
           label="Absent"
           value={stats?.absent || 0}
-          icon={UserX}
-          color="bg-red-100"
-          textColor="text-red-700"
         />
         <StatCard
           label="Early Departure"
           value={stats?.earlyDeparture || 0}
-          icon={LogOut}
-          color="bg-purple-100"
-          textColor="text-purple-700"
         />
         <StatCard
           label="Leave"
           value={stats?.onLeave || 0}
-          icon={Calendar}
-          color="bg-yellow-100"
-          textColor="text-yellow-700"
         />
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200">
         {/* Table Header */}
-        <div className="p-4 sm:p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-gray-900">Attendance Records</h2>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-gray-900">All Attendance</h2>
             
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3">
               {/* Search */}
-              <div className="relative flex-1 sm:flex-initial">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search employees..."
+                  placeholder="Search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent"
+                  className="w-64 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent"
                 />
               </div>
 
               {/* Filter & Export */}
-              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <Filter className="w-5 h-5 text-gray-600" />
+              <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                <Filter className="w-4 h-4 text-gray-600" />
+                Filter
               </button>
-              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <Download className="w-5 h-5 text-gray-600" />
+              <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                <Download className="w-4 h-4 text-gray-600" />
+                Download
               </button>
             </div>
           </div>
@@ -386,21 +357,13 @@ export default function AttendanceOverviewPage() {
 interface StatCardProps {
   label: string
   value: number
-  icon: React.ElementType
-  color: string
-  textColor: string
 }
 
-function StatCard({ label, value, icon: Icon, color, textColor }: StatCardProps) {
+function StatCard({ label, value }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between mb-2">
-        <div className={`p-2 rounded-lg ${color}`}>
-          <Icon className={`w-5 h-5 ${textColor}`} />
-        </div>
-      </div>
+    <div className="bg-white rounded-lg p-4 border border-gray-200">
+      <div className="text-sm text-gray-600 mb-1">{label}</div>
       <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-xs text-gray-600 mt-1">{label}</div>
     </div>
   )
 }
