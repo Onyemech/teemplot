@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { 
   Users, 
   Clock,
@@ -11,8 +11,6 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { apiClient } from '@/lib/api'
-import { useToast } from '@/contexts/ToastContext'
 import { format } from 'date-fns'
 
 interface DashboardStats {
@@ -48,43 +46,20 @@ interface LeaveRequest {
 }
 
 export default function DashboardPage() {
-  const toast = useToast()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
-  const [pendingLeaves, setPendingLeaves] = useState<LeaveRequest[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true)
-      
-      // For now, use mock data until backend endpoints are ready
-      // TODO: Replace with actual API calls
-      setStats({
-        totalEmployees: 0,
-        presentToday: 0,
-        absentToday: 0,
-        lateToday: 0,
-        onLeaveToday: 0,
-        pendingLeaveRequests: 0,
-        pendingTasks: 0,
-        completedTasksThisWeek: 0
-      })
-      
-      setRecentActivity([])
-      setPendingLeaves([])
-    } catch (error: any) {
-      console.error('Failed to fetch dashboard data:', error)
-      // Don't show error for now since endpoints don't exist yet
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [stats] = useState<DashboardStats>({
+    totalEmployees: 0,
+    presentToday: 0,
+    absentToday: 0,
+    lateToday: 0,
+    onLeaveToday: 0,
+    pendingLeaveRequests: 0,
+    pendingTasks: 0,
+    completedTasksThisWeek: 0
+  })
+  const [recentActivity] = useState<RecentActivity[]>([])
+  const [pendingLeaves] = useState<LeaveRequest[]>([])
+  const [loading] = useState(false)
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy')
@@ -92,17 +67,6 @@ export default function DashboardPage() {
 
   const formatTime = (dateString: string) => {
     return format(new Date(dateString), 'hh:mm a')
-  }
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      completed: 'bg-green-100 text-green-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-    }
-    return colors[status.toLowerCase()] || 'bg-gray-100 text-gray-800'
   }
 
   if (loading) {
