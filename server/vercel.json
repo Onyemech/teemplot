@@ -1,16 +1,20 @@
 {
   "version": 2,
   "name": "teemplot-api",
+  "buildCommand": "npm run build",
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/**/*.ts": {
       "memory": 1024,
       "maxDuration": 30
     }
+  },
+  "env": {
+    "NODE_ENV": "production"
   }
 }

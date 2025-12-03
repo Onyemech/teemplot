@@ -14,6 +14,7 @@ import {
   detectSuspiciousActivity,
   logSecurityEvent
 } from './middleware/security.middleware';
+import { config_env } from './config/environment';
 
 export async function buildApp() {
   // Setup global error handlers
@@ -62,9 +63,6 @@ export async function buildApp() {
     },
   });
 
-  // Import environment config
-  const { config_env } = await import('./config/environment');
-  
   // Intelligent CORS configuration
   await app.register(cors, {
     origin: (origin, callback) => {
