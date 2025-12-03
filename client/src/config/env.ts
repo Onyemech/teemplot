@@ -71,7 +71,7 @@ validateEnv();
 
 // Export typed configuration
 export const env: EnvConfig = {
-  apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   apiTimeout: 30000, // 30 seconds
   
   supabase: {

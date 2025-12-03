@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 interface OnboardingNavbarProps {
   currentStep?: number
@@ -62,96 +62,79 @@ export default function OnboardingNavbar({
     setSaving(true)
 
     try {
-      // Get auth data from multiple sources
-      let authData = null
-      
-      // Try sessionStorage first (during onboarding)
-      const sessionAuth = sessionStorage.getItem('onboarding_auth')
-      if (sessionAuth) {
-        authData = JSON.parse(sessionAuth)
-      }
-      
-      // Try localStorage user
-      if (!authData?.userId) {
-        const userStr = localStorage.getItem('user')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          authData = {
-            userId: user.id,
-            companyId: user.companyId || user.company_id
-          }
-        }
-      }
-      
-      // Try to decode from token
-      if (!authData?.userId) {
-        const token = localStorage.getItem('token')
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]))
-            authData = {
-              userId: payload.userId || payload.sub,
-              companyId: payload.companyId
-            }
-          } catch (e) {
-            if (import.meta.env.MODE === 'development') {
-              console.error('Failed to decode token:', e)
-            }
-          }
-        }
-      }
-
-      if (!authData?.userId) {
-        // If no userId, just navigate away (user hasn't logged in yet)
-        toast.info('No progress to save yet')
-        navigate('/')
-        return
-      }
-      
-      // CompanyId is optional during initial onboarding
-      if (!authData?.companyId && import.meta.env.MODE === 'development') {
-        console.warn('⚠️ No companyId found, saving with userId only')
-      }
-
       // Call the onSave callback if provided (this saves current form data to database)
       if (onSave) {
         await onSave()
         toast.success('Progress saved! You can continue later.')
       } else {
-        // Fallback: If no onSave callback, save minimal progress
-        const response = await fetch(`${API_URL}/onboarding/save-progress`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Use httpOnly cookies for auth
-          body: JSON.stringify({
-            userId: authData.userId,
-            companyId: authData.companyId || null,
-            currentStep: currentStep || 1,
-            completedSteps: [],
-            formData: {}
-          }),
-        })
+        // Try to save progress via API (cookies will handle auth)
+        try {
+          // Get user data from localStorage to include in request body
+          let userId = null
+          let companyId = null
+          
+          const userStr = localStorage.getItem('user')
+          if (userStr) {
+            const user = JSON.parse(userStr)
+            userId = user.id
+            companyId = user.companyId || user.company_id
+          }
+          
+          // If we have userId, try to save progress
+          if (userId) {
+            const response = await fetch(`${API_URL}/onboarding/save-progress`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include', // Use httpOnly cookies for auth
+              body: JSON.stringify({
+                userId,
+                companyId: companyId || null,
+                currentStep: currentStep || 1,
+                completedSteps: [],
+                formData: {}
+              }),
+            })
 
-        if (!response.ok) {
-          const result = await response.json()
-          throw new Error(result.message || 'Failed to save progress')
+            if (response.ok) {
+              toast.success('Progress saved! You can continue later.')
+            } else {
+              // If save fails, just show a gentle message and continue
+              const result = await response.json().catch(() => ({}))
+              if (result.message?.includes('Unauthorized') || result.message?.includes('authenticate')) {
+                // Auth issue - just navigate away without error
+                toast.info('Redirecting to home...')
+              } else {
+                toast.warning('Could not save progress, but you can continue later.')
+              }
+            }
+          } else {
+            // No user data - just navigate away
+            toast.info('Redirecting to home...')
+          }
+        } catch (error: any) {
+          // Network or other error - just show gentle message
+          if (import.meta.env.MODE === 'development') {
+            console.error('Save error:', error)
+          }
+          toast.info('Redirecting to home...')
         }
-
-        toast.success('Progress saved! You can continue later.')
       }
 
-      // Wait a moment for toast to show
+      // Wait a moment for toast to show, then navigate
       setTimeout(() => {
         navigate('/')
       }, 1000)
     } catch (error: any) {
       if (import.meta.env.MODE === 'development') {
-        console.error('Save error:', error)
+        console.error('Save and exit error:', error)
       }
-      const message = error.message || 'Failed to save progress. Please try again.'
-      toast.error(message)
+      // Even if there's an error, still navigate away
+      toast.info('Redirecting to home...')
+      setTimeout(() => {
+        navigate('/')
+      }, 1000)
     } finally {
       setSaving(false)
     }
