@@ -269,7 +269,12 @@ export default function DocumentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <OnboardingNavbar currentStep={6} totalSteps={9} onSave={handleSaveProgress} />
+      <OnboardingNavbar 
+        currentStep={6} 
+        totalSteps={9} 
+        onSave={handleSaveProgress}
+        onBack={handleBack}
+      />
 
       {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">

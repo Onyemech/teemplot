@@ -74,8 +74,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           hash,
           filename: file.name,
@@ -113,9 +113,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       const uploadResponse = await fetch('/api/files/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        credentials: 'include', // Use httpOnly cookies
         body: formData
       });
 
@@ -164,8 +162,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           fileId,
           documentType,

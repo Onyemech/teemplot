@@ -1,4 +1,4 @@
-import { HelpCircle, Phone, MessageCircle } from 'lucide-react'
+import { HelpCircle, Phone, MessageCircle, ChevronLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
@@ -10,18 +10,25 @@ interface OnboardingNavbarProps {
   totalSteps?: number
   showSteps?: boolean
   onSave?: () => Promise<void>
+  onBack?: () => void
+  showBackButton?: boolean
 }
 
 export default function OnboardingNavbar({
   currentStep,
   totalSteps = 9,
   showSteps = true,
-  onSave
+  onSave,
+  onBack,
+  showBackButton = true
 }: OnboardingNavbarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
   const [saving, setSaving] = useState(false)
+  
+  // Determine if we should show the back button
+  const canGoBack = showBackButton && currentStep && currentStep > 1 && onBack
 
   // Get context-aware WhatsApp message based on current step
   const getWhatsAppLink = () => {
@@ -154,14 +161,28 @@ export default function OnboardingNavbar({
     <div className="border-b border-gray-200 bg-white sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4">
         <div className="flex items-center justify-between">
-          {/* Left side - Logo and step indicator */}
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-            <img
-              src="/logo.png"
-              alt="Teemplot"
-              className="h-10 md:h-12 w-auto cursor-pointer"
-              onClick={() => navigate('/')}
-            />
+          {/* Left side - Back button, Logo and step indicator */}
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* Back Button - Positioned before logo */}
+            {canGoBack && (
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1 px-2 md:px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Go back to previous step"
+              >
+                <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+            )}
+            
+            {/* Logo and Steps */}
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
+              <img
+                src="/logo.png"
+                alt="Teemplot"
+                className="h-10 md:h-12 w-auto cursor-pointer"
+                onClick={() => navigate('/')}
+              />
             {showSteps && currentStep && (
               <>
                 {/* Mobile: Step text below logo */}
@@ -191,6 +212,7 @@ export default function OnboardingNavbar({
                 </div>
               </>
             )}
+            </div>
           </div>
 
           {/* Right side - Actions */}

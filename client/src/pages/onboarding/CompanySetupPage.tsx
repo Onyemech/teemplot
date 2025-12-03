@@ -1088,6 +1088,17 @@ export default function CompanySetupPage() {
     }
   }
 
+  const handleBack = () => {
+    const stepOrder: Step[] = ['details', 'owner', 'documents', 'review', 'payment']
+    const currentIndex = stepOrder.indexOf(currentStep)
+    
+    if (currentIndex > 0) {
+      setCurrentStep(stepOrder[currentIndex - 1])
+      // Scroll to top for better UX
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   const handleSaveProgress = async () => {
     try {
       let authData = getAuthData()
@@ -1187,14 +1198,13 @@ export default function CompanySetupPage() {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-      const token = localStorage.getItem('auth_token')
 
       const response = await fetch(`${API_URL}/auth/google/complete-onboarding`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           companyName: formData.companyName,
           industry: formData.industry,
@@ -1228,6 +1238,7 @@ export default function CompanySetupPage() {
         currentStep={steps.findIndex(s => s.id === currentStep) + 1}
         totalSteps={steps.length}
         onSave={handleSaveProgress}
+        onBack={handleBack}
       />
 
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">

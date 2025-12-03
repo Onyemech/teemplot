@@ -49,11 +49,9 @@ export default function OwnerDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
       // Fetch dashboard stats
       const statsResponse = await fetch('/api/dashboard/stats', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       });
       const statsData = await statsResponse.json();
       
@@ -64,7 +62,7 @@ export default function OwnerDashboard() {
 
       // Fetch recent activity
       const activityResponse = await fetch('/api/dashboard/recent-activity', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       });
       const activityData = await activityResponse.json();
       

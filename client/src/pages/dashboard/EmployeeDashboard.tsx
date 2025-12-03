@@ -60,11 +60,9 @@ export default function EmployeeDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
       // Fetch attendance status
       const attendanceResponse = await fetch('/api/attendance/status', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       });
       const attendanceData = await attendanceResponse.json();
       
@@ -74,7 +72,7 @@ export default function EmployeeDashboard() {
 
       // Fetch employee stats
       const statsResponse = await fetch('/api/dashboard/employee-stats', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       });
       const statsData = await statsResponse.json();
       
@@ -112,13 +110,12 @@ export default function EmployeeDashboard() {
 
     setClockingIn(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/attendance/clock-in', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({ location })
       });
 
@@ -146,13 +143,12 @@ export default function EmployeeDashboard() {
 
     setClockingIn(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/attendance/clock-out', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({ location })
       });
 
