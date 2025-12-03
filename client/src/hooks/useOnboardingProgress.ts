@@ -41,8 +41,18 @@ export function useOnboardingProgress() {
         throw new Error(result.message || 'Failed to save progress');
       }
 
-      if (import.meta.env.MODE === 'development') {
-        console.log('✅ Progress saved successfully');
+      console.log('✅ Progress saved successfully to backend');
+      
+      // Also save to localStorage as backup
+      try {
+        const progressKey = `onboarding_progress_${data.userId}`;
+        localStorage.setItem(progressKey, JSON.stringify({
+          ...data,
+          savedAt: new Date().toISOString()
+        }));
+        console.log('✅ Progress also saved to localStorage backup');
+      } catch (e) {
+        console.warn('⚠️ Could not save to localStorage backup:', e);
       }
 
       return result;
@@ -54,21 +64,54 @@ export function useOnboardingProgress() {
 
   const getProgress = useCallback(async (userId: string) => {
     try {
-      const response = await fetch(`${API_URL}/onboarding/progress/${userId}`);
+      const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+      
+      const response = await fetch(`${API_URL}/onboarding/progress/${userId}`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
 
       if (response.status === 404) {
+        console.log('ℹ️ No saved progress found on server, checking localStorage backup...');
+        
+        // Try localStorage backup
+        const progressKey = `onboarding_progress_${userId}`;
+        const backup = localStorage.getItem(progressKey);
+        if (backup) {
+          const parsed = JSON.parse(backup);
+          console.log('✅ Found progress in localStorage backup');
+          return parsed;
+        }
+        
         return null; // No progress found
       }
 
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('❌ Failed to get progress:', result);
         throw new Error(result.message || 'Failed to get progress');
       }
 
+      console.log('✅ Progress loaded from server:', result.data);
       return result.data;
     } catch (error: any) {
-      console.error('Error getting progress:', error);
+      console.error('❌ Error getting progress from server, trying localStorage backup...');
+      
+      // Fallback to localStorage
+      try {
+        const progressKey = `onboarding_progress_${userId}`;
+        const backup = localStorage.getItem(progressKey);
+        if (backup) {
+          const parsed = JSON.parse(backup);
+          console.log('✅ Recovered progress from localStorage backup');
+          return parsed;
+        }
+      } catch (e) {
+        console.error('❌ Could not recover from localStorage:', e);
+      }
+      
       return null;
     }
   }, []);
