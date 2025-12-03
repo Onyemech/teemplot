@@ -19,7 +19,9 @@ const getGoogleRedirectUri = () => {
   // Otherwise, construct based on environment
   if (process.env.NODE_ENV === 'production') {
     // Use custom domain if available, otherwise Vercel URL
-    const baseUrl = process.env.BACKEND_URL || 'https://teemplot-backend.vercel.app';
+    const baseUrl = process.env.BACKEND_URL || process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://teemplot-backend.vercel.app';
     return `${baseUrl}/api/auth/google/callback`;
   }
   

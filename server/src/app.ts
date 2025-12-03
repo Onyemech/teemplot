@@ -62,10 +62,12 @@ export async function buildApp() {
     },
   });
 
+  // Import environment config
+  const { config_env } = await import('./config/environment');
+  
   // Intelligent CORS configuration
   await app.register(cors, {
     origin: (origin, callback) => {
-      const { config_env } = require('./config/environment');
       const allowedOrigins = config_env.allowedOrigins;
       
       // Allow requests with no origin (mobile apps, Postman, etc.)
