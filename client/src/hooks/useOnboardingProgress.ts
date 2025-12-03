@@ -80,11 +80,32 @@ export function useOnboardingProgress() {
         return null; // No progress found
       }
 
+      // If 401, silently fall back to localStorage (user not authenticated yet)
+      if (response.status === 401) {
+        console.log('ℹ️ Not authenticated, checking localStorage backup...');
+        
+        const progressKey = `onboarding_progress_${userId}`;
+        const backup = localStorage.getItem(progressKey);
+        if (backup) {
+          const parsed = JSON.parse(backup);
+          console.log('✅ Found progress in localStorage backup');
+          return parsed;
+        }
+        
+        return null;
+      }
+
       const result = await response.json();
 
       if (!response.ok) {
         console.error('❌ Failed to get progress:', result);
-        throw new Error(result.message || 'Failed to get progress');
+        // Don't throw - just return null and use localStorage
+        const progressKey = `onboarding_progress_${userId}`;
+        const backup = localStorage.getItem(progressKey);
+        if (backup) {
+          return JSON.parse(backup);
+        }
+        return null;
       }
 
       console.log('✅ Progress loaded from server:', result.data);
