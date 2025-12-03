@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
 
 // Import routes
 import { authRoutes } from '../src/routes/auth.routes';
@@ -38,8 +39,18 @@ async function buildServerlessApp() {
     contentSecurityPolicy: false,
   });
 
+  // Cookie plugin (must be registered before JWT)
+  await fastify.register(cookie, {
+    secret: process.env.COOKIE_SECRET || process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
+  });
+
+  // JWT plugin with cookie support
   await fastify.register(jwt, {
-    secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    secret: process.env.JWT_ACCESS_SECRET || 'your-secret-key-change-in-production',
+    cookie: {
+      cookieName: 'accessToken',
+      signed: false
+    }
   });
 
   // Authentication decorator
