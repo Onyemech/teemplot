@@ -19,7 +19,7 @@ export default function TrialExpiryWarning({ userRole }: TrialExpiryWarningProps
 
     const fetchTrialStatus = async () => {
       try {
-        const response = await apiClient.get('/api/company/subscription-status')
+        const response = await apiClient.get('/company/subscription-status')
         const { subscriptionPlan, trialEndDate } = response.data
 
         setPlan(subscriptionPlan)

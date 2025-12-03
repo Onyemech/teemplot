@@ -39,9 +39,9 @@ export default function LoginPage() {
       if (response.data.success) {
         const { token, user } = response.data.data
         
-        // Store token and user data
-        localStorage.setItem('token', token)
-        localStorage.setItem('user', JSON.stringify(user))
+        // Store token and user data using centralized utility
+        const { saveAuth } = await import('@/utils/auth')
+        saveAuth(token, user)
 
         toast.success('Login successful! Redirecting...')
 

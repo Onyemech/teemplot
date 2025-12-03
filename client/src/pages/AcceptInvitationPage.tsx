@@ -151,8 +151,8 @@ export default function AcceptInvitationPage() {
       }
 
       // Store auth token and user data
-      localStorage.setItem('auth_token', data.data.token)
-      localStorage.setItem('user', JSON.stringify(data.data.user))
+      const { saveAuth } = await import('@/utils/auth')
+      saveAuth(data.data.token, data.data.user)
 
       toast.success('Welcome to the team! Redirecting to dashboard...')
 

@@ -90,8 +90,8 @@ function VerifyEmailContent() {
         }
         
         // Save to localStorage for persistence
-        localStorage.setItem('user', JSON.stringify(userData))
-        localStorage.setItem('token', data.data.token)
+        const { saveAuth } = await import('@/utils/auth')
+        saveAuth(data.data.token, userData)
         
         // Store in sessionStorage for onboarding flow
         const existingAuth = sessionStorage.getItem('onboarding_auth')

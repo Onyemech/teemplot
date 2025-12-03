@@ -28,9 +28,9 @@ export function useEmployeeLimit() {
 
   const fetchEmployeeLimit = async () => {
     try {
-      setState(prev => ({ ...prev, loading: true }))
+      setState(prev => ({ ...prev, loading: true, error: null }))
       
-      const response = await apiClient.get('/api/company/info')
+      const response = await apiClient.get('/company/info')
       const { employee_count: declaredLimit, current_employee_count: currentCount } = response.data
 
       const remaining = Math.max(0, declaredLimit - currentCount)
@@ -48,11 +48,16 @@ export function useEmployeeLimit() {
       })
     } catch (err: any) {
       console.error('Failed to fetch employee limit:', err)
-      setState(prev => ({
-        ...prev,
+      // Set default values on error so UI still works
+      setState({
+        declaredLimit: 10,
+        currentCount: 0,
+        remaining: 10,
+        usagePercentage: 0,
+        canAddMore: true,
         loading: false,
         error: err.message || 'Failed to fetch employee limit'
-      }))
+      })
     }
   }
 

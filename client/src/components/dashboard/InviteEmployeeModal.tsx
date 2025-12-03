@@ -39,7 +39,7 @@ export default function InviteEmployeeModal({
     setLoading(true)
 
     try {
-      await apiClient.post('/api/employees/invite', formData)
+      await apiClient.post('/employees/invite', formData)
       
       setShowSuccess(true)
       toast.success('Invitation sent successfully!')

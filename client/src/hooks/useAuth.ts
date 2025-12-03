@@ -32,11 +32,34 @@ export function useAuth() {
 
   const fetchUser = async () => {
     try {
-      const response = await apiClient.get('/api/auth/me')
+      const { isAuthenticated, getUser } = await import('@/utils/auth')
+      
+      // Check if token exists before making request
+      if (!isAuthenticated()) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      // Try to get cached user first
+      const cachedUser = getUser()
+      if (cachedUser) {
+        setUser(cachedUser)
+      }
+
+      // Then fetch fresh data from server
+      const response = await apiClient.get('/auth/me')
       setUser(response.data)
-    } catch (error) {
+      
+      // Update cached user
+      const { updateUser } = await import('@/utils/auth')
+      updateUser(response.data)
+    } catch (error: any) {
       console.error('Failed to fetch user:', error)
-      setUser(null)
+      // Only clear user if it's an auth error
+      if (error.response?.status === 401) {
+        setUser(null)
+      }
     } finally {
       setLoading(false)
     }

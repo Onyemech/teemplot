@@ -18,7 +18,7 @@ export default function SubscriptionWarningBar({ userRole }: SubscriptionWarning
 
     const fetchSubscriptionStatus = async () => {
       try {
-        const response = await apiClient.get('/api/company/subscription-status')
+        const response = await apiClient.get('/company/subscription-status')
         const { subscriptionPlan, subscriptionEndDate } = response.data
 
         // Only show for paid subscriptions (silver/gold), not trial

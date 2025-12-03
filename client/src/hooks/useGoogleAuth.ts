@@ -69,8 +69,8 @@ export function useGoogleAuth() {
       // Save auth data
       const { token, user, requiresOnboarding } = result.data;
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      const { saveAuth } = await import('@/utils/auth')
+      saveAuth(token, user)
 
       // Save auth data to session storage for onboarding
       sessionStorage.setItem('onboarding_auth', JSON.stringify({

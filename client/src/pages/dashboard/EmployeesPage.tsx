@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { UserPlus, Mail, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { useToast } from '@/contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
@@ -32,7 +31,6 @@ interface Invitation {
 }
 
 export default function EmployeesPage() {
-  const toast = useToast()
   const navigate = useNavigate()
   const { hasAccess } = useFeatureAccess()
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -53,15 +51,17 @@ export default function EmployeesPage() {
     try {
       setLoading(true)
       const [employeesRes, invitationsRes] = await Promise.all([
-        apiClient.get('/api/employees'),
-        apiClient.get('/api/employees/invitations')
+        apiClient.get('/employees'),
+        apiClient.get('/employees/invitations')
       ])
 
       setEmployees(employeesRes.data.data || [])
       setInvitations(invitationsRes.data.data || [])
     } catch (error: any) {
       console.error('Failed to fetch data:', error)
-      toast.error('Failed to load employees data')
+      // Don't show error toast, just set empty arrays
+      setEmployees([])
+      setInvitations([])
     } finally {
       setLoading(false)
     }
