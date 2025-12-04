@@ -12,6 +12,7 @@ import {
   DollarSign,
   Bell
 } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -43,12 +44,11 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
-  // Get user and company info
-  const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : null;
-  const companyName = user?.companyName || 'Your Company';
-  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
-  const userRole = user?.role || 'owner';
+  // Get user data securely from context (uses httpOnly cookies)
+  const { user: currentUser } = useUser();
+  const companyName = currentUser?.companyName || 'Your Company';
+  const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
+  const userRole = currentUser?.role || 'owner';
 
   useEffect(() => {
     fetchDashboardData();

@@ -23,6 +23,7 @@ import {
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
 import { useToast } from '@/contexts/ToastContext'
+import { useUser } from '@/contexts/UserContext'
 
 interface SidebarProps {
   isOpen: boolean
@@ -132,12 +133,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasAccess, plan, loading } = useFeatureAccess()
   const toast = useToast()
 
-  // Get user and company info from localStorage
-  const userStr = localStorage.getItem('user')
-  const user = userStr ? JSON.parse(userStr) : null
-  const companyName = user?.companyName || 'Teemplot'
-  const companyLogo = user?.companyLogo || null
-  const userRole = user?.role || 'employee'
+  // Get user data securely from context (uses httpOnly cookies)
+  const { user: currentUser } = useUser()
+  const companyName = currentUser?.companyName || 'Teemplot'
+  const companyLogo = null // TODO: Add company logo to user data
+  const userRole = currentUser?.role || 'employee'
   const isAdmin = userRole === 'admin' || userRole === 'owner'
 
   // Close sidebar on route change (mobile) - but only if it's actually open

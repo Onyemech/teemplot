@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, ChevronDown, LogOut, User, Settings, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
+import { useUser } from '@/contexts/UserContext'
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
@@ -10,18 +11,23 @@ interface DashboardHeaderProps {
 export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const navigate = useNavigate()
   const toast = useToast()
+  const { user: currentUser } = useUser()
   const [showUserMenu, setShowUserMenu] = useState(false)
   
-  // Get user from localStorage
-  const userStr = localStorage.getItem('user')
-  const user = userStr ? JSON.parse(userStr) : null
-  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User'
+  // Get user data securely from context (uses httpOnly cookies)
+  const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase()
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  const handleLogout = async () => {
+    // Call logout endpoint to clear httpOnly cookies
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
     navigate('/login')
   }
 

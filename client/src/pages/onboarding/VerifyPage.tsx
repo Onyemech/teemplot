@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogoLoader } from '@/components/LogoLoader'
 import BackButton from '@/components/ui/BackButton'
 import Button from '@/components/ui/Button'
+import { useUser } from '@/contexts/UserContext'
 
 function VerifyEmailContent() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const email = searchParams.get('email')
+  const { refetch: refetchUser } = useUser()
   
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)
@@ -78,11 +80,12 @@ function VerifyEmailContent() {
       const data = await response.json()
 
       if (data.success) {
-        // Backend sets httpOnly cookies automatically - no client-side storage needed!
-        
+        // Backend sets httpOnly cookies automatically - NO localStorage storage
+        // Refetch user data to populate context
+        await refetchUser()
         // After email verification, proceed to company setup
         navigate('/onboarding/company-setup')
-      } else {
+      } else{
         setError(data.message || 'Invalid verification code. Please try again.')
         setCode(['', '', '', '', '', ''])
         inputRefs.current[0]?.focus()

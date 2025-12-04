@@ -319,7 +319,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get current user
+  // Get current user with company info
   fastify.get('/me', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
@@ -335,6 +335,9 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Get company info
+      const company = await db.findOne('companies', { id: user.company_id });
+
       return reply.code(200).send({
         success: true,
         data: {
@@ -344,7 +347,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           lastName: user.last_name,
           role: user.role,
           companyId: user.company_id,
+          companyName: company?.name,
+          subscriptionPlan: company?.subscription_plan,
           emailVerified: user.email_verified,
+          onboardingCompleted: company?.onboarding_completed || false,
         },
       });
     } catch (error: any) {

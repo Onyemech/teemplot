@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
+import { useUser } from '@/contexts/UserContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const toast = useToast()
   const { signInWithGoogle, loading: googleLoading } = useGoogleAuth()
   const { resumeOnboarding } = useOnboardingProgress()
+  const { refetch: refetchUser } = useUser()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
@@ -39,11 +41,11 @@ export default function LoginPage() {
       if (response.data.success) {
         const { user } = response.data.data
         
-        // Backend sets httpOnly cookies automatically - no client-side storage needed
+        // Backend sets httpOnly cookies automatically - NO localStorage storage
         toast.success('Login successful! Redirecting...')
 
-        // Wait a moment for cookie to be set before fetching progress
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Refetch user data to populate context
+        await refetchUser()
 
         // Check if onboarding is completed
         if (!user.onboardingCompleted) {

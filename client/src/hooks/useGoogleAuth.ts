@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
+import { useUser } from '@/contexts/UserContext';
 
 export function useGoogleAuth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { refetch: refetchUser } = useUser();
 
   /**
    * Initiate Google OAuth flow
@@ -66,8 +68,11 @@ export function useGoogleAuth() {
         throw new Error(result.message || 'Google authentication failed');
       }
 
-      // Backend sets httpOnly cookies automatically - no client-side storage needed!
+      // Backend sets httpOnly cookies automatically - NO localStorage storage
       const { user, requiresOnboarding } = result.data;
+
+      // Refetch user data to populate context
+      await refetchUser();
 
       toast.success('Successfully signed in with Google!');
 

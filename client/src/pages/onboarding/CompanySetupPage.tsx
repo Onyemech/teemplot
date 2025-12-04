@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, FileText, Image as ImageIcon, Trash2, Edit2 } from 'lucide-react'
 import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
+import { useUser } from '@/contexts/UserContext'
 import Dropdown from '@/components/ui/Dropdown'
 import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 import PaymentStep from '@/components/onboarding/PaymentStep'
@@ -19,7 +20,8 @@ type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 
 export default function CompanySetupPage() {
   const navigate = useNavigate()
-  const { saveProgress, getProgress, getAuthData } = useOnboardingProgress()
+  const { saveProgress, getProgress } = useOnboardingProgress()
+  const { user: currentUser } = useUser()
   const toast = useToast()
   const [currentStep, setCurrentStep] = useState<Step>('details')
   const [loading, setLoading] = useState(false)
@@ -103,10 +105,8 @@ export default function CompanySetupPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
       
-      const authData = getAuthData()
-      // Fallback to localStorage user if not in onboarding flow
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      const userId = authData?.userId || user?.id
+      // Get user ID from secure context
+      const userId = currentUser?.id
 
       if (userId) {
         // Wait a moment for authentication cookie to be available
@@ -152,7 +152,7 @@ export default function CompanySetupPage() {
       }
     }
     loadProgress()
-  }, [getAuthData, getProgress])
+  }, [currentUser, getProgress])
 
   const handleNext = async () => {
     console.log('🟢 handleNext called')
@@ -160,81 +160,24 @@ export default function CompanySetupPage() {
     setError('')
 
     try {
-      console.log('🟢 Getting auth data...')
-      let authData = getAuthData()
-      console.log('🟢 Auth data:', authData ? 'Found' : 'Not found')
-      
-      // COMPREHENSIVE FALLBACK: Try multiple sources for auth data
-      if (!authData?.userId) {
-        // Check if token is in URL (from Google redirect)
-        const urlParams = new URLSearchParams(window.location.search)
-        const urlToken = urlParams.get('token')
-        
-        if (urlToken) {
-          // Google OAuth now sets httpOnly cookies - no need to handle URL token
-          // Just clean the URL
-          window.history.replaceState({}, '', window.location.pathname)
-        }
-        
-        // Try localStorage user
-        if (!authData?.userId) {
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            try {
-              const user = JSON.parse(userStr)
-              authData = {
-                userId: user.id,
-                companyId: user.company_id || user.companyId,
-                email: user.email,
-              }
-            } catch (e) {
-              console.error('Failed to parse user from localStorage:', e)
-            }
-          }
-        }
-        
-        // No token fallback needed - httpOnly cookies handle auth
+      // Get user data from secure context (httpOnly cookies)
+      if (!currentUser) {
+        throw new Error('Not authenticated. Please log in again.')
       }
+
+      const userId = currentUser.id
+      const companyId = currentUser.companyId
       
-      // If no auth data, user needs to log in
-      if (!authData?.userId) {
-        // Try one more time from URL or create temporary
-        const urlParams = new URLSearchParams(window.location.search)
-        const urlToken = urlParams.get('token')
-        if (urlToken) {
-          try {
-            const payload = JSON.parse(atob(urlToken.split('.')[1]))
-            authData = {
-              userId: payload.userId || payload.sub,
-              companyId: payload.companyId,
-              email: payload.email,
-            }
-          } catch (e) {
-            // If all else fails, let backend handle it
-            authData = { userId: 'temp', companyId: null, email: '' }
-          }
-        } else {
-          // Let backend handle auth
-          authData = { userId: 'temp', companyId: null, email: '' }
-        }
+      if (!companyId) {
+        throw new Error('Company ID not found. Please try logging in again.')
       }
 
       // Submit data to backend based on current step
       if (currentStep === 'details') {
-        // Simplified validation - allow proceeding even without perfect address
-        // Backend will handle defaults if needed
-
-        // Get the actual companyId from user data
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
-        const actualCompanyId = authData.companyId || user.companyId || user.company_id
-        
-        if (!actualCompanyId) {
-          throw new Error('Company ID not found. Please try logging in again.')
-        }
         
         // Submit business information with complete geocoding data
-        const businessInfoResponse = await submitBusinessInfo({
-          companyId: actualCompanyId,
+        await submitBusinessInfo({
+          companyId,
           companyName: formData.companyName,
           taxId: formData.tin,
           industry: formData.industry === 'other' ? formData.customIndustry : formData.industry,
@@ -262,27 +205,16 @@ export default function CompanySetupPage() {
           geocodingAccuracy: formData.geocodingAccuracy || undefined,
         })
         
-        // If companyId was created by backend, update our authData
-        if (businessInfoResponse?.data?.companyId) {
-          authData.companyId = businessInfoResponse.data.companyId
-          // No need to update storage - backend manages auth via httpOnly cookies
-        }
-
         // Upload logo if provided (only if it's a new File, not a URL string)
         if (formData.companyLogo && isFile(formData.companyLogo)) {
-          await uploadLogo(authData.companyId, formData.companyLogo)
-        }
-
-        // If Google auth user, complete onboarding
-        if (authData?.isGoogleAuth) {
-          await completeGoogleOnboarding()
+          await uploadLogo(companyId, formData.companyLogo)
         }
       } else if (currentStep === 'owner') {
         // Submit owner details if not the owner
         if (!formData.isOwner) {
           await submitOwnerDetails({
-            companyId: authData.companyId,
-            registrantUserId: authData.userId,
+            companyId,
+            registrantUserId: userId,
             ownerFirstName: formData.ownerFirstName,
             ownerLastName: formData.ownerLastName,
             ownerEmail: formData.ownerEmail,
@@ -291,24 +223,19 @@ export default function CompanySetupPage() {
           })
         }
       } else if (currentStep === 'documents') {
-        // Verify companyId exists before uploading documents
-        if (!authData.companyId) {
-          throw new Error('Company ID not found. Please complete company setup first.')
-        }
-
-        console.log('📄 Uploading documents for company:', authData.companyId)
+        console.log('📄 Uploading documents for company:', companyId)
         
         // Upload all documents using hash-based deduplication (only new Files, not URL strings)
         const uploadPromises = [];
         
         if (formData.cacDocument && isFile(formData.cacDocument)) {
-          uploadPromises.push(uploadDocument(authData.companyId, 'cac', formData.cacDocument));
+          uploadPromises.push(uploadDocument(companyId, 'cac', formData.cacDocument));
         }
         if (formData.proofOfAddress && isFile(formData.proofOfAddress)) {
-          uploadPromises.push(uploadDocument(authData.companyId, 'proof_of_address', formData.proofOfAddress));
+          uploadPromises.push(uploadDocument(companyId, 'proof_of_address', formData.proofOfAddress));
         }
         if (formData.companyPolicies && isFile(formData.companyPolicies)) {
-          uploadPromises.push(uploadDocument(authData.companyId, 'company_policy', formData.companyPolicies));
+          uploadPromises.push(uploadDocument(companyId, 'company_policy', formData.companyPolicies));
         }
         
         // Upload all documents in parallel
@@ -1164,25 +1091,17 @@ export default function CompanySetupPage() {
 
   const handleSaveProgress = async () => {
     try {
-      let authData = getAuthData()
-      
-      // If no auth data found, try to get from localStorage user
-      if (!authData?.userId || !authData?.companyId) {
-        const userStr = localStorage.getItem('user')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          authData = {
-            userId: user.id,
-            companyId: user.company_id || user.companyId, // Try both formats
-            email: user.email,
-          }
-        }
+      // Get user data from secure context (httpOnly cookies)
+      if (!currentUser) {
+        console.warn('No user data available to save progress')
+        return
       }
       
-      // CompanyId comes from httpOnly cookie via getUser() - no localStorage needed
+      const userId = currentUser.id
+      const companyId = currentUser.companyId
       
       // Only userId is required - companyId is optional during initial onboarding
-      if (authData?.userId) {
+      if (userId) {
         // Check if there's any meaningful data to save
         const hasData = formData.companyName || 
                        formData.tin || 
@@ -1234,8 +1153,8 @@ export default function CompanySetupPage() {
           }
 
           await saveProgress({
-            userId: authData.userId,
-            companyId: authData.companyId || 'pending', // Use 'pending' if no companyId yet
+            userId,
+            companyId: companyId || 'pending', // Use 'pending' if no companyId yet
             currentStep: currentStepNum,
             completedSteps: Array.from({ length: currentStepNum - 1 }, (_, i) => i + 1),
             formData: formDataToSave,
@@ -1253,46 +1172,45 @@ export default function CompanySetupPage() {
   }
 
   // Handle Google auth onboarding completion
-  const completeGoogleOnboarding = async () => {
-    const authData = getAuthData()
-    if (!authData?.isGoogleAuth) {
-      return // Not a Google auth user
-    }
+  // const completeGoogleOnboarding = async () => {
+  //   // Google auth users are handled via httpOnly cookies
+  //   // No special handling needed
+  //   return
 
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  //   try {
+  //     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-      const response = await fetch(`${API_URL}/auth/google/complete-onboarding`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Use httpOnly cookies
-        body: JSON.stringify({
-          companyName: formData.companyName,
-          industry: formData.industry,
-          companySize: formData.companySize,
-          phoneNumber: formData.ownerPhone,
-          address: formData.headOffice,
-          timezone: 'UTC',
-        }),
-      })
+  //     const response = await fetch(`${API_URL}/auth/google/complete-onboarding`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       credentials: 'include', // Use httpOnly cookies
+  //       body: JSON.stringify({
+  //         companyName: formData.companyName,
+  //         industry: formData.industry,
+  //         companySize: formData.companySize,
+  //         phoneNumber: formData.ownerPhone,
+  //         address: formData.headOffice,
+  //         timezone: 'UTC',
+  //       }),
+  //     })
 
-      const data = await response.json()
+  //     const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to complete onboarding')
-      }
+  //     if (!response.ok) {
+  //       throw new Error(data.message || 'Failed to complete onboarding')
+  //     }
 
-      // Backend sets httpOnly cookies automatically - no client-side storage needed
-      // Clear any old onboarding data
-      sessionStorage.clear()
-      localStorage.clear()
-    } catch (error) {
-      console.error('Failed to complete Google onboarding:', error)
-      throw error
-    }
-  }
+  //     // Backend sets httpOnly cookies automatically - no client-side storage needed
+  //     // Clear any old onboarding data
+  //     sessionStorage.clear()
+  //     localStorage.clear()
+  //   } catch (error) {
+  //     console.error('Failed to complete Google onboarding:', error)
+  //     throw error
+  //   }
+  // }
 
   return (
     <div className="min-h-screen bg-gray-50">
