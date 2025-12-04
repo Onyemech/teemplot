@@ -119,10 +119,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasAccess, plan, loading } = useFeatureAccess()
   const toast = useToast()
 
-  // Close sidebar on route change (mobile)
+  // Get company info from localStorage
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+  const companyName = user?.companyName || 'Teemplot'
+  const companyLogo = user?.companyLogo || null
+
+  // Close sidebar on route change (mobile) - but only if it's actually open
   useEffect(() => {
-    onClose()
-  }, [pathname, onClose])
+    if (isOpen) {
+      onClose()
+    }
+  }, [pathname]) // Remove onClose from dependencies to prevent infinite loop
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -243,28 +251,33 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Mobile Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
           onClick={onClose}
+          aria-label="Close sidebar"
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 h-screen bg-background border-r border-border flex flex-col
-        transform transition-transform duration-300 ease-in-out
+        w-72 max-w-[80vw] h-screen bg-background border-r border-border flex flex-col
+        transform transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo & Close Button */}
         <div className="p-4 lg:p-6 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 lg:w-8 lg:h-8 bg-gradient-accent rounded-lg flex-shrink-0" />
-            <span className="text-lg lg:text-xl font-bold text-foreground">Teemplot</span>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <img 
+              src={companyLogo || '/logo.png'} 
+              alt={companyName}
+              className="w-6 h-6 lg:w-8 lg:h-8 rounded-lg object-contain flex-shrink-0"
+            />
+            <span className="text-base lg:text-lg font-bold text-foreground truncate">{companyName}</span>
           </div>
           {/* Close button - mobile only */}
           <button
             onClick={onClose}
-            className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors"
+            className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors flex-shrink-0"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />

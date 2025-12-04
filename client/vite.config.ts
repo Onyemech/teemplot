@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['logo.png'], // Use existing logo from public folder
       manifest: {
         name: 'Teemplot - Employee App',

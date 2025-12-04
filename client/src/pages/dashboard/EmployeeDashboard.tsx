@@ -53,6 +53,12 @@ export default function EmployeeDashboard() {
   const [clockingIn, setClockingIn] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
+  // Get company info
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const companyName = user?.companyName || 'Your Company';
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Employee';
+
   useEffect(() => {
     fetchDashboardData();
     getCurrentLocation();
@@ -183,8 +189,8 @@ export default function EmployeeDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Dashboard</h1>
-              <p className="text-sm text-gray-600 mt-1">Track your work and performance</p>
+              <h1 className="text-2xl font-bold text-gray-900">{companyName}</h1>
+              <p className="text-sm text-gray-600 mt-1">Welcome back, {userName}!</p>
             </div>
             <div className="flex items-center space-x-4">
               <button
