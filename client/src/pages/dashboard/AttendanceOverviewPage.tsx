@@ -245,36 +245,39 @@ export default function AttendanceOverviewPage() {
   }
 
   return (
-    <div className="h-full bg-background p-6">
+    <div className="h-full bg-background p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Attendance Overview</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Attendance Overview</h1>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Date Navigation */}
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-          </button>
-          <span className="text-base text-muted-foreground min-w-[200px] text-center">
-            {format(selectedDate, 'EEEE, MMM dd, yyyy')}
-          </span>
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+              <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+            </button>
+            <span className="text-sm md:text-base text-muted-foreground min-w-[160px] md:min-w-[200px] text-center">
+              {format(selectedDate, 'EEE, MMM dd, yyyy')}
+            </span>
+            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+              <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+            </button>
+          </div>
 
           {/* Invite Employee Button */}
           <button
             onClick={() => navigate('/dashboard/employees')}
-            className="bg-primary hover:bg-primary-dark text-primary-foreground px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors ml-4"
+            className="bg-primary hover:bg-primary-dark text-primary-foreground px-3 md:px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"
           >
-            <UserPlus className="w-5 h-5" />
-            Invite Employee
+            <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Invite Employee</span>
+            <span className="sm:hidden">Invite</span>
           </button>
         </div>
       </div>
 
-      {/* Stats Cards - Horizontal Row */}
-      <div className="flex gap-4 mb-6 overflow-x-auto">
+      {/* Stats Cards - Horizontal Scroll on Mobile, Grid on Desktop */}
+      <div className="grid grid-cols-2 md:flex gap-3 md:gap-4 mb-6 md:overflow-x-auto">
         <StatCard label="Total Employees" value={stats.totalEmployees} />
         <StatCard label="Total Clock in" value={stats.totalClockIn} />
         <StatCard label="Early Clock in" value={stats.earlyClockIn} />
@@ -285,65 +288,67 @@ export default function AttendanceOverviewPage() {
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-card rounded-md border shadow-sm">
+      <div className="bg-card rounded-md border shadow-sm overflow-hidden">
         {/* Table Header */}
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-foreground">All Attendance</h2>
+        <div className="p-4 md:p-6 border-b">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-base md:text-lg font-semibold text-foreground">All Attendance</h2>
             
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
               {/* Search */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 pl-9 pr-4 py-2 border border-input rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent bg-background"
+                  className="w-full sm:w-48 md:w-64 pl-9 pr-4 py-2 border border-input rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent bg-background"
                 />
               </div>
 
               {/* Filter & Export */}
-              <button className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                Filter
-              </button>
-              <button className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
-                <Download className="w-4 h-4 text-muted-foreground" />
-                Download
-              </button>
+              <div className="flex gap-2">
+                <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
+                  <Filter className="w-4 h-4 text-muted-foreground" />
+                  <span className="hidden sm:inline">Filter</span>
+                </button>
+                <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
+                  <Download className="w-4 h-4 text-muted-foreground" />
+                  <span className="hidden sm:inline">Download</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Table Content */}
+        {/* Table Content - Horizontal scroll on mobile */}
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-muted border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <input type="checkbox" className="rounded border-input" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Employee Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Clock-in Time
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Clock-in
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Clock-out Time
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Clock-out
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Duration
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Location
                 </th>
               </tr>
@@ -351,17 +356,17 @@ export default function AttendanceOverviewPage() {
             <tbody className="bg-background divide-y divide-border">
               {paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-3 md:px-6 py-12 text-center text-muted-foreground text-sm">
                     No attendance records found
                   </td>
                 </tr>
               ) : (
                 paginatedRecords.map((record, index) => (
                   <tr key={record.id} className={`hover:bg-muted/50 transition-colors ${index % 2 === 1 ? 'bg-background/50' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <input type="checkbox" className="rounded border-input" />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span className="text-sm text-muted-foreground mr-3">{index + 1}.</span>
                         <div className="flex-shrink-0 h-10 w-10">

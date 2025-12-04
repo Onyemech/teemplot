@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { Bell, Search, ChevronDown, LogOut, User, Settings } from 'lucide-react'
+import { Bell, Search, ChevronDown, LogOut, User, Settings, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '@/contexts/ToastContext'
 
-export default function DashboardHeader() {
+interface DashboardHeaderProps {
+  onMenuClick: () => void
+}
+
+export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const navigate = useNavigate()
+  const toast = useToast()
   const [showUserMenu, setShowUserMenu] = useState(false)
   
   // Get user from localStorage
@@ -20,11 +26,20 @@ export default function DashboardHeader() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
+    <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
+      <div className="flex items-center justify-between gap-4">
+        {/* Mobile Menu Button */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-6 h-6 text-gray-700" />
+        </button>
+
         {/* Search */}
         <div className="flex-1 max-w-xl">
-          <div className="relative">
+          <div className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -35,15 +50,18 @@ export default function DashboardHeader() {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-4">
-          {/* Test Mode Badge */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+        <div className="flex items-center gap-2 lg:gap-4">
+          {/* Test Mode Badge - Hidden on mobile */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
             <span className="text-sm font-medium text-gray-700">Test mode</span>
           </div>
 
           {/* Notifications */}
-          <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          <button 
+            onClick={() => toast.info('Notifications - Coming Soon! 🔔')}
+            className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
@@ -52,13 +70,13 @@ export default function DashboardHeader() {
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-sm font-medium">{userInitials}</span>
               </div>
-              <span className="text-sm font-medium text-gray-700">{userName}</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <span className="hidden sm:block text-sm font-medium text-gray-700">{userName}</span>
+              <ChevronDown className="hidden sm:block w-4 h-4 text-gray-500" />
             </button>
 
             {/* Dropdown Menu */}
@@ -72,7 +90,7 @@ export default function DashboardHeader() {
                   <button
                     onClick={() => {
                       setShowUserMenu(false)
-                      navigate('/dashboard/profile')
+                      toast.info('Profile - Coming Soon! 👤')
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >

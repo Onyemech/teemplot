@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { 
   Home, 
@@ -17,17 +17,24 @@ import {
   LayoutGrid,
   Lock,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
+import { useToast } from '@/contexts/ToastContext'
+
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
 
 interface NavItem {
   label: string
   href: string
   icon: any
   submenu?: NavItem[]
-  feature?: Feature // Required feature for access
+  feature?: Feature 
 }
 
 const navigation: NavItem[] = [
@@ -105,11 +112,29 @@ const reporting: NavItem[] = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const pathname = location.pathname
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance'])
   const { hasAccess, plan, loading } = useFeatureAccess()
+  const toast = useToast()
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    onClose()
+  }, [pathname, onClose])
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
 
   const toggleExpand = (label: string) => {
     setExpandedItems(prev =>
@@ -136,10 +161,22 @@ export default function Sidebar() {
     const hasFeatureAccess = !item.feature || hasAccess(item.feature)
     const isLocked = item.feature && !hasFeatureAccess
 
+    // Check if route exists (implemented pages)
+    const implementedRoutes = [
+      '/dashboard',
+      '/dashboard/attendance',
+      '/dashboard/attendance/invites',
+      '/dashboard/attendance/setup',
+      '/dashboard/employees',
+      '/dashboard/settings',
+      '/dashboard/settings/billing',
+    ]
+    const isImplemented = implementedRoutes.includes(item.href)
+
     return (
       <div>
         <Link 
-          to={hasSubmenu ? '#' : (isLocked ? '#' : item.href)}
+          to={hasSubmenu ? '#' : (isLocked ? '#' : (isImplemented ? item.href : '#'))}
           onClick={(e) => {
             if (hasSubmenu) {
               e.preventDefault()
@@ -148,11 +185,15 @@ export default function Sidebar() {
               e.preventDefault()
               // Show upgrade modal or redirect to billing
               window.location.href = '/dashboard/settings/billing'
+            } else if (!isImplemented) {
+              e.preventDefault()
+              // Show coming soon toast
+              toast.info(`${item.label} - Coming Soon! 🚀`)
             }
           }}
           className={`
-            flex items-center justify-between px-4 py-2.5 rounded-lg transition-all duration-200
-            ${isSubmenu ? 'pl-12 text-sm' : ''}
+            flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg transition-all duration-200
+            ${isSubmenu ? 'pl-10 lg:pl-12 text-sm' : ''}
             ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
             ${active && !isLocked
               ? 'bg-accent/10 text-accent font-medium' 
@@ -161,10 +202,10 @@ export default function Sidebar() {
           `}
           title={isLocked ? `Upgrade to ${plan === 'trial' ? 'Silver or Gold' : 'Gold'} plan to access this feature` : ''}
         >
-          <div className="flex items-center gap-3">
-            <Icon className={`w-5 h-5 ${active && !isLocked ? 'text-accent' : ''}`} />
-            <span>{item.label}</span>
-            {isLocked && <Lock className="w-3 h-3 ml-1" />}
+          <div className="flex items-center gap-2 lg:gap-3">
+            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? 'text-accent' : ''}`} />
+            <span className="text-sm lg:text-base">{item.label}</span>
+            {isLocked && <Lock className="w-3 h-3 ml-1 flex-shrink-0" />}
           </div>
           {hasSubmenu && !isLocked && (
             isExpanded ? (
@@ -188,24 +229,50 @@ export default function Sidebar() {
   
   if (loading) {
     return (
-      <aside className="w-64 h-screen bg-background border-r border-border flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </aside>
+      <>
+        {/* Desktop Loading */}
+        <aside className="hidden lg:flex w-64 h-screen bg-background border-r border-border items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </aside>
+      </>
     )
   }
 
   return (
-    <aside className="w-64 h-screen bg-background border-r border-border flex flex-col">
-      {/* Logo */}
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-accent rounded-lg" />
-          <span className="text-xl font-bold text-foreground">Teemplot</span>
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 h-screen bg-background border-r border-border flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Logo & Close Button */}
+        <div className="p-4 lg:p-6 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 lg:w-8 lg:h-8 bg-gradient-accent rounded-lg flex-shrink-0" />
+            <span className="text-lg lg:text-xl font-bold text-foreground">Teemplot</span>
+          </div>
+          {/* Close button - mobile only */}
+          <button
+            onClick={onClose}
+            className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1">
         {navigation.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
@@ -224,7 +291,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-4 border-t border-border space-y-1">
+      <div className="p-3 lg:p-4 border-t border-border space-y-1">
         <Link to="/dashboard/settings"
           className={`
             flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
@@ -238,13 +305,15 @@ export default function Sidebar() {
           <span>Settings</span>
         </Link>
 
-        <Link to="/dashboard/help"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-foreground/70 hover:bg-secondary hover:text-foreground transition-all duration-200"
+        <button
+          onClick={() => toast.info('Help & Support - Coming Soon! 💬')}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-foreground/70 hover:bg-secondary hover:text-foreground transition-all duration-200"
         >
           <HelpCircle className="w-5 h-5" />
           <span>Help & support</span>
-        </Link>
+        </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
