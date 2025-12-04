@@ -86,6 +86,12 @@ export class EmailService {
     const { randomUUID } = await import('crypto');
 
     try {
+      // Delete any existing unverified codes for this email to prevent duplicates
+      await this.db.query(
+        'DELETE FROM email_verification_codes WHERE email = $1 AND verified_at IS NULL',
+        [email]
+      );
+
       await this.db.insert('email_verification_codes', {
         id: randomUUID(),
         email,

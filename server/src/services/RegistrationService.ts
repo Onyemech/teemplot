@@ -92,16 +92,14 @@ export class RegistrationService {
         logger.error(`Failed to sync registration to backup: ${error?.message || 'Unknown error'}`);
       });
 
-      // Send verification email (non-blocking for faster response)
-      setImmediate(async () => {
-        try {
-          const code = await emailService.generateVerificationCode(data.email);
-          await emailService.sendVerificationEmail(data.email, data.firstName, code);
-          logger.info({ email: data.email }, 'Verification email sent');
-        } catch (error: any) {
-          logger.error({ err: error, email: data.email }, 'Failed to send verification email');
-        }
-      });
+      // Send verification email immediately (not in setImmediate to prevent timing issues)
+      try {
+        const code = await emailService.generateVerificationCode(data.email);
+        await emailService.sendVerificationEmail(data.email, data.firstName, code);
+        logger.info({ email: data.email }, 'Verification email sent');
+      } catch (error: any) {
+        logger.error({ err: error, email: data.email }, 'Failed to send verification email');
+      }
 
       // Notify superadmins (non-blocking)
       setImmediate(() => {

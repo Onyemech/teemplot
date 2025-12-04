@@ -645,7 +645,9 @@ export default function CompanySetupPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Phone number</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Phone number <span className="text-red-500">*</span>
+              </label>
               <div className="flex gap-2">
                 <select className="w-32 px-3 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-gray-50 appearance-none cursor-pointer"
                   style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")", backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
@@ -656,23 +658,52 @@ export default function CompanySetupPage() {
                   type="tel"
                   required
                   value={formData.ownerPhone}
-                  onChange={(e) => setFormData({ ...formData, ownerPhone: e.target.value })}
+                  onChange={(e) => {
+                    // Only allow numbers and basic formatting characters
+                    const value = e.target.value.replace(/[^0-9\s-]/g, '');
+                    setFormData({ ...formData, ownerPhone: value });
+                  }}
+                  onKeyPress={(e) => {
+                    // Prevent non-numeric characters except space and dash
+                    if (!/[0-9\s-]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   className="flex-1 px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   placeholder="901 234 5678"
+                  minLength={10}
+                  maxLength={15}
                 />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Enter 10-11 digits</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Date of birth</label>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Date of birth <span className="text-red-500">*</span>
+              </label>
               <input
                 type="date"
                 required
                 value={formData.ownerDOB}
-                onChange={(e) => setFormData({ ...formData, ownerDOB: e.target.value })}
-                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const selectedDate = new Date(e.target.value);
+                  const today = new Date();
+                  const age = today.getFullYear() - selectedDate.getFullYear();
+                  const monthDiff = today.getMonth() - selectedDate.getMonth();
+                  const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
+                  
+                  if (actualAge < 18) {
+                    toast.error('You must be at least 18 years old');
+                    return;
+                  }
+                  setFormData({ ...formData, ownerDOB: e.target.value });
+                }}
+                className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white text-foreground [color-scheme:light]"
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                placeholder="YYYY-MM-DD"
               />
+              <p className="text-xs text-muted-foreground mt-1">You must be at least 18 years old</p>
             </div>
 
             <button
