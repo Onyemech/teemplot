@@ -33,49 +33,52 @@ interface NavItem {
   label: string
   href: string
   icon: any
-  submenu?: NavItem[]
-  feature?: Feature 
+  submenu?: NavItemConfig[]
+  feature?: Feature
+  adminOnly?: boolean // Only show to admins/owners
 }
 
-const navigation: NavItem[] = [
+interface NavItemConfig extends NavItem {
+  // NavItemConfig is same as NavItem now
+}
+
+const navigationConfig: NavItemConfig[] = [
   {
     label: 'Home',
     href: '/dashboard',
     icon: Home,
-  },
-  {
-    label: 'Analytics',
-    href: '/dashboard/analytics',
-    icon: BarChart3,
-    feature: 'analytics', // Gold only
+    // Always visible
   },
   {
     label: 'Attendance',
     href: '/dashboard/attendance',
     icon: Clock,
-    feature: 'attendance', // All plans
+    feature: 'attendance', // Silver + Gold
     submenu: [
       { label: 'Overview', href: '/dashboard/attendance', icon: LayoutGrid, feature: 'attendance' },
-      { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus, feature: 'attendance' },
-      { label: 'Multiple Clock-in Setup', href: '/dashboard/attendance/setup', icon: ClipboardList, feature: 'attendance' },
+      { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus, feature: 'attendance', adminOnly: true },
+      { label: 'Multiple Clock-in Setup', href: '/dashboard/attendance/setup', icon: ClipboardList, feature: 'attendance', adminOnly: true },
     ],
   },
   {
     label: 'Leave Management',
     href: '/dashboard/leave',
     icon: Calendar,
-    feature: 'leave', // Silver and Gold
+    feature: 'leave', // Silver + Gold
   },
   {
     label: 'Employees',
     href: '/dashboard/employees',
     icon: Users,
+    feature: 'employees', // Gold only
+    adminOnly: true,
   },
   {
     label: 'Departments',
     href: '/dashboard/departments',
     icon: Building2,
     feature: 'departments', // Gold only
+    adminOnly: true,
   },
   {
     label: 'Tasks',
@@ -90,25 +93,35 @@ const navigation: NavItem[] = [
     feature: 'performance', // Gold only
   },
   {
+    label: 'Analytics',
+    href: '/dashboard/analytics',
+    icon: BarChart3,
+    feature: 'analytics', // Gold only
+    adminOnly: true,
+  },
+  {
     label: 'Wallet',
     href: '/dashboard/wallet',
     icon: Wallet,
     feature: 'wallet', // Gold only
+    adminOnly: true,
   },
 ]
 
-const reporting: NavItem[] = [
-  {
-    label: 'Audit logs',
-    href: '/dashboard/audit-logs',
-    icon: FileText,
-    feature: 'audit_logs', // Gold only
-  },
+const reportingConfig: NavItemConfig[] = [
   {
     label: 'Reports',
     href: '/dashboard/reports',
     icon: BarChart3,
     feature: 'reports', // Gold only
+    adminOnly: true,
+  },
+  {
+    label: 'Audit logs',
+    href: '/dashboard/audit-logs',
+    icon: FileText,
+    feature: 'audit_logs', // Gold only
+    adminOnly: true,
   },
 ]
 
@@ -119,11 +132,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasAccess, plan, loading } = useFeatureAccess()
   const toast = useToast()
 
-  // Get company info from localStorage
+  // Get user and company info from localStorage
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
   const companyName = user?.companyName || 'Teemplot'
   const companyLogo = user?.companyLogo || null
+  const userRole = user?.role || 'employee'
+  const isAdmin = userRole === 'admin' || userRole === 'owner'
 
   // Close sidebar on route change (mobile) - but only if it's actually open
   useEffect(() => {
@@ -159,7 +174,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return pathname.startsWith(href)
   }
 
-  const NavLink = ({ item, isSubmenu = false }: { item: NavItem; isSubmenu?: boolean }) => {
+  const NavLink = ({ item, isSubmenu = false }: { item: NavItemConfig; isSubmenu?: boolean }) => {
+    // Hide admin-only items from employees
+    if (item.adminOnly && !isAdmin) {
+      return null
+    }
+    
+    // Check plan-based feature access (applies to ALL users including admins)
+    if (item.feature && !hasAccess(item.feature)) {
+      return null // Hide if company plan doesn't have access
+    }
     const active = isActive(item.href)
     const hasSubmenu = item.submenu && item.submenu.length > 0
     const isExpanded = expandedItems.includes(item.label)
@@ -286,21 +310,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1">
-        {navigation.map((item) => (
+        {navigationConfig.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
 
-        {/* Reporting Section */}
-        <div className="pt-6">
-          <div className="px-4 pb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Reporting
-            </span>
+        {/* Reporting Section - Admin Only */}
+        {isAdmin && (
+          <div className="pt-6">
+            <div className="px-4 pb-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Reporting
+              </span>
+            </div>
+            {reportingConfig.map((item) => (
+              <NavLink key={item.href} item={item} />
+            ))}
           </div>
-          {reporting.map((item) => (
-            <NavLink key={item.href} item={item} />
-          ))}
-        </div>
+        )}
       </nav>
 
       {/* Bottom Actions */}

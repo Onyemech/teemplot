@@ -326,28 +326,15 @@ export class EmailService {
         <!-- Main Container -->
         <table class="email-container" width="500" cellpadding="0" cellspacing="0" style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); margin: 0 auto;">
           
-          <!-- Header with Logo and Brand -->
+          <!-- Header with Brand Name -->
           <tr>
             <td style="background: linear-gradient(135deg, ${this.brandColor} 0%, #0a4545 100%); padding: 30px 40px; text-align: center;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <div style="display: inline-flex; align-items: center; gap: 12px;">
-                      <!-- Logo Icon -->
-                      <div style="background: white; width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="${this.brandColor}"/>
-                          <path d="M2 17L12 22L22 17V12L12 17L2 12V17Z" fill="${this.accentColor}"/>
-                        </svg>
-                      </div>
-                      <!-- Brand Name -->
-                      <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                        Teemplot
-                      </h1>
-                    </div>
-                  </td>
-                </tr>
-              </table>
+              <h1 style="margin: 0; color: white; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">
+                Teemplot
+              </h1>
+              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 500;">
+                Workforce Management System
+              </p>
             </td>
           </tr>
           

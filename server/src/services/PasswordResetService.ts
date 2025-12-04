@@ -28,13 +28,20 @@ export class PasswordResetService {
       // Generate 6-digit code
       const code = await emailService.generateVerificationCode(email);
 
-      // Send reset email
-      await emailService.sendPasswordResetEmail(email, user.first_name, code);
+      logger.info(`Generated reset code for ${email}: ${code}`);
 
-      logger.info(`Password reset code sent to ${email}`);
+      // Send reset email
+      const sent = await emailService.sendPasswordResetEmail(email, user.first_name, code);
+
+      if (!sent) {
+        logger.error(`Failed to send password reset email to ${email}`);
+        throw new Error('Failed to send reset email. Please try again.');
+      }
+
+      logger.info(`Password reset code sent successfully to ${email}`);
       return true;
     } catch (error: any) {
-      logger.error(`Failed to send reset code: ${error?.message}`);
+      logger.error(`Failed to send reset code: ${error?.message}`, error);
       throw new Error(`Failed to send reset code: ${error.message}`);
     }
   }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Search, ChevronDown, LogOut, User, Settings, Menu } from 'lucide-react'
+import { Search, ChevronDown, LogOut, User, Settings, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -51,21 +51,6 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
 
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
-          {/* Test Mode Badge - Hidden on mobile */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
-            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-            <span className="text-sm font-medium text-gray-700">Test mode</span>
-          </div>
-
-          {/* Notifications */}
-          <button 
-            onClick={() => toast.info('Notifications - Coming Soon! 🔔')}
-            className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-
           {/* User Menu */}
           <div className="relative">
             <button

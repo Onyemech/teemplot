@@ -43,10 +43,12 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
-  // Get company info
+  // Get user and company info
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
   const companyName = user?.companyName || 'Your Company';
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
+  const userRole = user?.role || 'owner';
 
   useEffect(() => {
     fetchDashboardData();
@@ -97,7 +99,12 @@ export default function OwnerDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{companyName}</h1>
-              <p className="text-sm text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
+              <p className="text-sm text-gray-600 mt-1">
+                Welcome back, {userName}! 
+                <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                  {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                </span>
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <button
