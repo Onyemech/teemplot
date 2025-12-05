@@ -277,11 +277,22 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         metadata
       });
 
+      // Fetch the file details to return the URL
+      const fileResult = await query(
+        'SELECT id, secure_url, url, file_size, mime_type, original_filename FROM files WHERE id = $1',
+        [fileId]
+      );
+
+      const fileData = fileResult.rows.length > 0 ? fileResult.rows[0] : null;
+
       return reply.code(200).send({
         success: true,
         message: 'File attached to company successfully',
         data: {
-          companyId: actualCompanyId
+          companyId: actualCompanyId,
+          secure_url: fileData?.secure_url,
+          url: fileData?.url,
+          file: fileData
         }
       });
     } catch (error: any) {

@@ -232,7 +232,18 @@ export const uploadDocument = async (
   }
   
   console.log('✅ File attached to company successfully')
-  return attachResult
+  
+  // Return file details including the secure URL
+  return {
+    success: true,
+    data: {
+      file: checkResult.data.exists ? checkResult.data.file : {
+        id: fileId,
+        secure_url: attachResult.data?.secure_url || checkResult.data?.file?.secure_url,
+        url: attachResult.data?.url || checkResult.data?.file?.url
+      }
+    }
+  }
 }
 
 // Select Plan API

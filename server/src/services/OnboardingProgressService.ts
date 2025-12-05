@@ -68,7 +68,7 @@ export class OnboardingProgressService {
   }
 
   /**
-   * Get user's onboarding progress
+   * Get user's onboarding progress with file URLs from database
    */
   async getProgress(userId: string): Promise<OnboardingProgress | null> {
     try {
@@ -78,12 +78,50 @@ export class OnboardingProgressService {
         return null;
       }
 
+      const formData = JSON.parse(progress.form_data || '{}');
+      const companyId = progress.company_id;
+
+      // If companyId exists, fetch uploaded file URLs from database
+      if (companyId && companyId !== 'pending') {
+        try {
+          // Fetch company logo
+          const company = await this.db.findOne('companies', { id: companyId });
+          if (company && company.logo_url) {
+            formData.companyLogo = company.logo_url;
+          }
+
+          // Fetch uploaded documents from company_files table
+          const companyFiles = await this.db.find('company_files', { 
+            company_id: companyId,
+            is_active: true 
+          });
+
+          for (const cf of companyFiles) {
+            // Get file details
+            const file = await this.db.findOne('files', { id: cf.file_id });
+            if (file && file.secure_url) {
+              // Map document types to form fields
+              if (cf.document_type === 'cac') {
+                formData.cacDocument = file.secure_url;
+              } else if (cf.document_type === 'proof_of_address') {
+                formData.proofOfAddress = file.secure_url;
+              } else if (cf.document_type === 'company_policy') {
+                formData.companyPolicies = file.secure_url;
+              }
+            }
+          }
+        } catch (fileError: any) {
+          logger.warn(`Failed to fetch file URLs for user ${userId}: ${fileError?.message}`);
+          // Continue without file URLs - user can re-upload if needed
+        }
+      }
+
       return {
         userId: progress.user_id,
         companyId: progress.company_id,
         currentStep: progress.current_step,
         completedSteps: JSON.parse(progress.completed_steps || '[]'),
-        formData: JSON.parse(progress.form_data || '{}'),
+        formData,
         lastSavedAt: progress.updated_at,
       };
     } catch (error: any) {

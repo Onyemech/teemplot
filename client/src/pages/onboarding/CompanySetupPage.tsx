@@ -116,28 +116,28 @@ export default function CompanySetupPage() {
         if (progress && progress.formData) {
           console.log('📥 Loading saved progress:', progress)
           
-          // Clean up document fields - convert any objects to proper format
-          // to prevent "Objects are not valid as a React child" errors
-          const cleanDoc = (doc: any) => {
+          // Process document fields - keep URLs as strings for display
+          // The backend now returns actual Cloudinary URLs instead of just filenames
+          const processDoc = (doc: any) => {
             if (!doc) return null
             // If it's already a File object, keep it
             if (doc instanceof File) return doc
-            // If it's a string (filename or URL), keep it as-is
+            // If it's a string (URL from Cloudinary or filename), keep it
             if (typeof doc === 'string') return doc
-            // If it's an object with metadata, convert to string (filename only)
-            if (typeof doc === 'object' && doc.name) {
-              return String(doc.name)
+            // If it's an object with metadata, extract the URL or name
+            if (typeof doc === 'object') {
+              return doc.url || doc.secure_url || doc.name || null
             }
             return null
           }
           
           const cleanedFormData = {
             ...progress.formData,
-            // Clean document fields to prevent render errors - store as strings
-            cacDocument: cleanDoc(progress.formData.cacDocument),
-            proofOfAddress: cleanDoc(progress.formData.proofOfAddress),
-            companyPolicies: cleanDoc(progress.formData.companyPolicies),
-            companyLogo: cleanDoc(progress.formData.companyLogo),
+            // Process document fields - URLs will be displayed, Files will be uploaded
+            cacDocument: processDoc(progress.formData.cacDocument),
+            proofOfAddress: processDoc(progress.formData.proofOfAddress),
+            companyPolicies: processDoc(progress.formData.companyPolicies),
+            companyLogo: processDoc(progress.formData.companyLogo),
           }
           
           setFormData(prev => ({
@@ -145,7 +145,7 @@ export default function CompanySetupPage() {
             ...cleanedFormData,
           }))
           
-          console.log('✅ Progress loaded and form populated')
+          console.log('✅ Progress loaded and form populated with file URLs')
         } else {
           console.log('ℹ️ No saved progress found')
         }
@@ -207,7 +207,11 @@ export default function CompanySetupPage() {
         
         // Upload logo if provided (only if it's a new File, not a URL string)
         if (formData.companyLogo && isFile(formData.companyLogo)) {
-          await uploadLogo(companyId, formData.companyLogo)
+          console.log('📤 Uploading company logo...')
+          const logoResult = await uploadLogo(companyId, formData.companyLogo)
+          // Update formData with the uploaded URL so it can be saved to progress
+          setFormData(prev => ({ ...prev, companyLogo: logoResult.data.logoUrl }))
+          console.log('✅ Logo uploaded:', logoResult.data.logoUrl)
         }
       } else if (currentStep === 'owner') {
         // Submit owner details if not the owner
@@ -226,24 +230,37 @@ export default function CompanySetupPage() {
         console.log('📄 Uploading documents for company:', companyId)
         
         // Upload all documents using hash-based deduplication (only new Files, not URL strings)
-        const uploadPromises = [];
+        const uploadResults: { type: string; url: string }[] = []
         
         if (formData.cacDocument && isFile(formData.cacDocument)) {
-          uploadPromises.push(uploadDocument(companyId, 'cac', formData.cacDocument));
+          console.log('📤 Uploading CAC document...')
+          const result = await uploadDocument(companyId, 'cac', formData.cacDocument)
+          uploadResults.push({ type: 'cac', url: result.data.file.secure_url })
         }
         if (formData.proofOfAddress && isFile(formData.proofOfAddress)) {
-          uploadPromises.push(uploadDocument(companyId, 'proof_of_address', formData.proofOfAddress));
+          console.log('📤 Uploading proof of address...')
+          const result = await uploadDocument(companyId, 'proof_of_address', formData.proofOfAddress)
+          uploadResults.push({ type: 'proofOfAddress', url: result.data.file.secure_url })
         }
         if (formData.companyPolicies && isFile(formData.companyPolicies)) {
-          uploadPromises.push(uploadDocument(companyId, 'company_policy', formData.companyPolicies));
+          console.log('📤 Uploading company policies...')
+          const result = await uploadDocument(companyId, 'company_policy', formData.companyPolicies)
+          uploadResults.push({ type: 'companyPolicies', url: result.data.file.secure_url })
         }
         
-        // Upload all documents in parallel
-        if (uploadPromises.length > 0) {
-          await Promise.all(uploadPromises);
-          toast.success('Documents uploaded successfully!');
+        // Update formData with uploaded URLs
+        if (uploadResults.length > 0) {
+          const updates: any = {}
+          uploadResults.forEach(({ type, url }) => {
+            if (type === 'cac') updates.cacDocument = url
+            if (type === 'proofOfAddress') updates.proofOfAddress = url
+            if (type === 'companyPolicies') updates.companyPolicies = url
+          })
+          setFormData(prev => ({ ...prev, ...updates }))
+          toast.success('Documents uploaded successfully!')
+          console.log('✅ All documents uploaded:', uploadResults)
         } else {
-          toast.success('Documents already uploaded!');
+          toast.success('Documents already uploaded!')
         }
       }
 
@@ -1094,6 +1111,7 @@ export default function CompanySetupPage() {
       // Get user data from secure context (httpOnly cookies)
       if (!currentUser) {
         console.warn('No user data available to save progress')
+        toast.error('Please log in to save progress')
         return
       }
       
@@ -1118,37 +1136,39 @@ export default function CompanySetupPage() {
           if (formData.ownerFirstName) currentStepNum = 3
           if (formData.cacDocument) currentStepNum = 4
 
-          // Prepare formData for saving (can't serialize File objects)
+          // Prepare formData for saving
+          // For File objects: we can't save them, but they'll be uploaded on "Continue"
+          // For URLs (strings): save them so they can be restored
           const formDataToSave = {
             ...formData,
-            // Save file metadata instead of File objects - store as string name only
+            // Save URLs as-is, ignore File objects (they need to be uploaded first)
             cacDocument: formData.cacDocument ? (
               isFile(formData.cacDocument) 
-                ? formData.cacDocument.name 
+                ? null // Don't save File objects - user needs to upload first
                 : typeof formData.cacDocument === 'string'
-                  ? formData.cacDocument
-                  : (formData.cacDocument as any)?.name || 'uploaded'
+                  ? formData.cacDocument // Save URL
+                  : null
             ) : null,
             proofOfAddress: formData.proofOfAddress ? (
               isFile(formData.proofOfAddress) 
-                ? formData.proofOfAddress.name 
+                ? null
                 : typeof formData.proofOfAddress === 'string'
                   ? formData.proofOfAddress
-                  : (formData.proofOfAddress as any)?.name || 'uploaded'
+                  : null
             ) : null,
             companyPolicies: formData.companyPolicies ? (
               isFile(formData.companyPolicies) 
-                ? formData.companyPolicies.name 
+                ? null
                 : typeof formData.companyPolicies === 'string'
                   ? formData.companyPolicies
-                  : (formData.companyPolicies as any)?.name || 'uploaded'
+                  : null
             ) : null,
             companyLogo: formData.companyLogo ? (
               isFile(formData.companyLogo) 
-                ? formData.companyLogo.name 
+                ? null
                 : typeof formData.companyLogo === 'string'
                   ? formData.companyLogo
-                  : (formData.companyLogo as any)?.name || 'uploaded'
+                  : null
             ) : null,
           }
 
@@ -1159,6 +1179,8 @@ export default function CompanySetupPage() {
             completedSteps: Array.from({ length: currentStepNum - 1 }, (_, i) => i + 1),
             formData: formDataToSave,
           })
+          
+          toast.success('Progress saved successfully!')
         } else {
           toast.info('Please fill in at least one field before saving')
         }
