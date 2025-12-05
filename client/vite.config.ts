@@ -52,8 +52,13 @@ export default defineConfig({
               }
             }
           }
-        ]
+        ],
+        // Don't skip waiting automatically - wait for user confirmation
+        skipWaiting: false,
+        clientsClaim: true
       },
+      // Inject custom service worker code
+      injectRegister: 'auto',
       devOptions: {
         enabled: true
       }
