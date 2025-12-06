@@ -67,7 +67,7 @@ export default function CompanySetupPage() {
   
   const [formData, setFormData] = useState({
     // Company details
-    companyLogo: null as File | { name: string; size: number; uploaded: boolean } | string | null,
+    companyLogo: null as File | { name: string; size: number; uploaded: boolean; url?: string } | string | null,
     companyName: '',
     tin: '',
     industry: '',
@@ -1027,21 +1027,40 @@ export default function CompanySetupPage() {
                   <p className="text-xs text-muted-foreground mb-2">Company logo</p>
                   <div className="flex items-center gap-3">
                     <div className="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border overflow-hidden">
-                      {getFileUrl(formData.companyLogo) ? (
-                        <img 
-                          src={getFileUrl(formData.companyLogo)!} 
-                          alt="Company Logo" 
-                          className="w-full h-full object-contain rounded-lg" 
-                        />
-                      ) : isFile(formData.companyLogo) ? (
-                        <img 
-                          src={URL.createObjectURL(formData.companyLogo)} 
-                          alt="Company Logo" 
-                          className="w-full h-full object-contain rounded-lg" 
-                        />
-                      ) : (
-                        <ImageIcon className="w-6 h-6 text-gray-400" />
-                      )}
+                      {(() => {
+                        // Handle File object
+                        if (isFile(formData.companyLogo)) {
+                          return (
+                            <img 
+                              src={URL.createObjectURL(formData.companyLogo)} 
+                              alt="Company Logo" 
+                              className="w-full h-full object-contain rounded-lg" 
+                            />
+                          )
+                        }
+                        // Handle string URL
+                        if (typeof formData.companyLogo === 'string') {
+                          return (
+                            <img 
+                              src={formData.companyLogo} 
+                              alt="Company Logo" 
+                              className="w-full h-full object-contain rounded-lg" 
+                            />
+                          )
+                        }
+                        // Handle object with url property
+                        if (typeof formData.companyLogo === 'object' && formData.companyLogo.url) {
+                          return (
+                            <img 
+                              src={formData.companyLogo.url} 
+                              alt="Company Logo" 
+                              className="w-full h-full object-contain rounded-lg" 
+                            />
+                          )
+                        }
+                        // Fallback icon
+                        return <ImageIcon className="w-6 h-6 text-gray-400" />
+                      })()}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-foreground">
@@ -1084,8 +1103,8 @@ export default function CompanySetupPage() {
                   <p className="text-sm font-medium text-foreground">{formData.website ? `http://${formData.website}` : '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Head office</p>
-                  <p className="text-sm font-medium text-foreground">{formData.headOffice || '-'}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Head office city</p>
+                  <p className="text-sm font-medium text-foreground">{formData.city || '-'}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-xs text-muted-foreground mb-1">Full address</p>

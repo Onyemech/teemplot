@@ -214,6 +214,21 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         }
       });
     } catch (error: any) {
+      // Handle database constraint errors with user-friendly messages
+      if (error.message?.includes('place_id') && error.message?.includes('unique constraint')) {
+        return reply.code(400).send({
+          success: false,
+          message: 'This address is already registered. Please select a different address or contact support if this is your business location.',
+        });
+      }
+      
+      if (error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Some information you provided is already in use. Please review your details and try again.',
+        });
+      }
+      
       return reply.code(400).send({
         success: false,
         message: error.message || 'Failed to save business information',
