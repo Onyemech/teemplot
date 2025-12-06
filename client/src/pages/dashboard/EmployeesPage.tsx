@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, Mail, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { UserPlus, Mail, Clock, CheckCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'

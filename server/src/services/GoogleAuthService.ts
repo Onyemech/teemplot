@@ -71,7 +71,7 @@ export class GoogleAuthService {
             avatar_url: googleUser.picture,
             company_id: existingUser.company_id,
             role: existingUser.role,
-          });
+          }).catch(err => logger.error({ err }, 'Background Supabase sync failed'));
         } else {
           // Just update last login
           await this.db.update(
@@ -145,7 +145,7 @@ export class GoogleAuthService {
         avatar_url: googleUser.picture,
         company_id: tempCompanyId,
         role: 'owner',
-      });
+      }).catch(err => logger.error({ err }, 'Background Supabase sync failed'));
 
       logger.info({ userId, email: googleUser.email }, 'New Google user created and synced to Supabase');
 
@@ -236,7 +236,7 @@ export class GoogleAuthService {
         company_id: oldCompanyId,
         role: user.role,
         onboarding_completed: true
-      });
+      }).catch(err => logger.error({ err }, 'Background Supabase sync failed'));
 
       logger.info({ userId, companyId: oldCompanyId }, 'Google user onboarding completed and synced to Supabase');
 

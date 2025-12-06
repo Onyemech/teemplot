@@ -154,48 +154,51 @@ export async function buildApp() {
     };
   });
 
-  // Routes
-  await app.register(authRoutes, { prefix: '/api/auth' });
+  // Routes - Use /api prefix for all routes
+  // This works for both development (localhost:5000/api/...) and production (api.teemplot.com/api/...)
+  const apiPrefix = '/api';
+  
+  await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
 
   // Import and register onboarding routes
   const { onboardingRoutes } = await import('./routes/onboarding.routes');
-  await app.register(onboardingRoutes, { prefix: '/api/onboarding' });
+  await app.register(onboardingRoutes, { prefix: `${apiPrefix}/onboarding` });
 
   // Import and register employees routes
   const { employeesRoutes } = await import('./routes/employees.routes');
-  await app.register(employeesRoutes, { prefix: '/api/employees' });
+  await app.register(employeesRoutes, { prefix: `${apiPrefix}/employees` });
 
   // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('./routes/employee-invitation.routes');
-  await app.register(employeeInvitationRoutes, { prefix: '/api/employee-invitations' });
+  await app.register(employeeInvitationRoutes, { prefix: `${apiPrefix}/employee-invitations` });
 
   // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
-  await app.register(superAdminRoutes, { prefix: '/api/superadmin' });
+  await app.register(superAdminRoutes, { prefix: `${apiPrefix}/superadmin` });
 
   // Import and register files routes
   const filesRoutes = await import('./routes/files.routes');
-  await app.register(filesRoutes.default, { prefix: '/api/files' });
+  await app.register(filesRoutes.default, { prefix: `${apiPrefix}/files` });
 
   // Import and register attendance routes
   const attendanceRoutes = await import('./routes/attendance.routes');
-  await app.register(attendanceRoutes.default, { prefix: '/api/attendance' });
+  await app.register(attendanceRoutes.default, { prefix: `${apiPrefix}/attendance` });
 
   // Import and register company settings routes
   const companySettingsRoutes = await import('./routes/company-settings.routes');
-  await app.register(companySettingsRoutes.default, { prefix: '/api/company-settings' });
+  await app.register(companySettingsRoutes.default, { prefix: `${apiPrefix}/company-settings` });
 
   // Import and register admin address audit routes
   const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');
-  await app.register(adminAddressAuditRoutes.default, { prefix: '/api/admin/address-audit' });
+  await app.register(adminAddressAuditRoutes.default, { prefix: `${apiPrefix}/admin/address-audit` });
 
   // Import and register dashboard routes
   const dashboardRoutes = await import('./routes/dashboard.routes');
-  await app.register(dashboardRoutes.default, { prefix: '/api/dashboard' });
+  await app.register(dashboardRoutes.default, { prefix: `${apiPrefix}/dashboard` });
 
   // Import and register company routes
   const { companyRoutes } = await import('./routes/company.routes');
-  await app.register(companyRoutes, { prefix: '/api/company' });
+  await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

@@ -41,13 +41,11 @@ async function buildServerlessApp() {
         'http://localhost:3000',
       ];
       
-      // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) {
         callback(null, true);
         return;
       }
 
-      // Check if origin is allowed
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -59,7 +57,7 @@ async function buildServerlessApp() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 86400, // 24 hours
+    maxAge: 86400,
   });
 
   await fastify.register(helmet, {
@@ -122,6 +120,10 @@ async function buildServerlessApp() {
   await fastify.register(companyRoutes, { prefix: '/api/company' });
   await fastify.register(filesRoutes, { prefix: '/api/files' });
   await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
+  
+  // Import and register employee invitation routes
+  const { employeeInvitationRoutes } = await import('../src/routes/employee-invitation.routes');
+  await fastify.register(employeeInvitationRoutes, { prefix: '/api/employee-invitations' });
 
   // Debug route to list all routes
   fastify.get('/api/debug/routes', async () => {
