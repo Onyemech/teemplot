@@ -53,8 +53,12 @@ apiClient.interceptors.response.use(
         // Retry original request
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, redirect to login
-        if (!window.location.pathname.includes('/login')) {
+        // Refresh failed - only redirect if on protected routes
+        const publicRoutes = ['/', '/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/accept-invitation', '/auth/callback'];
+        const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith('/onboarding'));
+        
+        // Don't redirect if we're already on a public page
+        if (!isPublicRoute && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
