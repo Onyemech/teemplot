@@ -18,6 +18,14 @@ async function start() {
     logger.info(`🗄️  Database: PostgreSQL (Supabase)`);
     logger.info(`🔐 Security: Enabled`);
     logger.info(`📝 API Docs: http://${HOST}:${PORT}/health`);
+    
+    // Cookie configuration logging
+    const isProduction = process.env.NODE_ENV === 'production';
+    logger.info(`🍪 Cookie Settings:`);
+    logger.info(`   - Domain: ${isProduction ? '.teemplot.com' : 'localhost (no domain)'}`);
+    logger.info(`   - SameSite: lax`);
+    logger.info(`   - Secure: ${isProduction}`);
+    logger.info(`   - HttpOnly: true`);
   } catch (error: any) {
     logger.error('Failed to start server');
     console.error('FULL ERROR:', error);

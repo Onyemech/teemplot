@@ -22,10 +22,19 @@ export function setAuthCookies(
   const cookieOptions = {
     httpOnly: true, 
     secure: isProduction, 
-    sameSite: isProduction ? ('none' as const) : ('lax' as const), 
-    domain: isProduction ? '.teemplot.com' : undefined, 
+    sameSite: 'lax' as const, // 'lax' works for same-site subdomains (teemplot.com <-> api.teemplot.com)
+    domain: isProduction ? '.teemplot.com' : undefined, // Leading dot = shared across all subdomains
     path: '/',
   };
+
+  // Log cookie settings for debugging
+  console.log('🍪 Setting auth cookies:', {
+    domain: cookieOptions.domain || 'localhost',
+    sameSite: cookieOptions.sameSite,
+    secure: cookieOptions.secure,
+    httpOnly: cookieOptions.httpOnly,
+    isProduction
+  });
 
   reply.cookie('accessToken', accessToken, {
     ...cookieOptions,
