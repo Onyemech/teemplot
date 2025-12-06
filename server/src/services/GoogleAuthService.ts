@@ -42,9 +42,12 @@ export class GoogleAuthService {
     requiresOnboarding: boolean;
   }> {
     try {
-      // Check if user exists in local database
+      // Normalize email to lowercase and trim whitespace to prevent duplicates
+      const normalizedEmail = googleUser.email.toLowerCase().trim();
+      
+      // Check if user exists in local database (case-insensitive)
       const existingUser = await this.db.findOne('users', { 
-        email: googleUser.email 
+        email: normalizedEmail 
       });
 
       if (existingUser) {
@@ -63,7 +66,7 @@ export class GoogleAuthService {
           );
           
           // Sync to Supabase (fire-and-forget - don't block login)
-          this.syncToSupabase(existingUser.email, {
+          this.syncToSupabase(normalizedEmail, {
             id: existingUser.id,
             first_name: existingUser.first_name,
             last_name: existingUser.last_name,
@@ -105,7 +108,7 @@ export class GoogleAuthService {
         id: tempCompanyId,
         name: 'Pending Onboarding',
         slug: `temp-${userId.substring(0, 8)}`,
-        email: googleUser.email,
+        email: normalizedEmail,
         subscription_plan: 'trial',
         subscription_status: 'pending',
         is_active: 0, // Inactive until onboarding completes
@@ -120,7 +123,7 @@ export class GoogleAuthService {
       const newUser = {
         id: userId,
         company_id: tempCompanyId,
-        email: googleUser.email,
+        email: normalizedEmail,
         password_hash: null, // No password for Google auth users
         first_name: googleUser.given_name || googleUser.name.split(' ')[0] || 'User',
         last_name: googleUser.family_name || googleUser.name.split(' ').slice(1).join(' ') || 'Account',
@@ -137,7 +140,7 @@ export class GoogleAuthService {
       await this.db.insert('users', newUser);
 
       // Sync to Supabase public.users (fire-and-forget - don't block login)
-      this.syncToSupabase(googleUser.email, {
+      this.syncToSupabase(normalizedEmail, {
         id: userId,
         first_name: newUser.first_name,
         last_name: newUser.last_name,
@@ -147,7 +150,7 @@ export class GoogleAuthService {
         role: 'owner',
       }).catch(err => logger.error({ err }, 'Background Supabase sync failed'));
 
-      logger.info({ userId, email: googleUser.email }, 'New Google user created and synced to Supabase');
+      logger.info({ userId, email: normalizedEmail }, 'New Google user created and synced to Supabase');
 
       return {
         user: newUser,
