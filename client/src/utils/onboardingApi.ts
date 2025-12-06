@@ -1,4 +1,3 @@
-import { authFetch } from './authInterceptor';
 import { requestDeduplicator } from './requestDeduplication';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -126,7 +125,7 @@ export const submitBusinessInfo = async (data: {
         headers['Authorization'] = `Bearer ${token}`
       }
       
-      const response = await authFetch(`${API_URL}/onboarding/business-info`, {
+      const response = await fetch(`${API_URL}/onboarding/business-info`, {
         method: 'POST',
         headers,
         credentials: 'include',

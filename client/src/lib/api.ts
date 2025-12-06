@@ -43,32 +43,49 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // If 401 and haven't tried refresh yet
+    // Only handle 401 on PROTECTED routes
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
-      // Check if we're on a public route BEFORE trying to refresh
-      const publicRoutes = ['/', '/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/accept-invitation'];
-      const currentPath = window.location.pathname;
-      const isPublicRoute = publicRoutes.includes(currentPath) || 
-                           currentPath.startsWith('/onboarding') || 
-                           currentPath.startsWith('/auth/');
+      // Define public paths that should NEVER trigger redirect
+      const publicPaths = [
+        '/',
+        '/login',
+        '/signup',
+        '/register',
+        '/forgot-password',
+        '/reset-password',
+        '/privacy',
+        '/terms',
+        '/about',
+        '/pricing',
+        '/contact',
+        '/accept-invitation',
+      ];
       
-      // If on public route, don't try to refresh or redirect - just fail silently
-      if (isPublicRoute) {
-        return Promise.reject(error);
+      const currentPath = window.location.pathname;
+      
+      const isPublicPath = publicPaths.some(path => 
+        currentPath === path || currentPath.startsWith(path + '/')
+      );
+      
+      // Also allow all /onboarding/* and /auth/* paths
+      const isOnboarding = currentPath.startsWith('/onboarding');
+      const isAuthCallback = currentPath.startsWith('/auth/');
+      
+      // If we're on a public page or onboarding, DO NOT redirect or refresh token
+      if (isPublicPath || isOnboarding || isAuthCallback) {
+        return Promise.reject(error); // Just fail silently
       }
       
-      // Only try refresh on protected routes
+      // Only for PROTECTED pages (like /dashboard, /settings, etc.)
       try {
-        // Try to refresh token
         await axios.post(`${env.apiUrl}/auth/refresh`, {}, { withCredentials: true });
-        // Retry original request
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - redirect to login only if not already there
+        // Only redirect if we're NOT already on login and it's a protected page
         if (!currentPath.includes('/login')) {
-          window.location.href = '/login';
+          window.location.href = '/login?redirect=' + encodeURIComponent(currentPath);
         }
         return Promise.reject(refreshError);
       }
