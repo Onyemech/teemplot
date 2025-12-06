@@ -47,18 +47,27 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
+      // Check if we're on a public route BEFORE trying to refresh
+      const publicRoutes = ['/', '/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/accept-invitation'];
+      const currentPath = window.location.pathname;
+      const isPublicRoute = publicRoutes.includes(currentPath) || 
+                           currentPath.startsWith('/onboarding') || 
+                           currentPath.startsWith('/auth/');
+      
+      // If on public route, don't try to refresh or redirect - just fail silently
+      if (isPublicRoute) {
+        return Promise.reject(error);
+      }
+      
+      // Only try refresh on protected routes
       try {
         // Try to refresh token
         await axios.post(`${env.apiUrl}/auth/refresh`, {}, { withCredentials: true });
         // Retry original request
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - only redirect if on protected routes
-        const publicRoutes = ['/', '/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/accept-invitation', '/auth/callback'];
-        const isPublicRoute = publicRoutes.some(route => window.location.pathname === route || window.location.pathname.startsWith('/onboarding'));
-        
-        // Don't redirect if we're already on a public page
-        if (!isPublicRoute && !window.location.pathname.includes('/login')) {
+        // Refresh failed - redirect to login only if not already there
+        if (!currentPath.includes('/login')) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
