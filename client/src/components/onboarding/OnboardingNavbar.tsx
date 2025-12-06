@@ -65,75 +65,47 @@ export default function OnboardingNavbar({
       // Call the onSave callback if provided (this saves current form data to database)
       if (onSave) {
         await onSave()
-        toast.success('Progress saved! You can continue later.')
-      } else {
-        // Try to save progress via API (cookies will handle auth)
-        try {
-          // Get user data from localStorage to include in request body
-          let userId = null
-          let companyId = null
-          
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            const user = JSON.parse(userStr)
-            userId = user.id
-            companyId = user.companyId || user.company_id
-          }
-          
-          // If we have userId, try to save progress
-          if (userId) {
-            const response = await fetch(`${API_URL}/onboarding/save-progress`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include', // Use httpOnly cookies for auth
-              body: JSON.stringify({
-                userId,
-                companyId: companyId || null,
-                currentStep: currentStep || 1,
-                completedSteps: [],
-                formData: {}
-              }),
-            })
-
-            if (response.ok) {
-              toast.success('Progress saved! You can continue later.')
-            } else {
-              // If save fails, just show a gentle message and continue
-              const result = await response.json().catch(() => ({}))
-              if (result.message?.includes('Unauthorized') || result.message?.includes('authenticate')) {
-                // Auth issue - just navigate away without error
-                toast.info('Redirecting to home...')
-              } else {
-                toast.warning('Could not save progress, but you can continue later.')
-              }
-            }
-          } else {
-            // No user data - just navigate away
-            toast.info('Redirecting to home...')
-          }
-        } catch (error: any) {
-          // Network or other error - just show gentle message
-          if (import.meta.env.MODE === 'development') {
-            console.error('Save error:', error)
-          }
-          toast.info('Redirecting to home...')
-        }
       }
+
+      // CRITICAL: Clear all session data to prevent data leakage
+      // Clear localStorage
+      localStorage.removeItem('user')
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('onboarding_progress')
+      
+      // Clear sessionStorage
+      sessionStorage.removeItem('onboarding_auth')
+      sessionStorage.clear()
+      
+      // Clear cookies by calling logout endpoint
+      try {
+        await fetch(`${API_URL}/api/auth/logout`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+      } catch (e) {
+        // Ignore logout errors - we're clearing client-side anyway
+      }
+
+      toast.success('Progress saved! You can log in later to continue.')
 
       // Wait a moment for toast to show, then navigate
       setTimeout(() => {
-        navigate('/')
+        // Force reload to clear any in-memory state
+        window.location.href = '/'
       }, 1000)
     } catch (error: any) {
       if (import.meta.env.MODE === 'development') {
         console.error('Save and exit error:', error)
       }
-      // Even if there's an error, still navigate away
+      
+      // Even if there's an error, STILL clear session data (security critical)
+      localStorage.clear()
+      sessionStorage.clear()
+      
       toast.info('Redirecting to home...')
       setTimeout(() => {
-        navigate('/')
+        window.location.href = '/'
       }, 1000)
     } finally {
       setSaving(false)
@@ -199,9 +171,15 @@ export default function OnboardingNavbar({
           </div>
 
           {/* Right side - Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* Help & Support Dropdown */}
             <div className="relative group">
+              {/* Mobile: Icon only */}
+              <button className="sm:hidden flex items-center justify-center w-9 h-9 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                <HelpCircle className="w-5 h-5" />
+              </button>
+              
+              {/* Desktop: Icon + Text */}
               <button className="hidden sm:flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors">
                 <HelpCircle className="w-4 h-4" />
                 <span>Help & support</span>

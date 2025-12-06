@@ -24,6 +24,8 @@ export default function CompanySetupPage() {
   const toast = useToast()
   const [currentStep, setCurrentStep] = useState<Step>('details')
   const [loading, setLoading] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState(false)
+  const [progressMessage, setProgressMessage] = useState('')
   const [error, setError] = useState('')
   
   // Helper to check if value is a File object
@@ -144,6 +146,10 @@ export default function CompanySetupPage() {
       console.log('🆔 User ID for progress fetch:', userId)
 
       if (userId) {
+        // Show loading state
+        setLoadingProgress(true)
+        setProgressMessage('Fetching your saved progress...')
+        
         // Wait a moment for authentication cookie to be available
         await new Promise(resolve => setTimeout(resolve, 200))
         
@@ -181,9 +187,18 @@ export default function CompanySetupPage() {
           }))
           
           console.log('✅ Progress loaded and form populated with file URLs')
+          setProgressMessage('Data loaded successfully!')
+          setTimeout(() => {
+            setLoadingProgress(false)
+            setProgressMessage('')
+          }, 1500)
         } else {
           console.log('ℹ️ No saved progress found')
+          setLoadingProgress(false)
+          setProgressMessage('')
         }
+      } else {
+        setLoadingProgress(false)
       }
     }
     loadProgress()
@@ -627,10 +642,10 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading || !isStepValid('details')}
+              disabled={loading || loadingProgress || !isStepValid('details')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : 'Continue'}
+              {loading ? 'Saving...' : loadingProgress ? 'Loading...' : 'Continue'}
             </button>
           </div>
         )
@@ -756,10 +771,10 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading || !isStepValid('owner')}
+              disabled={loading || loadingProgress || !isStepValid('owner')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : 'Continue'}
+              {loading ? 'Saving...' : loadingProgress ? 'Loading...' : 'Continue'}
             </button>
           </div>
         )
@@ -979,7 +994,7 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading || !isStepValid('documents')}
+              disabled={loading || loadingProgress || !isStepValid('documents')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Uploading...' : 'Continue'}
@@ -1370,6 +1385,18 @@ export default function CompanySetupPage() {
         onSave={handleSaveProgress}
         onBack={handleBack}
       />
+
+      {/* Loading Progress Banner */}
+      {loadingProgress && progressMessage && (
+        <div className="bg-gray-100 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-2">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+              <span>{progressMessage}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-8">
