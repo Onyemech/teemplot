@@ -12,6 +12,20 @@ export const apiClient = axios.create({
 
 // No need for Authorization header - cookies are sent automatically
 
+// Request interceptor to normalize URLs with duplicate '/api/api' prefix
+apiClient.interceptors.request.use(
+  (config) => {
+    if (config.url && config.url.startsWith('/api/api/')) {
+      config.url = config.url.replace('/api/api/', '/api/')
+      if (import.meta.env.DEV) {
+        console.warn(`[API] Normalized duplicate prefix: ${config.url}`)
+      }
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
