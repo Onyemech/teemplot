@@ -31,7 +31,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch(`${env.apiUrl}/auth/me`, {
+      const response = await fetch(`${env.apiUrl}/api/auth/me`, {
         credentials: 'include', // Send httpOnly cookies
       });
 
