@@ -31,7 +31,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const response = await apiClient.get('/api/auth/me');
+      const response = await apiClient.get('/auth/me');
 
       if (response.data.success) {
         setUser(response.data.data);

@@ -12,15 +12,27 @@ export const apiClient = axios.create({
 
 // No need for Authorization header - cookies are sent automatically
 
-// Request interceptor to normalize URLs with duplicate '/api/api' prefix
+// Request interceptor to handle API prefix based on environment
 apiClient.interceptors.request.use(
   (config) => {
-    if (config.url && config.url.startsWith('/api/api/')) {
-      config.url = config.url.replace('/api/api/', '/api/')
+    // If baseURL is an API subdomain (api.teemplot.com), don't add /api prefix
+    // The subdomain routing handles it
+    const isApiSubdomain = config.baseURL?.includes('api.teemplot.com')
+    
+    if (isApiSubdomain && config.url?.startsWith('/api/')) {
+      // Remove /api prefix for API subdomain
+      config.url = config.url.replace(/^\/api/, '')
       if (import.meta.env.DEV) {
-        console.warn(`[API] Normalized duplicate prefix: ${config.url}`)
+        console.warn(`[API] Removed /api prefix for subdomain: ${config.url}`)
+      }
+    } else if (!isApiSubdomain && config.url && !config.url.startsWith('/api/')) {
+      // Add /api prefix for non-subdomain (localhost)
+      config.url = `/api${config.url}`
+      if (import.meta.env.DEV) {
+        console.warn(`[API] Added /api prefix for localhost: ${config.url}`)
       }
     }
+    
     return config
   },
   (error) => Promise.reject(error)
