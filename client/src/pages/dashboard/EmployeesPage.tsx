@@ -80,42 +80,85 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="h-full bg-gray-50 p-6">
+    <div className="h-full bg-gray-50 p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
-          <p className="text-gray-600 mt-1">Manage your employees and invitations</p>
+          <h1 className="text-3xl font-bold text-gray-900">Team Management</h1>
+          <p className="text-gray-600 mt-2">Manage your employees and invitations</p>
         </div>
         
         <button
           onClick={() => setShowInviteModal(true)}
-          className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
         >
           <UserPlus className="w-5 h-5" />
           Invite Employee
         </button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg border border-gray-100 p-6 transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Employees</p>
+              <p className="text-3xl font-bold text-primary mt-2">{employees.length}</p>
+            </div>
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-4 rounded-xl">
+              <UserPlus className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg border border-gray-100 p-6 transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Employees</p>
+              <p className="text-3xl font-bold text-success mt-2">
+                {employees.filter(e => e.status === 'active').length}
+              </p>
+            </div>
+            <div className="bg-gradient-to-br from-success/10 to-success/5 p-4 rounded-xl">
+              <CheckCircle className="h-8 w-8 text-success" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg border border-gray-100 p-6 transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending Invitations</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {invitations.filter(i => i.status === 'pending').length}
+              </p>
+            </div>
+            <div className="bg-gradient-to-br from-gray-100 to-gray-50 p-4 rounded-xl">
+              <Mail className="h-8 w-8 text-gray-700" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+      <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-6">
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('employees')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-all duration-300 rounded-tl-xl ${
               activeTab === 'employees'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
             Employees ({employees.length})
           </button>
           <button
             onClick={() => setActiveTab('invitations')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+            className={`flex-1 px-6 py-4 text-sm font-semibold transition-all duration-300 rounded-tr-xl ${
               activeTab === 'invitations'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
             Pending Invitations ({invitations.filter(i => i.status === 'pending').length})
@@ -133,7 +176,7 @@ export default function EmployeesPage() {
                   <p className="text-gray-500 mb-6">Start building your team by inviting employees</p>
                   <button
                     onClick={() => setShowInviteModal(true)}
-                    className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-medium inline-flex items-center gap-2 transition-colors"
+                    className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
                   >
                     <UserPlus className="w-5 h-5" />
                     Invite Your First Employee
@@ -144,7 +187,7 @@ export default function EmployeesPage() {
                   {employees.map((employee) => (
                     <div
                       key={employee.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                      className="flex items-center justify-between p-5 bg-white rounded-xl border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all duration-300"
                     >
                       <div className="flex items-center gap-4">
                         {employee.avatar ? (
@@ -154,8 +197,8 @@ export default function EmployeesPage() {
                             className="w-12 h-12 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                            <span className="text-white font-medium text-lg">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm">
+                            <span className="text-white font-semibold text-lg">
                               {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                             </span>
                           </div>
@@ -176,10 +219,10 @@ export default function EmployeesPage() {
                           </div>
                         </div>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-4 py-2 rounded-xl text-xs font-semibold shadow-sm ${
                         employee.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-700'
+                          ? 'bg-gradient-to-r from-success/10 to-success/20 text-success border border-success/20'
+                          : 'bg-gray-100 text-gray-700 border border-gray-200'
                       }`}>
                         {employee.status}
                       </span>
@@ -190,7 +233,7 @@ export default function EmployeesPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {invitations.length === 0 ? (
+              {invitations.filter(i => i.status === 'pending').length === 0 ? (
                 <div className="text-center py-12">
                   <Mail className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No pending invitations</h3>
@@ -198,14 +241,14 @@ export default function EmployeesPage() {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {invitations.map((invitation) => (
+                  {invitations.filter(i => i.status === 'pending').map((invitation) => (
                     <div
                       key={invitation.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between p-5 bg-white rounded-xl border border-gray-200 hover:border-accent/30 hover:shadow-md transition-all duration-300"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Mail className="w-6 h-6 text-gray-500" />
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center shadow-sm">
+                          <Mail className="w-6 h-6 text-gray-600" />
                         </div>
                         <div>
                           <h3 className="font-medium text-gray-900">
@@ -229,32 +272,10 @@ export default function EmployeesPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {invitation.status === 'pending' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Pending
-                          </span>
-                        )}
-                        {invitation.status === 'accepted' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            Accepted
-                          </span>
-                        )}
-                        {invitation.status === 'expired' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 flex items-center gap-1">
-                            <XCircle className="w-3 h-3" />
-                            Expired
-                          </span>
-                        )}
-                        {invitation.status === 'expired' && (
-                          <button
-                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="Resend invitation"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                        )}
+                        <span className="px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border border-gray-300 flex items-center gap-1 shadow-sm">
+                          <Clock className="w-3 h-3" />
+                          Pending
+                        </span>
                       </div>
                     </div>
                   ))}
