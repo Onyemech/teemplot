@@ -111,96 +111,144 @@ class FileUploadService {
   }
 
   /**
-   * Upload file to Cloudinary using hash as public_id
+   * Upload file to Cloudinary using hash as public_id with retry logic
    */
   async uploadToCloudinary(request: FileUploadRequest): Promise<FileUploadResponse> {
-    try {
-      // Determine resource type based on MIME type
-      const resourceType = request.resourceType || this.getResourceType(request.mimeType);
-      
-      // Upload to Cloudinary with hash as public_id
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            public_id: request.hash,
-            resource_type: resourceType,
-            overwrite: false, // Don't overwrite if exists
-            unique_filename: false, // Use our hash as-is
-            folder: 'company-documents', // Organize in folder
-            tags: ['company-document', request.mimeType.split('/')[0]]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
+    const maxRetries = 3;
+    let lastError: any;
 
-        uploadStream.end(request.buffer);
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info({ hash: request.hash.substring(0, 8), attempt }, 'Attempting to upload file to Cloudinary');
 
-      // Save file metadata to database
-      const result = await query(
-        `INSERT INTO files (
-          hash, public_id, url, secure_url, file_size, mime_type,
-          original_filename, resource_type, format, uploaded_by, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
-        RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
-        [
-          request.hash,
-          uploadResult.public_id,
-          uploadResult.url,
-          uploadResult.secure_url,
-          request.buffer.length,
-          request.mimeType,
-          request.filename,
-          uploadResult.resource_type,
-          uploadResult.format,
-          request.uploadedBy
-        ]
-      );
+        // Determine resource type based on MIME type
+        const resourceType = request.resourceType || this.getResourceType(request.mimeType);
+        
+        // Upload to Cloudinary with hash as public_id
+        const uploadResult = await new Promise<any>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              public_id: request.hash,
+              resource_type: resourceType,
+              overwrite: false, // Don't overwrite if exists
+              unique_filename: false, // Use our hash as-is
+              folder: 'company-documents', // Organize in folder
+              tags: ['company-document', request.mimeType.split('/')[0]],
+              timeout: 60000 // 60 second timeout
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
 
-      const file = result.rows[0];
-
-      logger.info({
-        fileId: file.id,
-        hash: request.hash,
-        publicId: uploadResult.public_id,
-        size: request.buffer.length
-      }, 'File uploaded successfully to Cloudinary');
-
-      return {
-        success: true,
-        file: {
-          id: file.id,
-          hash: file.hash,
-          public_id: file.public_id,
-          url: file.url,
-          secure_url: file.secure_url,
-          file_size: file.file_size,
-          mime_type: file.mime_type
-        }
-      };
-    } catch (error: any) {
-      logger.error({ err: error, hash: request.hash }, 'Error uploading file to Cloudinary');
-      
-      // If it's a duplicate error from Cloudinary, try to fetch existing file
-      if (error.message?.includes('already exists')) {
-        const existingFile = await this.checkFileExists({
-          hash: request.hash,
-          filename: request.filename,
-          size: request.buffer.length,
-          mimeType: request.mimeType
+          uploadStream.end(request.buffer);
         });
 
-        if (existingFile.exists && existingFile.file) {
-          return {
-            success: true,
-            file: existingFile.file
-          };
-        }
-      }
+        // Save file metadata to database
+        const result = await query(
+          `INSERT INTO files (
+            hash, public_id, url, secure_url, file_size, mime_type,
+            original_filename, resource_type, format, uploaded_by, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+          RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
+          [
+            request.hash,
+            uploadResult.public_id,
+            uploadResult.url,
+            uploadResult.secure_url,
+            request.buffer.length,
+            request.mimeType,
+            request.filename,
+            uploadResult.resource_type,
+            uploadResult.format,
+            request.uploadedBy
+          ]
+        );
 
-      throw new Error('Failed to upload file to Cloudinary');
+        const file = result.rows[0];
+
+        logger.info({
+          fileId: file.id,
+          hash: request.hash,
+          publicId: uploadResult.public_id,
+          size: request.buffer.length,
+          attempt
+        }, 'File uploaded successfully to Cloudinary');
+
+        return {
+          success: true,
+          file: {
+            id: file.id,
+            hash: file.hash,
+            public_id: file.public_id,
+            url: file.url,
+            secure_url: file.secure_url,
+            file_size: file.file_size,
+            mime_type: file.mime_type
+          }
+        };
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a network/DNS error
+        const isNetworkError = error.code === 'EAI_AGAIN' || 
+                              error.code === 'ENOTFOUND' || 
+                              error.code === 'ETIMEDOUT' ||
+                              error.code === 'ECONNREFUSED';
+
+        logger.warn({ 
+          err: error, 
+          hash: request.hash.substring(0, 8), 
+          attempt,
+          isNetworkError,
+          willRetry: attempt < maxRetries
+        }, `File upload attempt ${attempt} failed`);
+
+        // If it's a network error and we have retries left, wait and retry
+        if (isNetworkError && attempt < maxRetries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          logger.info({ delay, attempt }, 'Waiting before retry');
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // If it's a duplicate error from Cloudinary, try to fetch existing file
+        if (error.message?.includes('already exists')) {
+          const existingFile = await this.checkFileExists({
+            hash: request.hash,
+            filename: request.filename,
+            size: request.buffer.length,
+            mimeType: request.mimeType
+          });
+
+          if (existingFile.exists && existingFile.file) {
+            return {
+              success: true,
+              file: existingFile.file
+            };
+          }
+        }
+
+        // If not a network error or out of retries, break
+        break;
+      }
+    }
+
+    // All retries failed
+    logger.error({ 
+      err: lastError, 
+      hash: request.hash.substring(0, 8),
+      attempts: maxRetries 
+    }, 'Failed to upload file after all retries');
+
+    // Provide user-friendly error message
+    if (lastError.code === 'EAI_AGAIN' || lastError.code === 'ENOTFOUND') {
+      throw new Error('Unable to connect to file storage service. Please check your internet connection and try again.');
+    } else if (lastError.code === 'ETIMEDOUT') {
+      throw new Error('File upload timed out. Please try again with a smaller file or check your internet connection.');
+    } else {
+      throw new Error('Failed to upload file. Please try again.');
     }
   }
 
@@ -368,50 +416,99 @@ class FileUploadService {
   }
 
   /**
-   * Upload company logo
+   * Upload company logo with retry logic
    */
   async uploadLogo(
     buffer: Buffer,
     companyId: string,
     metadata: { filename: string; mimeType: string; uploadedBy: string }
   ): Promise<{ url: string; secureUrl: string; publicId: string }> {
-    try {
-      // Upload to Cloudinary
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: 'company-logos',
-            resource_type: 'image',
-            transformation: [
-              { width: 500, height: 500, crop: 'limit' },
-              { quality: 'auto' },
-              { fetch_format: 'auto' }
-            ],
-            tags: ['company-logo', companyId]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
+    const maxRetries = 3;
+    let lastError: any;
 
-        uploadStream.end(buffer);
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info({ companyId, attempt }, 'Attempting to upload logo to Cloudinary');
 
-      logger.info({
-        companyId,
-        publicId: uploadResult.public_id,
-        size: buffer.length
-      }, 'Company logo uploaded successfully');
+        // Upload to Cloudinary
+        const uploadResult = await new Promise<any>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'company-logos',
+              resource_type: 'image',
+              transformation: [
+                { width: 500, height: 500, crop: 'limit' },
+                { quality: 'auto' },
+                { fetch_format: 'auto' }
+              ],
+              tags: ['company-logo', companyId],
+              timeout: 60000 // 60 second timeout
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
 
-      return {
-        url: uploadResult.url,
-        secureUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id
-      };
-    } catch (error: any) {
-      logger.error({ err: error, companyId }, 'Error uploading company logo');
-      throw new Error('Failed to upload company logo');
+          uploadStream.end(buffer);
+        });
+
+        logger.info({
+          companyId,
+          publicId: uploadResult.public_id,
+          size: buffer.length,
+          attempt
+        }, 'Company logo uploaded successfully');
+
+        return {
+          url: uploadResult.url,
+          secureUrl: uploadResult.secure_url,
+          publicId: uploadResult.public_id
+        };
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a network/DNS error
+        const isNetworkError = error.code === 'EAI_AGAIN' || 
+                              error.code === 'ENOTFOUND' || 
+                              error.code === 'ETIMEDOUT' ||
+                              error.code === 'ECONNREFUSED';
+
+        logger.warn({ 
+          err: error, 
+          companyId, 
+          attempt,
+          isNetworkError,
+          willRetry: attempt < maxRetries
+        }, `Logo upload attempt ${attempt} failed`);
+
+        // If it's a network error and we have retries left, wait and retry
+        if (isNetworkError && attempt < maxRetries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          logger.info({ delay, attempt }, 'Waiting before retry');
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // If not a network error or out of retries, throw
+        break;
+      }
+    }
+
+    // All retries failed
+    logger.error({ 
+      err: lastError, 
+      companyId,
+      attempts: maxRetries 
+    }, 'Failed to upload company logo after all retries');
+
+    // Provide user-friendly error message
+    if (lastError.code === 'EAI_AGAIN' || lastError.code === 'ENOTFOUND') {
+      throw new Error('Unable to connect to file storage service. Please check your internet connection and try again.');
+    } else if (lastError.code === 'ETIMEDOUT') {
+      throw new Error('File upload timed out. Please try again with a smaller file or check your internet connection.');
+    } else {
+      throw new Error('Failed to upload company logo. Please try again.');
     }
   }
 

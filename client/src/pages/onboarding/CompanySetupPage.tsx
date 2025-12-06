@@ -13,7 +13,6 @@ import {
   submitBusinessInfo,
   submitOwnerDetails,
   uploadLogo,
-  uploadDocument
 } from '@/utils/onboardingApi'
 
 type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
@@ -31,6 +30,39 @@ export default function CompanySetupPage() {
   const isFile = (value: any): value is File => {
     return value instanceof File
   }
+  
+  // Simplified helper to get filename from various formats
+  const getFileName = (doc: any): string => {
+    if (!doc) return ''
+    if (isFile(doc)) return doc.name
+    if (typeof doc === 'object' && (doc.filename || doc.name)) {
+      return doc.filename || doc.name
+    }
+    if (typeof doc === 'string') {
+      // Extract filename from URL
+      const parts = doc.split('/')
+      const filename = parts[parts.length - 1]
+      return decodeURIComponent(filename) || 'Uploaded document'
+    }
+    return 'Uploaded document'
+  }
+  
+  // Helper to get file URL
+  const getFileUrl = (doc: any): string | null => {
+    if (!doc) return null
+    if (typeof doc === 'string') return doc
+    if (typeof doc === 'object' && doc.url) return doc.url
+    return null
+  }
+  
+  // Helper to get file size
+  const getFileSize = (doc: any): number => {
+    if (!doc) return 0
+    if (isFile(doc)) return doc.size
+    if (typeof doc === 'object' && doc.size) return doc.size
+    return 0
+  }
+  
   const [formData, setFormData] = useState({
     // Company details
     companyLogo: null as File | { name: string; size: number; uploaded: boolean } | string | null,
@@ -116,18 +148,17 @@ export default function CompanySetupPage() {
         if (progress && progress.formData) {
           console.log('📥 Loading saved progress:', progress)
           
-          // Process document fields - keep URLs as strings for display
-          // The backend now returns actual Cloudinary URLs instead of just filenames
+          // Process document fields - preserve object structure with filename and URL
           const processDoc = (doc: any) => {
             if (!doc) return null
             // If it's already a File object, keep it
             if (doc instanceof File) return doc
-            // If it's a string (URL from Cloudinary or filename), keep it
-            if (typeof doc === 'string') return doc
-            // If it's an object with metadata, extract the URL or name
-            if (typeof doc === 'object') {
-              return doc.url || doc.secure_url || doc.name || null
+            // If it's an object with metadata (from backend), keep the whole object
+            if (typeof doc === 'object' && (doc.filename || doc.name || doc.url)) {
+              return doc
             }
+            // If it's a string (URL), keep it as fallback
+            if (typeof doc === 'string') return doc
             return null
           }
           
@@ -154,12 +185,61 @@ export default function CompanySetupPage() {
     loadProgress()
   }, [currentUser, getProgress])
 
+  // Validation helper for each step
+  const isStepValid = (step: Step): boolean => {
+    switch (step) {
+      case 'details':
+        return !!(
+          formData.companyName &&
+          formData.tin &&
+          formData.industry &&
+          (formData.industry !== 'other' || formData.customIndustry) &&
+          formData.companySize &&
+          formData.address &&
+          formData.latitude &&
+          formData.longitude
+        )
+      case 'owner':
+        return !!(
+          formData.ownerFirstName &&
+          formData.ownerLastName &&
+          formData.ownerPhone &&
+          formData.ownerDOB &&
+          (formData.isOwner || formData.ownerEmail)
+        )
+      case 'documents':
+        return !!(
+          formData.cacDocument &&
+          formData.proofOfAddress &&
+          formData.companyPolicies
+        )
+      case 'review':
+        return true // Review step is always valid if reached
+      case 'payment':
+        return true // Payment step handled separately
+      default:
+        return false
+    }
+  }
+
   const handleNext = async () => {
     console.log('🟢 handleNext called')
     setLoading(true)
     setError('')
 
     try {
+      // Validate current step before proceeding
+      if (!isStepValid(currentStep)) {
+        const errorMessages: Record<Step, string> = {
+          details: 'Please fill in all required company details',
+          owner: 'Please fill in all required owner details',
+          documents: 'Please upload all required documents',
+          review: '',
+          payment: ''
+        }
+        throw new Error(errorMessages[currentStep])
+      }
+
       // Get user data from secure context (httpOnly cookies)
       if (!currentUser) {
         throw new Error('Not authenticated. Please log in again.')
@@ -229,36 +309,56 @@ export default function CompanySetupPage() {
       } else if (currentStep === 'documents') {
         console.log('📄 Uploading documents for company:', companyId)
         
-        // Upload all documents using hash-based deduplication (only new Files, not URL strings)
-        const uploadResults: { type: string; url: string }[] = []
+        // Collect documents that need uploading (only new Files, not URL strings)
+        const documentsToUpload: Array<{
+          type: 'cac' | 'proof_of_address' | 'company_policy'
+          file: File
+        }> = []
         
         if (formData.cacDocument && isFile(formData.cacDocument)) {
-          console.log('📤 Uploading CAC document...')
-          const result = await uploadDocument(companyId, 'cac', formData.cacDocument)
-          uploadResults.push({ type: 'cac', url: result.data.file.secure_url })
+          documentsToUpload.push({ type: 'cac', file: formData.cacDocument })
         }
         if (formData.proofOfAddress && isFile(formData.proofOfAddress)) {
-          console.log('📤 Uploading proof of address...')
-          const result = await uploadDocument(companyId, 'proof_of_address', formData.proofOfAddress)
-          uploadResults.push({ type: 'proofOfAddress', url: result.data.file.secure_url })
+          documentsToUpload.push({ type: 'proof_of_address', file: formData.proofOfAddress })
         }
         if (formData.companyPolicies && isFile(formData.companyPolicies)) {
-          console.log('📤 Uploading company policies...')
-          const result = await uploadDocument(companyId, 'company_policy', formData.companyPolicies)
-          uploadResults.push({ type: 'companyPolicies', url: result.data.file.secure_url })
+          documentsToUpload.push({ type: 'company_policy', file: formData.companyPolicies })
         }
         
-        // Update formData with uploaded URLs
-        if (uploadResults.length > 0) {
+        // Upload all documents in parallel for faster processing
+        if (documentsToUpload.length > 0) {
+          const { uploadDocumentsBatch } = await import('@/utils/onboardingApi')
+          const results = await uploadDocumentsBatch(companyId, documentsToUpload)
+          
+          // Update formData with uploaded file metadata
           const updates: any = {}
-          uploadResults.forEach(({ type, url }) => {
-            if (type === 'cac') updates.cacDocument = url
-            if (type === 'proofOfAddress') updates.proofOfAddress = url
-            if (type === 'companyPolicies') updates.companyPolicies = url
+          results.forEach(({ type, file }) => {
+            if (type === 'cac') {
+              updates.cacDocument = {
+                filename: file.filename,
+                size: file.size,
+                url: file.secure_url,
+                uploaded: true
+              }
+            } else if (type === 'proof_of_address') {
+              updates.proofOfAddress = {
+                filename: file.filename,
+                size: file.size,
+                url: file.secure_url,
+                uploaded: true
+              }
+            } else if (type === 'company_policy') {
+              updates.companyPolicies = {
+                filename: file.filename,
+                size: file.size,
+                url: file.secure_url,
+                uploaded: true
+              }
+            }
           })
           setFormData(prev => ({ ...prev, ...updates }))
-          toast.success('Documents uploaded successfully!')
-          console.log('✅ All documents uploaded:', uploadResults)
+          toast.success(`${results.length} document(s) uploaded successfully!`)
+          console.log('✅ All documents uploaded in parallel:', results)
         } else {
           toast.success('Documents already uploaded!')
         }
@@ -523,7 +623,7 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading}
+              disabled={loading || !isStepValid('details')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Saving...' : 'Continue'}
@@ -652,7 +752,7 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading}
+              disabled={loading || !isStepValid('owner')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Saving...' : 'Continue'}
@@ -675,18 +775,12 @@ export default function CompanySetupPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {isFile(formData.cacDocument) 
-                          ? formData.cacDocument.name 
-                          : typeof formData.cacDocument === 'string'
-                            ? formData.cacDocument
-                            : (formData.cacDocument as any)?.name || 'Uploaded document'}
+                        {getFileName(formData.cacDocument)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isFile(formData.cacDocument) && formData.cacDocument.size 
-                          ? (formData.cacDocument.size / 1024).toFixed(0) + 'KB' 
-                          : (formData.cacDocument as any)?.size 
-                            ? ((formData.cacDocument as any).size / 1024).toFixed(0) + 'KB'
-                            : 'File uploaded'}
+                        {getFileSize(formData.cacDocument) > 0 
+                          ? (getFileSize(formData.cacDocument) / 1024).toFixed(0) + ' KB' 
+                          : 'Uploaded'}
                       </p>
                     </div>
                   </div>
@@ -751,18 +845,12 @@ export default function CompanySetupPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {isFile(formData.proofOfAddress) 
-                          ? formData.proofOfAddress.name 
-                          : typeof formData.proofOfAddress === 'string'
-                            ? formData.proofOfAddress
-                            : (formData.proofOfAddress as any)?.name || 'Uploaded document'}
+                        {getFileName(formData.proofOfAddress)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isFile(formData.proofOfAddress) && formData.proofOfAddress.size 
-                          ? (formData.proofOfAddress.size / 1024).toFixed(0) + 'KB' 
-                          : (formData.proofOfAddress as any)?.size 
-                            ? ((formData.proofOfAddress as any).size / 1024).toFixed(0) + 'KB'
-                            : 'File uploaded'}
+                        {getFileSize(formData.proofOfAddress) > 0 
+                          ? (getFileSize(formData.proofOfAddress) / 1024).toFixed(0) + ' KB' 
+                          : 'Uploaded'}
                       </p>
                     </div>
                   </div>
@@ -827,18 +915,12 @@ export default function CompanySetupPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {isFile(formData.companyPolicies) 
-                          ? formData.companyPolicies.name 
-                          : typeof formData.companyPolicies === 'string'
-                            ? formData.companyPolicies
-                            : (formData.companyPolicies as any)?.name || 'Uploaded document'}
+                        {getFileName(formData.companyPolicies)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isFile(formData.companyPolicies) && formData.companyPolicies.size 
-                          ? (formData.companyPolicies.size / 1024).toFixed(0) + 'KB' 
-                          : (formData.companyPolicies as any)?.size 
-                            ? ((formData.companyPolicies as any).size / 1024).toFixed(0) + 'KB'
-                            : 'File uploaded'}
+                        {getFileSize(formData.companyPolicies) 
+                          ? (getFileSize(formData.companyPolicies) / 1024).toFixed(0) + 'KB' 
+                          : 'File uploaded'}
                       </p>
                     </div>
                   </div>
@@ -893,10 +975,10 @@ export default function CompanySetupPage() {
 
             <button
               type="button" onClick={handleNext}
-              disabled={loading}
+              disabled={loading || !isStepValid('documents')}
               className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : 'Continue'}
+              {loading ? 'Uploading...' : 'Continue'}
             </button>
           </div>
         )
@@ -919,6 +1001,47 @@ export default function CompanySetupPage() {
                   Edit
                 </button>
               </div>
+
+              {/* Company Logo */}
+              {formData.companyLogo && (
+                <div className="mb-4 pb-4 border-b border-border">
+                  <p className="text-xs text-muted-foreground mb-2">Company logo</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border overflow-hidden">
+                      {getFileUrl(formData.companyLogo) ? (
+                        <img 
+                          src={getFileUrl(formData.companyLogo)!} 
+                          alt="Company Logo" 
+                          className="w-full h-full object-contain rounded-lg" 
+                        />
+                      ) : isFile(formData.companyLogo) ? (
+                        <img 
+                          src={URL.createObjectURL(formData.companyLogo)} 
+                          alt="Company Logo" 
+                          className="w-full h-full object-contain rounded-lg" 
+                        />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {getFileName(formData.companyLogo)}
+                      </p>
+                      {getFileUrl(formData.companyLogo) && (
+                        <a
+                          href={getFileUrl(formData.companyLogo)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          View full size
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1006,71 +1129,85 @@ export default function CompanySetupPage() {
                 </button>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">C.A.C document</p>
-                  {formData.cacDocument ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">
-                        {isFile(formData.cacDocument) 
-                          ? formData.cacDocument.name 
-                          : typeof formData.cacDocument === 'string'
-                            ? formData.cacDocument
-                            : (formData.cacDocument as any)?.name || 'Uploaded'}
-                      </span>
-                      {isFile(formData.cacDocument) && formData.cacDocument.size ? (
-                        <span className="text-muted-foreground">({(formData.cacDocument.size / 1024).toFixed(0)}KB)</span>
-                      ) : (formData.cacDocument as any)?.size ? (
-                        <span className="text-muted-foreground">({((formData.cacDocument as any).size / 1024).toFixed(0)}KB)</span>
-                      ) : null}
+              <div className="space-y-4">
+                {/* CAC Document */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">C.A.C document</p>
+                      {formData.cacDocument ? (
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {getFileName(formData.cacDocument)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  </div>
+                  {formData.cacDocument && getFileUrl(formData.cacDocument) && (
+                    <a
+                      href={getFileUrl(formData.cacDocument)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors flex-shrink-0"
+                    >
+                      View
+                    </a>
                   )}
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Proof of address</p>
-                  {formData.proofOfAddress ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <ImageIcon className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">
-                        {isFile(formData.proofOfAddress) 
-                          ? formData.proofOfAddress.name 
-                          : typeof formData.proofOfAddress === 'string'
-                            ? formData.proofOfAddress
-                            : (formData.proofOfAddress as any)?.name || 'Uploaded'}
-                      </span>
-                      {isFile(formData.proofOfAddress) && formData.proofOfAddress.size ? (
-                        <span className="text-muted-foreground">({(formData.proofOfAddress.size / 1024).toFixed(0)}KB)</span>
-                      ) : (formData.proofOfAddress as any)?.size ? (
-                        <span className="text-muted-foreground">({((formData.proofOfAddress as any).size / 1024).toFixed(0)}KB)</span>
-                      ) : null}
+
+                {/* Proof of Address */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <ImageIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">Proof of address</p>
+                      {formData.proofOfAddress ? (
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {getFileName(formData.proofOfAddress)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  </div>
+                  {formData.proofOfAddress && getFileUrl(formData.proofOfAddress) && (
+                    <a
+                      href={getFileUrl(formData.proofOfAddress)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors flex-shrink-0"
+                    >
+                      View
+                    </a>
                   )}
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Company policies</p>
-                  {formData.companyPolicies ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">
-                        {isFile(formData.companyPolicies) 
-                          ? formData.companyPolicies.name 
-                          : typeof formData.companyPolicies === 'string'
-                            ? formData.companyPolicies
-                            : (formData.companyPolicies as any)?.name || 'Uploaded'}
-                      </span>
-                      {isFile(formData.companyPolicies) && formData.companyPolicies.size ? (
-                        <span className="text-muted-foreground">({(formData.companyPolicies.size / 1024).toFixed(0)}KB)</span>
-                      ) : (formData.companyPolicies as any)?.size ? (
-                        <span className="text-muted-foreground">({((formData.companyPolicies as any).size / 1024).toFixed(0)}KB)</span>
-                      ) : null}
+
+                {/* Company Policies */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground mb-1">Company policies</p>
+                      {formData.companyPolicies ? (
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {getFileName(formData.companyPolicies)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Not uploaded</p>
+                  </div>
+                  {formData.companyPolicies && getFileUrl(formData.companyPolicies) && (
+                    <a
+                      href={getFileUrl(formData.companyPolicies)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors flex-shrink-0"
+                    >
+                      View
+                    </a>
                   )}
                 </div>
               </div>
@@ -1137,39 +1274,25 @@ export default function CompanySetupPage() {
           if (formData.cacDocument) currentStepNum = 4
 
           // Prepare formData for saving
-          // For File objects: we can't save them, but they'll be uploaded on "Continue"
-          // For URLs (strings): save them so they can be restored
+          // Save uploaded file metadata (objects with url/filename) or URL strings
+          // Don't save File objects (they need to be uploaded first)
+          const processDocForSave = (doc: any) => {
+            if (!doc) return null
+            // Don't save File objects - they need to be uploaded first
+            if (isFile(doc)) return null
+            // Save objects with metadata (uploaded files)
+            if (typeof doc === 'object' && (doc.url || doc.filename)) return doc
+            // Save URL strings
+            if (typeof doc === 'string') return doc
+            return null
+          }
+          
           const formDataToSave = {
             ...formData,
-            // Save URLs as-is, ignore File objects (they need to be uploaded first)
-            cacDocument: formData.cacDocument ? (
-              isFile(formData.cacDocument) 
-                ? null // Don't save File objects - user needs to upload first
-                : typeof formData.cacDocument === 'string'
-                  ? formData.cacDocument // Save URL
-                  : null
-            ) : null,
-            proofOfAddress: formData.proofOfAddress ? (
-              isFile(formData.proofOfAddress) 
-                ? null
-                : typeof formData.proofOfAddress === 'string'
-                  ? formData.proofOfAddress
-                  : null
-            ) : null,
-            companyPolicies: formData.companyPolicies ? (
-              isFile(formData.companyPolicies) 
-                ? null
-                : typeof formData.companyPolicies === 'string'
-                  ? formData.companyPolicies
-                  : null
-            ) : null,
-            companyLogo: formData.companyLogo ? (
-              isFile(formData.companyLogo) 
-                ? null
-                : typeof formData.companyLogo === 'string'
-                  ? formData.companyLogo
-                  : null
-            ) : null,
+            cacDocument: processDocForSave(formData.cacDocument),
+            proofOfAddress: processDocForSave(formData.proofOfAddress),
+            companyPolicies: processDocForSave(formData.companyPolicies),
+            companyLogo: processDocForSave(formData.companyLogo),
           }
 
           await saveProgress({

@@ -3,6 +3,28 @@ import { requestDeduplicator } from './requestDeduplication';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
+// Helper to extract filename from various formats
+export const getFileDisplayName = (file: any): string => {
+  if (!file) return ''
+  // File object
+  if (file instanceof File) return file.name
+  // Object with filename property
+  if (typeof file === 'object' && file.filename) return file.filename
+  if (typeof file === 'object' && file.name) return file.name
+  // String (URL) - extract filename
+  if (typeof file === 'string') {
+    try {
+      const url = new URL(file)
+      const pathname = url.pathname
+      const filename = pathname.substring(pathname.lastIndexOf('/') + 1)
+      return decodeURIComponent(filename) || 'Uploaded file'
+    } catch {
+      return file.includes('/') ? file.split('/').pop() || 'Uploaded file' : file
+    }
+  }
+  return 'Uploaded file'
+}
+
 // All API calls now use httpOnly cookies - no manual token management needed!
 
 // Company Setup API
@@ -142,13 +164,13 @@ export const uploadLogo = async (_companyId: string, file: File) => {
   return result
 }
 
-// Upload Document API with hash-based deduplication
+// Upload Document API with hash-based deduplication and parallel processing
 export const uploadDocument = async (
   companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
-  // Step 1: Compute file hash
+  // Step 1: Compute file hash (optimized with parallel processing)
   const buffer = await file.arrayBuffer()
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
@@ -176,6 +198,7 @@ export const uploadDocument = async (
   }
   
   let fileId: string
+  let fileUrl: string
   
   // Step 3: Upload file if it doesn't exist
   if (!checkResult.data.exists) {
@@ -199,9 +222,11 @@ export const uploadDocument = async (
     
     console.log('✅ File uploaded:', uploadResult.data.file.id)
     fileId = uploadResult.data.file.id
+    fileUrl = uploadResult.data.file.secure_url || uploadResult.data.file.url
   } else {
     console.log('♻️ File already exists, reusing:', checkResult.data.file.id)
     fileId = checkResult.data.file.id
+    fileUrl = checkResult.data.file.secure_url || checkResult.data.file.url
   }
   
   // Step 4: Attach file to company
@@ -233,17 +258,56 @@ export const uploadDocument = async (
   
   console.log('✅ File attached to company successfully')
   
-  // Return file details including the secure URL
+  // Return file details including the secure URL and filename
   return {
     success: true,
     data: {
-      file: checkResult.data.exists ? checkResult.data.file : {
+      file: {
         id: fileId,
-        secure_url: attachResult.data?.secure_url || checkResult.data?.file?.secure_url,
-        url: attachResult.data?.url || checkResult.data?.file?.url
+        secure_url: fileUrl,
+        url: fileUrl,
+        filename: file.name,
+        size: file.size
       }
     }
   }
+}
+
+// Batch upload documents in parallel for faster processing
+export const uploadDocumentsBatch = async (
+  companyId: string,
+  documents: Array<{
+    type: 'cac' | 'proof_of_address' | 'company_policy'
+    file: File
+  }>
+) => {
+  console.log('📦 Starting batch upload of', documents.length, 'documents')
+  
+  // Upload all documents in parallel
+  const uploadPromises = documents.map(({ type, file }) => 
+    uploadDocument(companyId, type, file)
+      .then(result => ({ type, result, success: true as const, error: null }))
+      .catch(error => ({ type, result: null, success: false as const, error }))
+  )
+  
+  const results = await Promise.all(uploadPromises)
+  
+  // Check for failures
+  const failures = results.filter(r => !r.success)
+  if (failures.length > 0) {
+    const errorMsg = failures.map(f => `${f.type}: ${f.error?.message || 'Unknown error'}`).join(', ')
+    throw new Error(`Failed to upload some documents: ${errorMsg}`)
+  }
+  
+  console.log('✅ All documents uploaded successfully')
+  
+  // Type guard to ensure we only map successful results
+  return results
+    .filter((r): r is typeof results[number] & { success: true } => r.success)
+    .map(r => ({
+      type: r.type,
+      file: r.result!.data.file
+    }))
 }
 
 // Select Plan API

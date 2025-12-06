@@ -41,7 +41,7 @@ export class OnboardingProgressService {
         current_step: currentStep,
         completed_steps: JSON.stringify(completedSteps),
         form_data: JSON.stringify(formData),
-        updated_at: new Date().toISOString(),
+        // updated_at is automatically set by the database update() method
       };
 
       if (existing) {
@@ -97,16 +97,25 @@ export class OnboardingProgressService {
           });
 
           for (const cf of companyFiles) {
-            // Get file details
+            // Get file details including original filename
             const file = await this.db.findOne('files', { id: cf.file_id });
             if (file && file.secure_url) {
-              // Map document types to form fields
+              // Store complete file metadata for proper display
+              const fileData = {
+                url: file.secure_url,
+                filename: file.original_filename || 'Uploaded document',
+                name: file.original_filename || 'Uploaded document', // Add 'name' field for compatibility
+                size: file.file_size || 0,
+                uploaded: true
+              };
+              
+              // Map document types to form fields - store OBJECT not just URL
               if (cf.document_type === 'cac') {
-                formData.cacDocument = file.secure_url;
+                formData.cacDocument = fileData;
               } else if (cf.document_type === 'proof_of_address') {
-                formData.proofOfAddress = file.secure_url;
+                formData.proofOfAddress = fileData;
               } else if (cf.document_type === 'company_policy') {
-                formData.companyPolicies = file.secure_url;
+                formData.companyPolicies = fileData;
               }
             }
           }
@@ -164,7 +173,7 @@ export class OnboardingProgressService {
         'onboarding_progress',
         {
           completed_steps: JSON.stringify(completedSteps),
-          last_saved_at: new Date().toISOString(),
+          // updated_at is automatically set by the database update() method
         },
         { user_id: userId }
       );

@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import { authRoutes } from '../../src/routes/auth.routes';
 import { DatabaseFactory } from '../../src/infrastructure/database/DatabaseFactory';
 import jwt from '@fastify/jwt';
+import { describe, it, beforeAll, afterAll, beforeEach, expect } from '@jest/globals';
 
 describe('Auth Routes', () => {
   let app: FastifyInstance;
@@ -42,7 +43,7 @@ describe('Auth Routes', () => {
       lastName: 'User',
       companyName: 'New Company',
       industry: 'Technology',
-      companySize: '10-50',
+      companySize: '10',
       phoneNumber: '+1234567890',
       timezone: 'UTC',
     };

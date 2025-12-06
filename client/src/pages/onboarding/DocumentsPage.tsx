@@ -36,15 +36,112 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Prefetch next page for instant navigation
-    // prefetch not needed in React Router: '/onboarding/complete')
+    // Load saved progress when component mounts
+    const loadSavedProgress = async () => {
+      try {
+        const authData = getAuthData()
+        if (!authData?.userId) {
+          console.log('No auth data, skipping progress load')
+          return
+        }
+
+        const { getProgress } = useOnboardingProgress()
+        const progress = await getProgress(authData.userId)
+        
+        if (progress?.formData) {
+          console.log('📥 Loading saved document progress:', progress.formData)
+          
+          // Restore uploaded documents from progress
+          const newDocuments: DocumentState = {
+            cac: null,
+            proofOfAddress: null,
+            companyPolicies: null,
+          }
+
+          // Restore CAC document
+          if (progress.formData.cacDocument || progress.formData.cacDocumentUrl) {
+            const cacData = progress.formData.cacDocument || {
+              url: progress.formData.cacDocumentUrl,
+              filename: progress.formData.cacDocumentName || 'CAC Document',
+              uploaded: true
+            }
+            
+            // Extract filename from object or use fallback
+            const filename = cacData.filename || cacData.name || 'CAC Document'
+            const url = cacData.url || cacData.secure_url || progress.formData.cacDocumentUrl
+            
+            // Create a mock File object for display purposes with the ACTUAL filename
+            const mockFile = new File([], filename, { type: 'application/pdf' })
+            Object.defineProperty(mockFile, 'size', { value: cacData.size || 0 })
+            
+            newDocuments.cac = {
+              file: mockFile,
+              preview: url
+            }
+            console.log('✅ Restored CAC document:', filename, 'URL:', url)
+          }
+
+          // Restore Proof of Address
+          if (progress.formData.proofOfAddress || progress.formData.proofOfAddressUrl) {
+            const poaData = progress.formData.proofOfAddress || {
+              url: progress.formData.proofOfAddressUrl,
+              filename: progress.formData.proofOfAddressName || 'Proof of Address',
+              uploaded: true
+            }
+            
+            // Extract filename from object or use fallback
+            const filename = poaData.filename || poaData.name || 'Proof of Address'
+            const url = poaData.url || poaData.secure_url || progress.formData.proofOfAddressUrl
+            
+            const mockFile = new File([], filename, { type: 'application/pdf' })
+            Object.defineProperty(mockFile, 'size', { value: poaData.size || 0 })
+            
+            newDocuments.proofOfAddress = {
+              file: mockFile,
+              preview: url
+            }
+            console.log('✅ Restored Proof of Address:', filename, 'URL:', url)
+          }
+
+          // Restore Company Policies
+          if (progress.formData.companyPolicies || progress.formData.companyPoliciesUrl) {
+            const cpData = progress.formData.companyPolicies || {
+              url: progress.formData.companyPoliciesUrl,
+              filename: progress.formData.companyPoliciesName || 'Company Policies',
+              uploaded: true
+            }
+            
+            // Extract filename from object or use fallback
+            const filename = cpData.filename || cpData.name || 'Company Policies'
+            const url = cpData.url || cpData.secure_url || progress.formData.companyPoliciesUrl
+            
+            const mockFile = new File([], filename, { type: 'application/pdf' })
+            Object.defineProperty(mockFile, 'size', { value: cpData.size || 0 })
+            
+            newDocuments.companyPolicies = {
+              file: mockFile,
+              preview: url
+            }
+            console.log('✅ Restored Company Policies:', filename, 'URL:', url)
+          }
+
+          setDocuments(newDocuments)
+          toast.success('Previous uploads restored')
+        }
+      } catch (error) {
+        console.error('Failed to load saved progress:', error)
+        // Don't show error to user - they can just re-upload
+      }
+    }
+
+    loadSavedProgress()
     
     // Check if previous steps completed
     const businessInfo = sessionStorage.getItem('onboarding_business_info')
     if (!businessInfo) {
       navigate('/onboarding/business-info')
     }
-  }, [navigate])
+  }, [navigate, getAuthData, toast])
 
   const handleFileSelect = async (
     documentType: keyof DocumentState,
@@ -122,14 +219,53 @@ export default function DocumentsPage() {
         throw new Error('Session expired. Please log in again.')
       }
       
-      // Upload CAC document
-      await uploadDocument(user.companyId, 'cac', documents.cac.file)
+      // Helper to check if file is already uploaded (has preview URL)
+      const isAlreadyUploaded = (doc: UploadedFile | null) => {
+        return doc?.preview && doc.preview.startsWith('http')
+      }
+
+      // Upload CAC document (skip if already uploaded)
+      let cacUrl = documents.cac?.preview
+      if (!isAlreadyUploaded(documents.cac)) {
+        console.log('📤 Uploading CAC document...')
+        const result = await uploadDocument(user.companyId, 'cac', documents.cac.file)
+        cacUrl = result.data.file.secure_url || result.data.file.url
+        // Update state with URL so it can be saved
+        setDocuments(prev => ({
+          ...prev,
+          cac: { ...prev.cac!, preview: cacUrl }
+        }))
+      } else {
+        console.log('✅ CAC document already uploaded, skipping')
+      }
       
-      // Upload proof of address
-      await uploadDocument(user.companyId, 'proof_of_address', documents.proofOfAddress.file)
+      // Upload proof of address (skip if already uploaded)
+      let poaUrl = documents.proofOfAddress?.preview
+      if (!isAlreadyUploaded(documents.proofOfAddress)) {
+        console.log('📤 Uploading Proof of Address...')
+        const result = await uploadDocument(user.companyId, 'proof_of_address', documents.proofOfAddress.file)
+        poaUrl = result.data.file.secure_url || result.data.file.url
+        setDocuments(prev => ({
+          ...prev,
+          proofOfAddress: { ...prev.proofOfAddress!, preview: poaUrl }
+        }))
+      } else {
+        console.log('✅ Proof of Address already uploaded, skipping')
+      }
       
-      // Upload company policies
-      await uploadDocument(user.companyId, 'company_policy', documents.companyPolicies.file)
+      // Upload company policies (skip if already uploaded)
+      let cpUrl = documents.companyPolicies?.preview
+      if (!isAlreadyUploaded(documents.companyPolicies)) {
+        console.log('📤 Uploading Company Policies...')
+        const result = await uploadDocument(user.companyId, 'company_policy', documents.companyPolicies.file)
+        cpUrl = result.data.file.secure_url || result.data.file.url
+        setDocuments(prev => ({
+          ...prev,
+          companyPolicies: { ...prev.companyPolicies!, preview: cpUrl }
+        }))
+      } else {
+        console.log('✅ Company Policies already uploaded, skipping')
+      }
       
       // Store document info in session storage for reference
       sessionStorage.setItem('onboarding_documents', JSON.stringify({
@@ -251,19 +387,45 @@ export default function DocumentsPage() {
       throw new Error('Authentication data not found')
     }
 
+    // Save document state including URLs if already uploaded
+    const documentsData: any = {}
+    
+    if (documents.cac) {
+      documentsData.cacDocument = {
+        filename: documents.cac.file.name,
+        size: documents.cac.file.size,
+        url: documents.cac.preview || null,
+        uploaded: !!documents.cac.preview
+      }
+    }
+    
+    if (documents.proofOfAddress) {
+      documentsData.proofOfAddress = {
+        filename: documents.proofOfAddress.file.name,
+        size: documents.proofOfAddress.file.size,
+        url: documents.proofOfAddress.preview || null,
+        uploaded: !!documents.proofOfAddress.preview
+      }
+    }
+    
+    if (documents.companyPolicies) {
+      documentsData.companyPolicies = {
+        filename: documents.companyPolicies.file.name,
+        size: documents.companyPolicies.file.size,
+        url: documents.companyPolicies.preview || null,
+        uploaded: !!documents.companyPolicies.preview
+      }
+    }
+
     await saveProgress({
       userId: authData.userId,
       companyId: authData.companyId,
       currentStep: 6,
       completedSteps: [1, 2, 3, 4, 5], // Previous steps completed
-      formData: {
-        documents: {
-          cac: documents.cac?.file.name,
-          proofOfAddress: documents.proofOfAddress?.file.name,
-          companyPolicies: documents.companyPolicies?.file.name,
-        }
-      },
+      formData: documentsData,
     })
+    
+    toast.success('Progress saved!')
   }
 
   return (

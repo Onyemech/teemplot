@@ -78,7 +78,7 @@ export async function employeesRoutes(fastify: FastifyInstance) {
 
       // Get company details
       const companyQuery = await db.query(
-        'SELECT id, name, employee_count FROM companies WHERE id = $1',
+        'SELECT id, name, employee_count, employee_limit, plan FROM companies WHERE id = $1',
         [user.company_id]
       );
 
@@ -88,22 +88,32 @@ export async function employeesRoutes(fastify: FastifyInstance) {
 
       const company = companyQuery.rows[0];
 
-      // Check against declared employee limit
+      // Check against declared employee limit (including pending invitations)
       const currentCountQuery = await db.query(
         'SELECT COUNT(*) as count FROM users WHERE company_id = $1 AND deleted_at IS NULL',
         [company.id]
       );
 
+      const pendingInvitationsQuery = await db.query(
+        'SELECT COUNT(*) as count FROM employee_invitations WHERE company_id = $1 AND status = $2',
+        [company.id, 'pending']
+      );
+
       const currentCount = parseInt(currentCountQuery.rows[0].count);
+      const pendingCount = parseInt(pendingInvitationsQuery.rows[0].count);
+      const totalCount = currentCount + pendingCount;
       const declaredLimit = company.employee_count;
 
-      if (currentCount >= declaredLimit) {
+      if (totalCount >= declaredLimit) {
         return reply.code(403).send({
           success: false,
-          message: `You've reached your declared employee limit of ${declaredLimit} employees. Contact support to increase your limit.`,
+          message: `You've reached your declared employee limit of ${declaredLimit}. You have ${currentCount} active employees and ${pendingCount} pending invitations. Upgrade your plan to add more employees.`,
           code: 'EMPLOYEE_LIMIT_REACHED',
           currentCount,
-          declaredLimit
+          pendingCount,
+          totalCount,
+          declaredLimit,
+          plan: company.plan
         });
       }
 

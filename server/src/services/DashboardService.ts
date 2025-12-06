@@ -5,9 +5,9 @@ export class DashboardService {
 
   async getDashboardStats(userId: string) {
     try {
-      // First get user's company
+      // First get user's company and role
       const userQuery = await this.db.query(
-        'SELECT company_id FROM users WHERE id = $1',
+        'SELECT company_id, role FROM users WHERE id = $1',
         [userId]
       );
       
@@ -15,12 +15,29 @@ export class DashboardService {
         throw new Error('User not found');
       }
       
-      const companyId = userQuery.rows[0].company_id;
+      const { company_id: companyId, role } = userQuery.rows[0];
+
+      // Get company details including limits
+      const companyQuery = await this.db.query(
+        `SELECT 
+          employee_count as declared_limit,
+          employee_limit as actual_limit,
+          plan,
+          current_period_end,
+          subscription_status
+         FROM companies WHERE id = $1`,
+        [companyId]
+      );
+
+      const company = companyQuery.rows[0];
 
       // Get counts using raw SQL for better performance
       const statsQuery = `
         SELECT 
           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as total_employees,
+          (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending') as pending_invitations,
+          (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'accepted') as accepted_invitations,
+          (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'expired') as expired_invitations,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
            AND DATE(clock_in_time) = CURRENT_DATE 
@@ -42,19 +59,58 @@ export class DashboardService {
            AND status IN ('pending', 'in_progress')) as pending_tasks,
           (SELECT COUNT(*) FROM tasks 
            WHERE company_id = $1 
-           AND status = 'completed') as completed_tasks
+           AND status = 'completed') as completed_tasks,
+          (SELECT COUNT(*) FROM tasks 
+           WHERE company_id = $1 
+           AND status = 'awaiting_review') as tasks_awaiting_review
       `;
 
       const result = await this.db.query(statsQuery, [companyId]);
       const stats = result.rows[0];
 
+      const totalEmployees = Number(stats.total_employees || 0);
+      const pendingInvitations = Number(stats.pending_invitations || 0);
+      const declaredLimit = Number(company?.declared_limit || 10);
+      const actualLimit = Number(company?.actual_limit || 10);
+
+      // Calculate days remaining for subscription
+      let daysRemaining = null;
+      if (company?.current_period_end) {
+        const endDate = new Date(company.current_period_end);
+        const today = new Date();
+        const diffTime = endDate.getTime() - today.getTime();
+        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+
       return {
-        totalEmployees: Number(stats.total_employees || 0),
+        // Employee metrics
+        totalEmployees,
+        pendingInvitations,
+        acceptedInvitations: Number(stats.accepted_invitations || 0),
+        expiredInvitations: Number(stats.expired_invitations || 0),
+        declaredLimit,
+        actualLimit,
+        employeeSlotsRemaining: Math.max(0, declaredLimit - totalEmployees - pendingInvitations),
+        employeeLimitReached: (totalEmployees + pendingInvitations) >= declaredLimit,
+        
+        // Attendance metrics
         presentToday: Number(stats.present_today || 0),
         lateToday: Number(stats.late_today || 0),
         absentToday: Number(stats.absent_today || 0),
+        
+        // Task metrics
         pendingTasks: Number(stats.pending_tasks || 0),
         completedTasks: Number(stats.completed_tasks || 0),
+        tasksAwaitingReview: Number(stats.tasks_awaiting_review || 0),
+        
+        // Subscription metrics
+        subscriptionPlan: company?.plan || 'free',
+        subscriptionStatus: company?.subscription_status || 'active',
+        daysRemaining,
+        subscriptionExpiringSoon: daysRemaining !== null && daysRemaining <= 14,
+        
+        // User role
+        userRole: role,
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
