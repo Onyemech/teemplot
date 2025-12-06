@@ -61,71 +61,47 @@ export function useOnboardingProgress() {
 
   const getProgress = useCallback(async (userId: string) => {
     try {
+      console.log('🔍 Fetching progress from server for user:', userId);
+      
       const response = await fetch(`${API_URL}/onboarding/progress/${userId}`, {
         credentials: 'include', // Use httpOnly cookies for auth
       });
 
+      console.log('📡 Server response status:', response.status);
+
       if (response.status === 404) {
-        console.log('ℹ️ No saved progress found on server, checking localStorage backup...');
-        
-        // Try localStorage backup
-        const progressKey = `onboarding_progress_${userId}`;
-        const backup = localStorage.getItem(progressKey);
-        if (backup) {
-          const parsed = JSON.parse(backup);
-          console.log('✅ Found progress in localStorage backup');
-          return parsed;
-        }
-        
-        return null; // No progress found
+        console.log('ℹ️ No saved progress found on server');
+        return null;
       }
 
-      // If 401, silently fall back to localStorage (user not authenticated yet)
       if (response.status === 401) {
-        console.log('ℹ️ Not authenticated, checking localStorage backup...');
-        
-        const progressKey = `onboarding_progress_${userId}`;
-        const backup = localStorage.getItem(progressKey);
-        if (backup) {
-          const parsed = JSON.parse(backup);
-          console.log('✅ Found progress in localStorage backup');
-          return parsed;
-        }
-        
+        console.error('❌ Not authenticated - cannot fetch progress from server');
         return null;
       }
 
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('❌ Failed to get progress:', result);
-        // Don't throw - just return null and use localStorage
-        const progressKey = `onboarding_progress_${userId}`;
-        const backup = localStorage.getItem(progressKey);
-        if (backup) {
-          return JSON.parse(backup);
-        }
+        console.error('❌ Failed to get progress from server:', result);
         return null;
       }
 
       console.log('✅ Progress loaded from server:', result.data);
-      return result.data;
-    } catch (error: any) {
-      console.error('❌ Error getting progress from server, trying localStorage backup...');
       
-      // Fallback to localStorage
+      // Save to localStorage as backup ONLY after successful server fetch
       try {
         const progressKey = `onboarding_progress_${userId}`;
-        const backup = localStorage.getItem(progressKey);
-        if (backup) {
-          const parsed = JSON.parse(backup);
-          console.log('✅ Recovered progress from localStorage backup');
-          return parsed;
-        }
+        localStorage.setItem(progressKey, JSON.stringify({
+          ...result.data,
+          savedAt: new Date().toISOString()
+        }));
       } catch (e) {
-        console.error('❌ Could not recover from localStorage:', e);
+        console.warn('⚠️ Could not save to localStorage backup:', e);
       }
       
+      return result.data;
+    } catch (error: any) {
+      console.error('❌ Network error getting progress from server:', error.message);
       return null;
     }
   }, []);

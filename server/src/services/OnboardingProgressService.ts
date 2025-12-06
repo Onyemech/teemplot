@@ -41,19 +41,12 @@ export class OnboardingProgressService {
         current_step: currentStep,
         completed_steps: JSON.stringify(completedSteps),
         form_data: JSON.stringify(formData),
-        // updated_at is automatically set by the database update() method
       };
 
       if (existing) {
-        // Update existing progress
-        await this.db.update(
-          'onboarding_progress',
-          progressData,
-          { user_id: userId }
-        );
+        await this.db.update('onboarding_progress', progressData, { user_id: userId });
         logger.info(`Onboarding progress updated for user ${userId}, step ${currentStep}`);
       } else {
-        // Create new progress record
         await this.db.insert('onboarding_progress', {
           id: randomUUID(),
           ...progressData,
@@ -72,44 +65,57 @@ export class OnboardingProgressService {
    */
   async getProgress(userId: string): Promise<OnboardingProgress | null> {
     try {
-      const progress = await this.db.findOne('onboarding_progress', { user_id: userId });
+      logger.info(`Fetching onboarding progress for user: ${userId}`);
+      
+      const { query } = await import('../config/database');
+      const result = await query(
+        'SELECT * FROM onboarding_progress WHERE user_id = $1 LIMIT 1',
+        [userId]
+      );
+      
+      const progress = result.rows[0];
 
       if (!progress) {
+        logger.warn(`No onboarding progress found for user: ${userId}`);
         return null;
       }
+      
+      logger.info(`Found onboarding progress for user: ${userId}, step: ${progress.current_step}`);
 
-      const formData = JSON.parse(progress.form_data || '{}');
+      let formData: Record<string, any>;
+      if (typeof progress.form_data === 'string') {
+        formData = JSON.parse(progress.form_data || '{}');
+      } else if (typeof progress.form_data === 'object') {
+        formData = progress.form_data || {};
+      } else {
+        formData = {};
+      }
+      
       const companyId = progress.company_id;
 
-      // If companyId exists, fetch uploaded file URLs from database
       if (companyId && companyId !== 'pending') {
         try {
-          // Fetch company logo
           const company = await this.db.findOne('companies', { id: companyId });
           if (company && company.logo_url) {
             formData.companyLogo = company.logo_url;
           }
 
-          // Fetch uploaded documents from company_files table
           const companyFiles = await this.db.find('company_files', { 
             company_id: companyId,
             is_active: true 
           });
 
           for (const cf of companyFiles) {
-            // Get file details including original filename
             const file = await this.db.findOne('files', { id: cf.file_id });
             if (file && file.secure_url) {
-              // Store complete file metadata for proper display
               const fileData = {
                 url: file.secure_url,
                 filename: file.original_filename || 'Uploaded document',
-                name: file.original_filename || 'Uploaded document', // Add 'name' field for compatibility
+                name: file.original_filename || 'Uploaded document',
                 size: file.file_size || 0,
                 uploaded: true
               };
               
-              // Map document types to form fields - store OBJECT not just URL
               if (cf.document_type === 'cac') {
                 formData.cacDocument = fileData;
               } else if (cf.document_type === 'proof_of_address') {
@@ -121,15 +127,23 @@ export class OnboardingProgressService {
           }
         } catch (fileError: any) {
           logger.warn(`Failed to fetch file URLs for user ${userId}: ${fileError?.message}`);
-          // Continue without file URLs - user can re-upload if needed
         }
+      }
+
+      let completedSteps: number[];
+      if (typeof progress.completed_steps === 'string') {
+        completedSteps = JSON.parse(progress.completed_steps || '[]');
+      } else if (Array.isArray(progress.completed_steps)) {
+        completedSteps = progress.completed_steps;
+      } else {
+        completedSteps = [];
       }
 
       return {
         userId: progress.user_id,
         companyId: progress.company_id,
         currentStep: progress.current_step,
-        completedSteps: JSON.parse(progress.completed_steps || '[]'),
+        completedSteps,
         formData,
         lastSavedAt: progress.updated_at,
       };
@@ -139,9 +153,6 @@ export class OnboardingProgressService {
     }
   }
 
-  /**
-   * Delete user's onboarding progress (after completion)
-   */
   async deleteProgress(userId: string): Promise<void> {
     try {
       await this.db.delete('onboarding_progress', { user_id: userId });
@@ -151,9 +162,6 @@ export class OnboardingProgressService {
     }
   }
 
-  /**
-   * Mark step as completed
-   */
   async markStepCompleted(userId: string, step: number): Promise<void> {
     try {
       const progress = await this.getProgress(userId);
@@ -171,10 +179,7 @@ export class OnboardingProgressService {
 
       await this.db.update(
         'onboarding_progress',
-        {
-          completed_steps: JSON.stringify(completedSteps),
-          // updated_at is automatically set by the database update() method
-        },
+        { completed_steps: JSON.stringify(completedSteps) },
         { user_id: userId }
       );
 

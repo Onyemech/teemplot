@@ -139,12 +139,16 @@ export default function CompanySetupPage() {
       
       // Get user ID from secure context
       const userId = currentUser?.id
+      
+      console.log('👤 Current user from context:', currentUser)
+      console.log('🆔 User ID for progress fetch:', userId)
 
       if (userId) {
         // Wait a moment for authentication cookie to be available
         await new Promise(resolve => setTimeout(resolve, 200))
         
         const progress = await getProgress(userId)
+        console.log('📊 Progress fetched:', progress)
         if (progress && progress.formData) {
           console.log('📥 Loading saved progress:', progress)
           
