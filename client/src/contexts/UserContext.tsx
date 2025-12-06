@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { env } from '@/config/env';
+import { apiClient } from '@/lib/api';
 
 interface User {
   id: string;
@@ -31,34 +31,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch(`${env.apiUrl}/api/auth/me`, {
-        credentials: 'include', // Send httpOnly cookies
-      });
+      const response = await apiClient.get('/api/auth/me');
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Not authenticated - this is okay
-          setUser(null);
-          setError(null);
-        } else {
-          throw new Error('Failed to fetch user');
-        }
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setUser(data.data);
+      if (response.data.success) {
+        setUser(response.data.data);
         setError(null);
       } else {
-        setError(data.message || 'Failed to fetch user');
+        setError(response.data.message || 'Failed to fetch user');
         setUser(null);
       }
     } catch (err: any) {
-      console.error('Failed to fetch user:', err);
-      setError(err.message || 'Failed to fetch user');
-      setUser(null);
+      // 401 is okay - just means not authenticated
+      if (err.response?.status === 401) {
+        setUser(null);
+        setError(null);
+      } else {
+        console.error('Failed to fetch user:', err);
+        setError(err.message || 'Failed to fetch user');
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
