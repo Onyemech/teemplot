@@ -74,6 +74,37 @@ export default function AddressAutocomplete({
     }
   }, [cityValue])
 
+  // Check location permission on mount and visibility change
+  useEffect(() => {
+    const checkLocationPermission = async () => {
+      if ('permissions' in navigator) {
+        try {
+          const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
+          
+          // Listen for permission changes (e.g., user enables in Settings)
+          permission.onchange = () => {
+            console.log('Location permission changed to:', permission.state)
+          }
+        } catch (err) {
+          // Permissions API not supported
+          console.warn('Permissions API not available:', err)
+        }
+      }
+    }
+
+    checkLocationPermission()
+
+    // Re-check when page becomes visible (e.g., user returns from Settings)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkLocationPermission()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
   useEffect(() => {
     const initializeGooglePlaces = async () => {
       try {
@@ -179,12 +210,35 @@ export default function AddressAutocomplete({
     }
   }
 
-  // Handle use current location
-  const handleUseCurrentLocation = () => {
+  // Handle use current location with smart permission checking
+  const handleUseCurrentLocation = async () => {
     // Check if geolocation is supported
     if (!('geolocation' in navigator)) {
       alert('❌ Location services not supported\n\nYour browser doesn\'t support location services. Please:\n1. Use a modern browser (Chrome, Firefox, Safari)\n2. Or enter your address manually above')
       return
+    }
+
+    // Check permission state first (if Permissions API is available)
+    if ('permissions' in navigator) {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName })
+        
+        if (permission.state === 'denied') {
+          // Permission already denied - show helpful message without triggering popup
+          alert('❌ Location access denied\n\nTo enable location access:\n\niOS Safari:\n1. Go to Settings > Privacy & Security > Location Services\n2. Enable Location Services\n3. Scroll to Safari Websites\n4. Select "While Using the App"\n5. Return here and try again\n\nChrome/Other browsers:\n1. Click the lock/info icon in the address bar\n2. Find Location permissions\n3. Select "Allow"\n4. Refresh and try again\n\nOr enter your address manually above.')
+          return
+        }
+        
+        // Listen for permission changes (e.g., user enables in settings)
+        permission.onchange = () => {
+          if (permission.state === 'granted') {
+            console.log('Location permission granted - you can try again')
+          }
+        }
+      } catch (err) {
+        // Permissions API not supported (older browsers) - continue anyway
+        console.warn('Permissions API not supported:', err)
+      }
     }
 
     setIsLoading(true)
