@@ -165,6 +165,10 @@ export async function buildApp() {
   const { employeesRoutes } = await import('./routes/employees.routes');
   await app.register(employeesRoutes, { prefix: '/api/employees' });
 
+  // Import and register employee invitation routes
+  const { employeeInvitationRoutes } = await import('./routes/employee-invitation.routes');
+  await app.register(employeeInvitationRoutes, { prefix: '/api/employee-invitations' });
+
   // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
   await app.register(superAdminRoutes, { prefix: '/api/superadmin' });

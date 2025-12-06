@@ -88,7 +88,7 @@ export default function AcceptInvitationPage() {
       }
 
       try {
-        const response = await fetch(`${API_URL}/employees/invitation/${token}`)
+        const response = await fetch(`${API_URL}/api/employee-invitations/invitation/${token}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -133,14 +133,14 @@ export default function AcceptInvitationPage() {
     setSubmitting(true)
 
     try {
-      const response = await fetch(`${API_URL}/employees/accept-invitation`, {
+      const response = await fetch(`${API_URL}/api/employee-invitations/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
           password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+          phoneNumber: '', // Optional
+          dateOfBirth: '', // Optional
         }),
       })
 
@@ -150,11 +150,10 @@ export default function AcceptInvitationPage() {
         throw new Error(data.message || 'Failed to accept invitation')
       }
 
-      // Backend sets httpOnly cookies automatically - no client-side storage needed
-      toast.success('Welcome to the team! Redirecting to dashboard...')
+      toast.success('Welcome to the team! Please log in with your new account.')
 
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate('/login')
       }, 1500)
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to accept invitation'

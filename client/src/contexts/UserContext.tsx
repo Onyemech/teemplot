@@ -9,6 +9,7 @@ interface User {
   role: string;
   companyId: string;
   companyName?: string;
+  companyLogo?: string;
   subscriptionPlan?: string;
   emailVerified: boolean;
   onboardingCompleted: boolean;

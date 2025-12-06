@@ -136,7 +136,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser()
   const companyName = currentUser?.companyName || 'Teemplot'
-  const companyLogo = null // TODO: Add company logo to user data
+  const companyLogo = currentUser?.companyLogo || null
   const userRole = currentUser?.role || 'employee'
   const isAdmin = userRole === 'admin' || userRole === 'owner'
 

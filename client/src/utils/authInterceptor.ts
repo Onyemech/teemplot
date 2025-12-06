@@ -1,8 +1,3 @@
-/**
- * Authentication Interceptor
- * Handles 401 errors and auto-logout
- */
-
 export const handleAuthError = (error: any) => {
   // Check if it's a 401 error
   if (error.response?.status === 401 || error.status === 401) {
@@ -20,9 +15,7 @@ export const handleAuthError = (error: any) => {
   return false; // Error was not handled
 };
 
-/**
- * Fetch wrapper with auth error handling
- */
+
 export const authFetch = async (url: string, options: RequestInit = {}) => {
   try {
     const response = await fetch(url, options);

@@ -10,38 +10,30 @@ export async function employeesRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const userId = (request.user as any).userId;
+      const user = request.user as any;
 
-      if (!userId) {
+      if (!user || !user.companyId) {
         return reply.code(401).send({ success: false, message: 'Unauthorized' });
       }
 
-      // Get user's company
-      const userQuery = await db.query(
-        'SELECT company_id, role FROM users WHERE id = $1',
-        [userId]
-      );
-
-      if (!userQuery.rows[0]) {
-        return reply.code(404).send({ success: false, message: 'User not found' });
-      }
-
-      const user = userQuery.rows[0];
-
-      // Get all employees in the company
+      // Get all employees in the company (use companyId directly from JWT)
       const employeesQuery = await db.query(
         `SELECT id, first_name as "firstName", last_name as "lastName", email, role, position, 
          avatar, created_at as "createdAt", 'active' as status
          FROM users 
          WHERE company_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
-        [user.company_id]
+        [user.companyId]
       );
 
-      return reply.send({ success: true, data: employeesQuery.rows });
+      return reply.send({ success: true, data: employeesQuery.rows || [] });
     } catch (error: any) {
       fastify.log.error('Failed to fetch employees:', error);
-      return reply.code(500).send({ success: false, message: 'Internal server error' });
+      return reply.code(500).send({ 
+        success: false, 
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 

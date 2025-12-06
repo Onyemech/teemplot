@@ -348,6 +348,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           role: user.role,
           companyId: user.company_id,
           companyName: company?.name,
+          companyLogo: company?.logo_url || null,
           subscriptionPlan: company?.subscription_plan,
           emailVerified: user.email_verified,
           onboardingCompleted: company?.onboarding_completed || false,

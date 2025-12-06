@@ -62,8 +62,8 @@ export class GoogleAuthService {
             { id: existingUser.id }
           );
           
-          // Sync to Supabase
-          await this.syncToSupabase(existingUser.email, {
+          // Sync to Supabase (fire-and-forget - don't block login)
+          this.syncToSupabase(existingUser.email, {
             id: existingUser.id,
             first_name: existingUser.first_name,
             last_name: existingUser.last_name,
@@ -136,8 +136,8 @@ export class GoogleAuthService {
 
       await this.db.insert('users', newUser);
 
-      // Sync to Supabase public.users
-      await this.syncToSupabase(googleUser.email, {
+      // Sync to Supabase public.users (fire-and-forget - don't block login)
+      this.syncToSupabase(googleUser.email, {
         id: userId,
         first_name: newUser.first_name,
         last_name: newUser.last_name,
@@ -226,8 +226,8 @@ export class GoogleAuthService {
         await this.syncCompanyToSupabase(updatedCompany);
       }
 
-      // Sync updated user to Supabase public.users
-      await this.syncToSupabase(user.email, {
+      // Sync updated user to Supabase public.users (fire-and-forget - don't block login)
+      this.syncToSupabase(user.email, {
         id: userId,
         first_name: user.first_name,
         last_name: user.last_name,
@@ -310,39 +310,9 @@ export class GoogleAuthService {
     }
   }
 
-  /**
-   * Sync user data to Supabase public.users table
-   */
+ 
   private async syncToSupabase(email: string, userData: any): Promise<void> {
     try {
-      // Get Supabase auth user by email
-      const { data: authUsers, error: listError } = await this.supabase.auth.admin.listUsers();
-      
-      if (listError) {
-        logger.error({ err: listError }, 'Failed to list Supabase auth users');
-        return;
-      }
-
-      const supabaseAuthUser = authUsers.users.find(u => u.email === email);
-      
-      if (!supabaseAuthUser) {
-        logger.warn({ email }, 'Supabase auth user not found for sync');
-        return;
-      }
-
-      // Update auth user metadata
-      await this.supabase.auth.admin.updateUserById(
-        supabaseAuthUser.id,
-        { user_metadata: userData }
-      );
-
-      // Sync to public.users table
-      const { data: existingUser, error: selectError } = await this.supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-
       const userRecord = {
         email: email,
         first_name: userData.first_name || userData.firstName || '',
@@ -356,19 +326,14 @@ export class GoogleAuthService {
         updated_at: new Date().toISOString(),
       };
 
-      if (existingUser) {
-        // Update existing user in public.users
-        const { error: updateError } = await this.supabase
-          .from('users')
-          .update(userRecord)
-          .eq('email', email);
+      // Try to update first (most common case for returning users)
+      const { error: updateError } = await this.supabase
+        .from('users')
+        .update(userRecord)
+        .eq('email', email);
 
-        if (updateError) {
-          logger.error({ err: updateError }, 'Failed to update Supabase public.users');
-        } else {
-          logger.info({ email }, 'Updated user in Supabase public.users');
-        }
-      } else {
+      // If update affected 0 rows, insert new user
+      if (updateError && updateError.code === 'PGRST116') {
         // Insert new user into public.users
         const { error: insertError } = await this.supabase
           .from('users')

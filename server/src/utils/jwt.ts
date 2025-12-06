@@ -11,41 +11,35 @@ export interface RefreshTokenPayload {
   userId: string;
 }
 
-/**
- * Set authentication cookies (access + refresh tokens)
- */
+
 export function setAuthCookies(
   reply: FastifyReply,
   accessToken: string,
   refreshToken: string,
   isProduction: boolean
 ) {
-  // With api.teemplot.com subdomain, we can use same-site cookies
+ 
   const cookieOptions = {
-    httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
-    secure: true, // Always use HTTPS
-    sameSite: 'lax' as const, // Can use 'lax' now (same root domain)
-    domain: isProduction ? '.teemplot.com' : undefined, // Share across *.teemplot.com
+    httpOnly: true, 
+    secure: isProduction, 
+    sameSite: isProduction ? ('none' as const) : ('lax' as const), 
+    domain: isProduction ? '.teemplot.com' : undefined, 
     path: '/',
   };
 
-  // Access token - short-lived (15 minutes)
   reply.cookie('accessToken', accessToken, {
     ...cookieOptions,
-    maxAge: 15 * 60 // 15 minutes in seconds
+    maxAge: 15 * 60 
   });
 
-  // Refresh token - long-lived (7 days)
   reply.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
-    path: '/', // Available to all endpoints
-    maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+    path: '/', 
+    maxAge: 7 * 24 * 60 * 60 
   });
 }
 
-/**
- * Clear authentication cookies
- */
+
 export function clearAuthCookies(reply: FastifyReply) {
   const isProduction = process.env.NODE_ENV === 'production';
   const cookieOptions = {
@@ -57,9 +51,7 @@ export function clearAuthCookies(reply: FastifyReply) {
   reply.clearCookie('refreshToken', cookieOptions);
 }
 
-/**
- * Generate access token payload
- */
+
 export function createAccessTokenPayload(user: {
   id: string;
   companyId: string;
@@ -74,9 +66,7 @@ export function createAccessTokenPayload(user: {
   };
 }
 
-/**
- * Generate refresh token payload
- */
+
 export function createRefreshTokenPayload(userId: string): RefreshTokenPayload {
   return {
     userId

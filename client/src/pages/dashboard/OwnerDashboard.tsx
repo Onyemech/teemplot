@@ -271,11 +271,11 @@ export default function OwnerDashboard() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
-                  onClick={() => navigate('/employees/invite')}
-                  className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                  onClick={() => navigate('/dashboard/employees')}
+                  className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 transition-colors"
                 >
                   <Users className="h-6 w-6 text-gray-600 mb-2" />
-                  <span className="text-sm font-medium text-gray-900">Add Employee</span>
+                  <span className="text-sm font-medium text-gray-900">Manage Employees</span>
                 </button>
 
                 <button

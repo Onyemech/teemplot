@@ -264,7 +264,9 @@ export class OnboardingService {
       throw new Error('Invalid coordinates provided.');
     }
 
-    await this.db.update('companies', {
+    // Check if place_id is changing to avoid unique constraint violation
+    const existingCompany = await this.db.findOne('companies', { id: companyId });
+    const updateData: any = {
       name: companyName,
       tax_identification_number: taxId,
       industry,
@@ -283,11 +285,17 @@ export class OnboardingService {
       // Geocoding data for geofencing
       office_latitude: officeLatitude,
       office_longitude: officeLongitude,
-      place_id: placeId,
       geocoding_accuracy: geocodingAccuracy,
       geocoding_source: 'google_places',
       geocoded_at: new Date().toISOString(),
-    }, { id: companyId });
+    };
+
+    // Only update place_id if it's different from existing (to avoid unique constraint violation)
+    if (placeId && placeId !== existingCompany?.place_id) {
+      updateData.place_id = placeId;
+    }
+
+    await this.db.update('companies', updateData, { id: companyId });
 
     logger.info(`Business info saved for company ${companyId} with geocoding (${officeLatitude}, ${officeLongitude})`);
   }
