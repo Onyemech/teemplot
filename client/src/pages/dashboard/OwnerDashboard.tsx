@@ -155,70 +155,70 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Quick Stats Grid - 2x2 on mobile, 4 columns on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
           {/* Total Employees */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Employees</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.totalEmployees || 0}</p>
-                <p className="text-xs text-green-600 mt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm text-gray-600 truncate">Total Employees</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">{stats?.totalEmployees || 0}</p>
+                <p className="text-[10px] md:text-xs text-green-600 mt-0.5 md:mt-1 truncate">
                   {stats?.activeEmployees || 0} active
                 </p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
+              <div className="bg-blue-100 p-2 md:p-3 rounded-lg flex-shrink-0 ml-2">
+                <Users className="h-4 w-4 md:h-6 md:w-6 text-blue-600" />
               </div>
             </div>
           </div>
 
           {/* Attendance Today */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Present Today</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.presentToday || 0}</p>
-                <p className="text-xs text-gray-500 mt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm text-gray-600 truncate">Present Today</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">{stats?.presentToday || 0}</p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1 truncate">
                   {stats?.absentToday || 0} absent, {stats?.lateToday || 0} late
                 </p>
               </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <Clock className="h-6 w-6 text-green-600" />
+              <div className="bg-green-100 p-2 md:p-3 rounded-lg flex-shrink-0 ml-2">
+                <Clock className="h-4 w-4 md:h-6 md:w-6 text-green-600" />
               </div>
             </div>
           </div>
 
           {/* Tasks */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Tasks</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.pendingTasks || 0}</p>
-                <p className="text-xs text-gray-500 mt-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm text-gray-600 truncate">Active Tasks</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">{stats?.pendingTasks || 0}</p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1 truncate">
                   {stats?.completedTasks || 0} completed
                 </p>
               </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <CheckSquare className="h-6 w-6 text-purple-600" />
+              <div className="bg-purple-100 p-2 md:p-3 rounded-lg flex-shrink-0 ml-2">
+                <CheckSquare className="h-4 w-4 md:h-6 md:w-6 text-purple-600" />
               </div>
             </div>
           </div>
 
           {/* Pending Reviews */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending Reviews</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm text-gray-600 truncate">Pending Reviews</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">
                   {(stats?.pendingLeaveRequests || 0) + (stats?.pendingTaskReviews || 0)}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1 truncate">
                   {stats?.pendingLeaveRequests || 0} leave, {stats?.pendingTaskReviews || 0} tasks
                 </p>
               </div>
-              <div className="bg-yellow-100 p-3 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              <div className="bg-yellow-100 p-2 md:p-3 rounded-lg flex-shrink-0 ml-2">
+                <AlertTriangle className="h-4 w-4 md:h-6 md:w-6 text-yellow-600" />
               </div>
             </div>
           </div>
