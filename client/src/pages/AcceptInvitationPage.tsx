@@ -88,7 +88,7 @@ export default function AcceptInvitationPage() {
       }
 
       try {
-        const response = await fetch(`${API_URL}/employee-invitations/invitation/${token}`)
+        const response = await fetch(`${API_URL}/api/employee-invitations/invitation/${token}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -133,7 +133,7 @@ export default function AcceptInvitationPage() {
     setSubmitting(true)
 
     try {
-      const response = await fetch(`${API_URL}/employee-invitations/accept`, {
+      const response = await fetch(`${API_URL}/api/employee-invitations/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
