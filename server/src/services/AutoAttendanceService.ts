@@ -23,16 +23,13 @@ export class AutoAttendanceService {
   private clockInJob: cron.ScheduledTask | null = null;
   private clockOutJob: cron.ScheduledTask | null = null;
 
-  /**
-   * Initialize auto attendance cron jobs
-   */
+  
   public initialize(): void {
     if (!process.env.ENABLE_AUTO_CLOCKIN && !process.env.ENABLE_AUTO_CLOCKOUT) {
       logger.info('Auto attendance is disabled');
       return;
     }
 
-    // Run clock-in check every minute
     if (process.env.ENABLE_AUTO_CLOCKIN === 'true') {
       this.clockInJob = cron.schedule('* * * * *', async () => {
         await this.processAutoClockIn();
@@ -93,9 +90,7 @@ export class AutoAttendanceService {
     }
   }
 
-  /**
-   * Get companies eligible for auto attendance
-   */
+
   private async getEligibleCompanies(type: 'clockin' | 'clockout'): Promise<CompanyWorkConfig[]> {
     const enabledField = type === 'clockin' ? 'auto_clockin_enabled' : 'auto_clockout_enabled';
     
@@ -125,9 +120,6 @@ export class AutoAttendanceService {
     return result.rows;
   }
 
-  /**
-   * Clock in employees for a company
-   */
   private async clockInEmployees(company: CompanyWorkConfig): Promise<void> {
     try {
       const now = new Date();

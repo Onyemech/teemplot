@@ -103,6 +103,20 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const result = await registrationService.register(data);
 
+      // Generate JWT tokens and set cookies immediately after registration
+      const accessTokenPayload = createAccessTokenPayload({
+        id: result.user.id,
+        companyId: result.user.companyId,
+        email: result.user.email,
+        role: result.user.role,
+      });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
+
       return reply.code(201).send({
         success: true,
         data: result,
@@ -497,6 +511,25 @@ export async function authRoutes(fastify: FastifyInstance) {
       }).parse(request.body);
 
       await passwordResetService.resetPassword(email, code, password);
+
+      // Get user and set cookies after successful password reset
+      const user = await db.findOne('users', { email });
+      
+      if (user) {
+        // Generate JWT tokens
+        const accessTokenPayload = createAccessTokenPayload({
+          id: user.id,
+          companyId: user.company_id,
+          email: user.email,
+          role: user.role,
+        });
+        const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+        const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+
+        // Set httpOnly cookies
+        const isProduction = process.env.NODE_ENV === 'production';
+        setAuthCookies(reply, accessToken, refreshToken, isProduction);
+      }
 
       return reply.code(200).send({
         success: true,

@@ -100,7 +100,6 @@ export class SQLiteDatabase implements IDatabase {
     const hasDeletedAt = await this.hasColumn(table, 'deleted_at');
 
     if (hasDeletedAt) {
-      // Soft delete
       const whereClause = Object.keys(where)
         .map((key) => `${key} = ?`)
         .join(' AND ');

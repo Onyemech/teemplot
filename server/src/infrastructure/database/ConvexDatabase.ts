@@ -1,15 +1,11 @@
 import { IDatabase } from './IDatabase';
 import { logger } from '../../utils/logger';
 
-/**
- * Convex Database Implementation (Backup/Sync)
- * This is a minimal implementation for backup purposes
- */
+
 export class ConvexDatabase implements IDatabase {
   private client: any = null;
 
   constructor() {
-    // Convex client initialization would go here
     // For now, this is a placeholder
     logger.info('ConvexDatabase initialized (placeholder)');
   }
