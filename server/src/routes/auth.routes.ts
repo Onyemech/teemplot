@@ -375,6 +375,130 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Owner Setup - Complete account setup from invitation
+  fastify.post('/owner-setup', async (request, reply) => {
+    try {
+      const { token, password } = request.body as { token: string; password: string };
+
+      if (!token || !password) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Token and password are required',
+        });
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Password must be at least 8 characters',
+        });
+      }
+
+      // Find invitation by token
+      const invitation = await db.findOne('employee_invitations', { invitation_token: token });
+
+      if (!invitation) {
+        return reply.code(404).send({
+          success: false,
+          message: 'Invalid or expired invitation token',
+        });
+      }
+
+      // Check if token is expired
+      const expiry = new Date(invitation.expires_at);
+      if (expiry < new Date()) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Invitation token has expired. Please contact your administrator.',
+        });
+      }
+
+      // Check if already accepted
+      if (invitation.status === 'accepted') {
+        return reply.code(400).send({
+          success: false,
+          message: 'Invitation already accepted. Please login.',
+        });
+      }
+
+      // Find the user account
+      const user = await db.findOne('users', { 
+        email: invitation.email,
+        company_id: invitation.company_id 
+      });
+
+      if (!user) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User account not found',
+        });
+      }
+
+      // Check if already activated
+      if (user.is_active) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Account already activated. Please login.',
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Activate account
+      await db.update('users', {
+        password_hash: hashedPassword,
+        is_active: true,
+        email_verified: true,
+        updated_at: new Date().toISOString(),
+      }, { id: user.id });
+
+      // Mark invitation as accepted
+      await db.update('employee_invitations', {
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+      }, { id: invitation.id });
+
+      logger.info({ userId: user.id, email: user.email, role: user.role }, 'Owner account activated');
+
+      // Generate tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: user.id,
+        companyId: user.company_id,
+        email: user.email,
+        role: user.role,
+      });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Account activated successfully',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            companyId: user.company_id,
+          },
+        },
+      });
+    } catch (error: any) {
+      logger.error({ error }, 'Owner setup failed');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to activate account',
+      });
+    }
+  });
+
   // Logout
   fastify.post('/logout', async (_request, reply) => {
     // Clear httpOnly cookies

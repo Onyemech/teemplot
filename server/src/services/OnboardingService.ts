@@ -119,9 +119,9 @@ export class OnboardingService {
     const updateData: any = {
       subscription_plan: plan,
       company_size: companySize.toString(),
+      employee_count: companySize, 
     };
 
-    // Gold plans get 30-day trial for new companies
     if (plan.startsWith('gold')) {
       const trialStart = new Date();
       const trialEnd = new Date();
@@ -133,27 +133,23 @@ export class OnboardingService {
 
       await this.db.update('companies', updateData, { id: companyId });
 
-      logger.info(`Gold trial started for company ${companyId}`);
+      logger.info(`Gold trial started for company ${companyId} with employee limit: ${companySize}`);
 
       return { totalPrice, trialEndDate: trialEnd };
     }
 
-    // Silver plans require immediate payment
     updateData.subscription_status = 'pending_payment';
     await this.db.update('companies', updateData, { id: companyId });
 
-    logger.info(`Plan selected for company ${companyId}: ${plan}`);
+    logger.info(`Plan selected for company ${companyId}: ${plan} with employee limit: ${companySize}`);
 
     return { totalPrice };
   }
 
-  /**
-   * Stage 3: Company Setup - Save personal details and determine role
-   */
+
   async saveCompanySetup(data: CompanySetupData): Promise<void> {
     const { userId, companyId, firstName, lastName, phoneNumber, dateOfBirth, isOwner } = data;
 
-    // Update user with personal details
     await this.db.update('users', {
       first_name: firstName,
       last_name: lastName,
@@ -162,21 +158,14 @@ export class OnboardingService {
       role: isOwner ? 'owner' : 'admin',
     }, { id: userId });
 
-    // Update employee count
-    await this.db.update('companies', {
-      employee_count: 1,
-    }, { id: companyId });
 
     logger.info(`Company setup saved for user ${userId}, role: ${isOwner ? 'owner' : 'admin'}`);
   }
 
-  /**
-   * Stage 4: Owner Details - Save separate owner information
-   */
+
   async saveOwnerDetails(data: OwnerDetailsData): Promise<void> {
     const { companyId, registrantUserId, ownerFirstName, ownerLastName, ownerEmail, ownerPhone, ownerDateOfBirth } = data;
 
-    // Check if owner email is different from registrant
     const registrant = await this.db.findOne('users', { id: registrantUserId });
     
     if (!registrant) {
@@ -192,15 +181,21 @@ export class OnboardingService {
       owner_date_of_birth: ownerDateOfBirth,
     }, { id: companyId });
 
-    // If owner email is different, create owner user and send invitation
     if (ownerEmail !== registrant.email) {
-      // Change registrant role to admin
+      // Registrant is not the owner - create separate owner account
       await this.db.update('users', {
-        role: 'admin',
+        role: 'admin', // Registrant becomes admin
       }, { id: registrantUserId });
 
-      // Create owner user (pending verification)
       const ownerId = randomUUID();
+      
+      // Generate secure invitation token for owner
+      const crypto = await import('crypto');
+      const invitationToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiry = new Date();
+      tokenExpiry.setDate(tokenExpiry.getDate() + 7); // 7 days expiry
+
+      // Create owner user account (inactive until they set up password)
       await this.db.insert('users', {
         id: ownerId,
         company_id: companyId,
@@ -210,20 +205,45 @@ export class OnboardingService {
         phone_number: ownerPhone,
         date_of_birth: ownerDateOfBirth,
         role: 'owner',
-        is_active: false,
-        email_verified: false,
+        is_active: false, // Will be activated when they complete setup
+        email_verified: false, // Will be verified when they complete setup
       });
 
-      // Update employee count to 2
-      await this.db.update('companies', {
-        employee_count: 2,
-      }, { id: companyId });
+      // Store invitation token in employee_invitations table (reusing existing structure)
+      await this.db.insert('employee_invitations', {
+        id: randomUUID(),
+        company_id: companyId,
+        invited_by: registrantUserId,
+        email: ownerEmail,
+        first_name: ownerFirstName,
+        last_name: ownerLastName,
+        role: 'owner', // Special case - owner invitation
+        invitation_token: invitationToken,
+        status: 'pending',
+        expires_at: tokenExpiry.toISOString(),
+      });
 
-      // Send invitation email (non-blocking) - TODO: Implement owner invitation email
       const company = await this.db.findOne('companies', { id: companyId });
-      logger.info({ ownerEmail, companyName: company?.name }, 'Owner invitation email queued');
+      
+      // Send branded owner setup invitation email (non-blocking)
+      const setupLink = `${process.env.CLIENT_URL}/owner-setup?token=${invitationToken}`;
+      const registrantName = `${registrant.first_name} ${registrant.last_name}`.trim();
+      
+      emailService.sendOwnerSetupInvitation(
+        ownerEmail,
+        ownerFirstName,
+        company?.name || 'Your Company',
+        registrantName,
+        setupLink
+      ).catch(error => {
+        logger.error({ error, ownerEmail }, 'Failed to send owner setup invitation email');
+      });
 
-      logger.info(`Owner user created and invitation sent to ${ownerEmail}`);
+      logger.info({ 
+        ownerEmail, 
+        companyName: company?.name,
+        registrantEmail: registrant.email 
+      }, 'Owner account created and setup invitation sent');
     }
 
     logger.info(`Owner details saved for company ${companyId}`);

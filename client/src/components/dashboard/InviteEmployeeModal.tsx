@@ -37,7 +37,7 @@ export default function InviteEmployeeModal({
     setLoading(true)
 
     try {
-      await apiClient.post('/employee-invitations/invite', formData)
+      await apiClient.post('/api/employee-invitations/invite', formData)
       
       setShowSuccess(true)
       toast.success('Invitation sent successfully!')
@@ -78,7 +78,7 @@ export default function InviteEmployeeModal({
 
   const handleUpgrade = async (additionalEmployees: number) => {
     try {
-      const response = await apiClient.post('/subscription/upgrade-employee-limit', {
+      const response = await apiClient.post('/api/subscription/upgrade-employee-limit', {
         additionalEmployees,
       })
 

@@ -204,7 +204,7 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
                 onComplete()
               } else {
                 // All other plans require payment
-                const paymentResponse = await apiClient.post('/subscription/initiate-subscription', {
+                const paymentResponse = await apiClient.post('/api/subscription/initiate-subscription', {
                   plan: planKey,
                   companySize: numberOfEmployees,
                 })

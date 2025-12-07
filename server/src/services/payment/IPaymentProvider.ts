@@ -1,6 +1,3 @@
-// Payment Provider Interface - Strategy Pattern for loose coupling
-// Easily swap between Paystack, Flutterwave, Stripe, etc.
-
 export interface PaymentInitializationData {
   email: string;
   amount: number; // in kobo/cents
@@ -28,18 +25,12 @@ export interface PaymentVerificationResponse {
 }
 
 export interface IPaymentProvider {
-  /**
-   * Initialize a payment transaction
-   */
+ 
   initializePayment(data: PaymentInitializationData): Promise<PaymentInitializationResponse>;
 
-  /**
-   * Verify a payment transaction
-   */
+
   verifyPayment(reference: string): Promise<PaymentVerificationResponse>;
 
-  /**
-   * Get provider name
-   */
+ 
   getProviderName(): string;
 }

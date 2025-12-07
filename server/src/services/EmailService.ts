@@ -299,6 +299,75 @@ export class EmailService {
     });
   }
 
+  /**
+   * Send owner setup invitation email
+   * Used when registrant is not the owner - sends branded email to owner to set up their account
+   */
+  async sendOwnerSetupInvitation(
+    email: string,
+    firstName: string,
+    companyName: string,
+    registrantName: string,
+    setupLink: string
+  ): Promise<boolean> {
+    const html = this.getTemplate({
+      title: `Set Up Your Owner Account for ${companyName}`,
+      content: `
+        <h2 style="color: #1a2332; margin: 0 0 20px 0; font-size: 26px; font-weight: 700;">Welcome to Teemplot! 👋</h2>
+        
+        <p style="color: #4a5568; font-size: 15px; margin: 0 0 20px 0;">
+          Hello <strong>${firstName}</strong>,
+        </p>
+
+        <p style="color: #4a5568; font-size: 15px; margin: 0 0 20px 0;">
+          <strong>${registrantName}</strong> has registered <strong>${companyName}</strong> on Teemplot and designated you as the company owner.
+        </p>
+
+        <div style="background: ${this.brandColor}; border-radius: 12px; padding: 25px; margin: 0 0 30px 0; color: white;">
+          <p style="font-size: 16px; margin: 0 0 15px 0; font-weight: 600;">🎯 Your Role: Company Owner</p>
+          <p style="font-size: 14px; margin: 0; opacity: 0.95; line-height: 1.6;">
+            As the owner, you'll have full access to manage your company, employees, attendance, tasks, and more.
+          </p>
+        </div>
+
+        <p style="color: #4a5568; font-size: 15px; margin: 0 0 30px 0;">
+          To get started, please set up your password and complete your account setup:
+        </p>
+
+        <div style="text-align: center; margin: 0 0 30px 0;">
+          <a href="${setupLink}" style="display: inline-block; background: ${this.brandColor}; color: white; padding: 16px 48px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            Set Up My Account
+          </a>
+        </div>
+
+        <div style="background: #f7fafc; border-left: 4px solid ${this.brandColor}; border-radius: 4px; padding: 20px; margin: 0 0 30px 0;">
+          <p style="color: #2d3748; font-size: 14px; margin: 0 0 10px 0; font-weight: 600;">📋 What's Next?</p>
+          <ul style="color: #4a5568; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.8;">
+            <li>Set up your secure password</li>
+            <li>Review company information</li>
+            <li>Access your owner dashboard</li>
+            <li>Manage employees and operations</li>
+          </ul>
+        </div>
+
+        <p style="color: #718096; font-size: 13px; margin: 0 0 10px 0; line-height: 1.6;">
+          This invitation link expires in 7 days. If you have any questions, contact ${registrantName} or reach out to us at <a href="mailto:support@teemplot.com" style="color: ${this.brandColor}; text-decoration: none;">support@teemplot.com</a>
+        </p>
+
+        <p style="color: #718096; font-size: 13px; margin: 0; line-height: 1.6;">
+          <strong>Security Note:</strong> This email was sent because ${registrantName} registered your company and provided your email as the owner. If you didn't expect this, please contact us immediately.
+        </p>
+      `,
+    });
+
+    return this.sendEmail({
+      to: email,
+      subject: `Set Up Your Owner Account for ${companyName} on Teemplot`,
+      html,
+      text: `${registrantName} has registered ${companyName} on Teemplot and designated you as the owner. Set up your account: ${setupLink}`,
+    });
+  }
+
   private getTemplate(options: { title: string; content: string }): string {
     return `
 <!DOCTYPE html>

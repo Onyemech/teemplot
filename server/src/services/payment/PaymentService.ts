@@ -10,7 +10,7 @@ type PaymentPurpose = 'subscription' | 'employee_limit_upgrade' | 'plan_upgrade'
 interface InitiatePaymentData {
   companyId: string;
   userId: string;
-  amount: number; // in kobo
+  amount: number; 
   currency: string;
   purpose: PaymentPurpose;
   metadata: Record<string, any>;
@@ -21,7 +21,6 @@ export class PaymentService {
   private db = DatabaseFactory.getPrimaryDatabase();
 
   constructor() {
-    // Factory pattern - select provider based on environment variable
     const providerName = process.env.PAYMENT_PROVIDER || 'paystack';
     
     switch (providerName.toLowerCase()) {
@@ -39,22 +38,16 @@ export class PaymentService {
     logger.info({ provider: this.provider.getProviderName() }, 'Payment service initialized');
   }
 
-  /**
-   * Initiate a payment transaction
-   */
   async initiatePayment(data: InitiatePaymentData) {
     const { companyId, userId, amount, currency, purpose, metadata } = data;
 
-    // Get user email
     const user = await this.db.findOne('users', { id: userId });
     if (!user) {
       throw new Error('User not found');
     }
 
-    // Generate unique reference
     const reference = `${purpose}_${companyId}_${Date.now()}_${randomUUID().substring(0, 8)}`;
 
-    // Create payment record in database
     const paymentId = randomUUID();
     await this.db.insert('payments', {
       id: paymentId,
@@ -70,7 +63,6 @@ export class PaymentService {
       created_at: new Date().toISOString(),
     });
 
-    // Initialize payment with provider
     const callbackUrl = `${process.env.FRONTEND_URL}/payment/callback?reference=${reference}`;
     
     const result = await this.provider.initializePayment({
@@ -87,7 +79,6 @@ export class PaymentService {
       callbackUrl,
     });
 
-    // Update payment record with authorization URL
     await this.db.update('payments', {
       authorization_url: result.authorizationUrl,
       access_code: result.accessCode,
@@ -103,11 +94,7 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Verify a payment transaction
-   */
   async verifyPayment(reference: string) {
-    // Get payment record
     const payment = await this.db.findOne('payments', { reference });
     
     if (!payment) {
@@ -123,7 +110,6 @@ export class PaymentService {
       };
     }
 
-    // Verify with provider
     const verification = await this.provider.verifyPayment(reference);
 
     if (!verification.success) {
@@ -135,7 +121,6 @@ export class PaymentService {
       throw new Error('Payment verification failed');
     }
 
-    // Update payment record
     await this.db.update('payments', {
       status: 'completed',
       verified_at: new Date().toISOString(),
@@ -157,9 +142,7 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Process payment fulfillment based on purpose
-   */
+ 
   async fulfillPayment(reference: string) {
     const { payment, alreadyProcessed } = await this.verifyPayment(reference);
 
@@ -190,9 +173,7 @@ export class PaymentService {
     return { success: true, message: 'Payment processed successfully' };
   }
 
-  /**
-   * Fulfill employee limit upgrade
-   */
+
   private async fulfillEmployeeLimitUpgrade(companyId: string, metadata: any) {
     const { additionalEmployees } = metadata;
 
@@ -212,31 +193,40 @@ export class PaymentService {
     logger.info({ companyId, oldLimit: currentLimit, newLimit }, 'Employee limit upgraded');
   }
 
-  /**
-   * Fulfill subscription payment
-   */
   private async fulfillSubscription(companyId: string, metadata: any) {
-    const { plan } = metadata;
+    const { plan, companySize } = metadata;
 
-    await this.db.update('companies', {
+    const updateData: any = {
       subscription_plan: plan,
       subscription_status: 'active',
       updated_at: new Date().toISOString(),
-    }, { id: companyId });
+    };
 
-    logger.info({ companyId, plan }, 'Subscription activated');
+    if (companySize) {
+      updateData.employee_count = companySize;
+    }
+
+    const now = new Date();
+    updateData.subscription_start_date = now.toISOString();
+
+    const endDate = new Date(now);
+    if (plan.includes('yearly')) {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    } else {
+      endDate.setMonth(endDate.getMonth() + 1);
+    }
+    updateData.subscription_end_date = endDate.toISOString();
+
+    await this.db.update('companies', updateData, { id: companyId });
+
+    logger.info({ companyId, plan, employeeLimit: companySize }, 'Subscription activated with employee limit');
   }
 
-  /**
-   * Get payment by reference
-   */
+ 
   async getPaymentByReference(reference: string) {
     return await this.db.findOne('payments', { reference });
   }
 
-  /**
-   * Get company payments
-   */
   async getCompanyPayments(companyId: string) {
     return await this.db.find('payments', { company_id: companyId });
   }

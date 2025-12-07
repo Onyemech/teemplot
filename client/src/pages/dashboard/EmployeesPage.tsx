@@ -51,8 +51,8 @@ export default function EmployeesPage() {
     try {
       setLoading(true)
       const [employeesRes, invitationsRes] = await Promise.all([
-        apiClient.get('/employees'),
-        apiClient.get('/employees/invitations')
+        apiClient.get('/api/employees'),
+        apiClient.get('/api/employees/invitations')
       ])
 
       setEmployees(employeesRes.data.data || [])

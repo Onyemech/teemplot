@@ -24,7 +24,7 @@ export default function PaymentCallbackPage() {
       }
 
       // Verify payment with backend
-      const response = await apiClient.post('/subscription/verify-payment', {
+      const response = await apiClient.post('/api/subscription/verify-payment', {
         reference,
       })
 

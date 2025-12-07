@@ -402,7 +402,6 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Stage 8: Select Plan
   fastify.post('/select-plan', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
@@ -423,7 +422,6 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Stage 9: Complete Onboarding
   fastify.post('/complete', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
@@ -444,7 +442,6 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get onboarding status
   fastify.get('/status/:companyId', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
@@ -464,14 +461,12 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Save onboarding progress
   fastify.post('/save-progress', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
       const { userId, companyId, currentStep, completedSteps, formData } = request.body as any;
 
-      // Only userId and currentStep are required - companyId might not exist yet during initial onboarding
       if (!userId || currentStep === undefined) {
         return reply.code(400).send({
           success: false,

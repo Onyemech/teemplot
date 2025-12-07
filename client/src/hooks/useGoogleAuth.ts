@@ -23,11 +23,9 @@ export function useGoogleAuth() {
         toast.error('Google sign-in is taking too long. Please try again.');
       }, 10000); // 10 second timeout
       
-      // Redirect to our backend Google OAuth endpoint
       const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      window.location.href = `${backendUrl}/auth/google`;
+      window.location.href = `${backendUrl}/api/auth/google`;
       
-      // Clear timeout if redirect happens (though this code won't run after redirect)
       clearTimeout(timeout);
       
     } catch (error: any) {
