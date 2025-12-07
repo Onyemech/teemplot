@@ -15,6 +15,7 @@ interface User {
   trialDaysLeft?: number | null;
   emailVerified: boolean;
   onboardingCompleted: boolean;
+  employeeCount?: number;
 }
 
 interface UserContextType {

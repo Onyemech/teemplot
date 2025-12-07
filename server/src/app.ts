@@ -63,7 +63,6 @@ export async function buildApp() {
     },
   });
 
-  // Intelligent CORS configuration
   await app.register(cors, {
     origin: (origin, callback) => {
       const allowedOrigins = config_env.allowedOrigins;
@@ -74,7 +73,6 @@ export async function buildApp() {
         return;
       }
 
-      // Check if origin is allowed
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -86,7 +84,7 @@ export async function buildApp() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 86400, // 24 hours
+    maxAge: 86400,
   });
 
   await app.register(rateLimit, {
@@ -104,26 +102,22 @@ export async function buildApp() {
     }
   });
 
-  // Cookie plugin (must be registered before JWT)
   await app.register(require('@fastify/cookie'), {
     secret: process.env.COOKIE_SECRET || process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
   });
 
-  // JWT plugin with cookie support
   await app.register(jwt, {
     secret: process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
     cookie: {
       cookieName: 'accessToken',
-      signed: false // We use httpOnly instead of signing
+      signed: false 
     }
   });
 
-  // JWT verification decorator
   app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       await request.jwtVerify();
     } catch (error: any) {
-      // Provide clear error messages
       const message = error.message?.includes('expired') 
         ? 'Session expired. Please log in again.'
         : error.message?.includes('invalid')
@@ -139,7 +133,6 @@ export async function buildApp() {
     }
   });
 
-  // Health check (both /health and /api/health for consistency)
   const healthHandler = async () => {
     const dbHealth = await DatabaseFactory.healthCheck();
 
@@ -157,62 +150,47 @@ export async function buildApp() {
   app.get('/health', healthHandler);
   app.get('/api/health', healthHandler);
 
-  // Routes - Use /api prefix for all routes
-  // This works for both development (localhost:5000/api/...) and production (api.teemplot.com/api/...)
   const apiPrefix = '/api';
   
   await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
 
-  // Import and register onboarding routes
   const { onboardingRoutes } = await import('./routes/onboarding.routes');
   await app.register(onboardingRoutes, { prefix: `${apiPrefix}/onboarding` });
 
-  // Import and register employees routes
   const { employeesRoutes } = await import('./routes/employees.routes');
   await app.register(employeesRoutes, { prefix: `${apiPrefix}/employees` });
 
-  // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('./routes/employee-invitation.routes');
   await app.register(employeeInvitationRoutes, { prefix: `${apiPrefix}/employee-invitations` });
 
-  // Import and register super admin routes
   const { superAdminRoutes } = await import('./routes/superadmin.routes');
   await app.register(superAdminRoutes, { prefix: `${apiPrefix}/superadmin` });
 
-  // Import and register files routes
   const filesRoutes = await import('./routes/files.routes');
   await app.register(filesRoutes.default, { prefix: `${apiPrefix}/files` });
 
-  // Import and register attendance routes
   const attendanceRoutes = await import('./routes/attendance.routes');
   await app.register(attendanceRoutes.default, { prefix: `${apiPrefix}/attendance` });
 
-  // Import and register company settings routes
   const companySettingsRoutes = await import('./routes/company-settings.routes');
   await app.register(companySettingsRoutes.default, { prefix: `${apiPrefix}/company-settings` });
 
-  // Import and register admin address audit routes
   const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');
   await app.register(adminAddressAuditRoutes.default, { prefix: `${apiPrefix}/admin/address-audit` });
 
-  // Import and register dashboard routes
   const dashboardRoutes = await import('./routes/dashboard.routes');
   await app.register(dashboardRoutes.default, { prefix: `${apiPrefix}/dashboard` });
 
-  // Import and register company routes
   const { companyRoutes } = await import('./routes/company.routes');
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
 
-  // Import and register subscription routes
   const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
 
-  // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {
     autoAttendanceService.initialize();
   }
 
-  // Graceful shutdown
   const closeGracefully = async (signal: string) => {
     logger.info(`Received ${signal}, closing gracefully`);
     autoAttendanceService.stop();

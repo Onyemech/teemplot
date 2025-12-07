@@ -13,6 +13,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { apiClient } from '@/lib/api';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -57,24 +58,18 @@ export default function OwnerDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch dashboard stats
-      const statsResponse = await fetch('/api/dashboard/stats', {
-        credentials: 'include' // Use httpOnly cookies
-      });
-      const statsData = await statsResponse.json();
+      const statsResponse = await apiClient.get('/api/dashboard/stats');
       
-      if (statsData.success) {
-        setStats(statsData.data);
-        setTrialDaysLeft(statsData.data.trialDaysLeft);
+      if (statsResponse.data.success) {
+        setStats(statsResponse.data.data);
+        setTrialDaysLeft(statsResponse.data.data.trialDaysLeft);
       }
 
       // Fetch recent activity
-      const activityResponse = await fetch('/api/dashboard/recent-activity', {
-        credentials: 'include' // Use httpOnly cookies
-      });
-      const activityData = await activityResponse.json();
+      const activityResponse = await apiClient.get('/api/dashboard/recent-activity');
       
-      if (activityData.success) {
-        setRecentActivity(activityData.data);
+      if (activityResponse.data.success) {
+        setRecentActivity(activityResponse.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);

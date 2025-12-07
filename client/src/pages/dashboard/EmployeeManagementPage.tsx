@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Mail, UserPlus, X, Loader2, CheckCircle, Clock } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import { useToast } from '@/contexts/ToastContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiClient } from '@/lib/api';
 
 interface Employee {
   id: string;
@@ -51,21 +50,15 @@ export default function EmployeeManagementPage() {
   const fetchData = async () => {
     try {
       // Fetch employees
-      const empResponse = await fetch(`${API_URL}/api/employees`, {
-        credentials: 'include',
-      });
-      const empData = await empResponse.json();
-      if (empData.success) {
-        setEmployees(empData.data);
+      const empResponse = await apiClient.get('/api/employees');
+      if (empResponse.data.success) {
+        setEmployees(empResponse.data.data);
       }
 
       // Fetch invitations
-      const invResponse = await fetch(`${API_URL}/api/employee-invitations/list`, {
-        credentials: 'include',
-      });
-      const invData = await invResponse.json();
-      if (invData.success) {
-        setInvitations(invData.data);
+      const invResponse = await apiClient.get('/api/employee-invitations/list');
+      if (invResponse.data.success) {
+        setInvitations(invResponse.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -80,17 +73,10 @@ export default function EmployeeManagementPage() {
     setInviting(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/employee-invitations/invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(inviteForm),
-      });
+      const response = await apiClient.post('/api/employee-invitations/invite', inviteForm);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send invitation');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to send invitation');
       }
 
       toast.success('Invitation sent successfully!');
@@ -114,15 +100,10 @@ export default function EmployeeManagementPage() {
     if (!confirm('Are you sure you want to cancel this invitation?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/employee-invitations/${invitationId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await apiClient.delete(`/api/employee-invitations/${invitationId}`);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to cancel invitation');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to cancel invitation');
       }
 
       toast.success('Invitation cancelled');

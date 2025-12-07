@@ -103,15 +103,14 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const result = await registrationService.register(data);
 
-      // Generate JWT tokens and set cookies immediately after registration
       const accessTokenPayload = createAccessTokenPayload({
-        id: result.user.id,
-        companyId: result.user.companyId,
-        email: result.user.email,
-        role: result.user.role,
+        id: result.userId,
+        companyId: result.companyId,
+        email: result.email,
+        role: 'owner', // Default role for new registrations
       });
       const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.userId), { expiresIn: '7d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';

@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiClient } from '@/lib/api';
 
 export interface OnboardingProgressData {
   userId: string;
@@ -22,20 +21,11 @@ export function useOnboardingProgress() {
         });
       }
       
-      const response = await fetch(`${API_URL}/api/onboarding/save-progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Use httpOnly cookies for auth
-        body: JSON.stringify(data),
-      });
+      const response = await apiClient.post('/api/onboarding/save-progress', data);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Save progress failed:', result);
-        throw new Error(result.message || 'Failed to save progress');
+      if (!response.data.success) {
+        console.error('❌ Save progress failed:', response.data);
+        throw new Error(response.data.message || 'Failed to save progress');
       }
 
       console.log('✅ Progress saved successfully to backend');
@@ -52,7 +42,7 @@ export function useOnboardingProgress() {
         console.warn('⚠️ Could not save to localStorage backup:', e);
       }
 
-      return result;
+      return response.data;
     } catch (error: any) {
       console.error('❌ Error saving progress:', error.message);
       throw error;
@@ -63,9 +53,7 @@ export function useOnboardingProgress() {
     try {
       console.log('🔍 Fetching progress from server for user:', userId);
       
-      const response = await fetch(`${API_URL}/api/onboarding/progress/${userId}`, {
-        credentials: 'include', // Use httpOnly cookies for auth
-      });
+      const response = await apiClient.get(`/api/onboarding/progress/${userId}`);
 
       console.log('📡 Server response status:', response.status);
 
@@ -79,27 +67,25 @@ export function useOnboardingProgress() {
         return null;
       }
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Failed to get progress from server:', result);
+      if (!response.data.success) {
+        console.error('❌ Failed to get progress from server:', response.data);
         return null;
       }
 
-      console.log('✅ Progress loaded from server:', result.data);
+      console.log('✅ Progress loaded from server:', response.data.data);
       
       // Save to localStorage as backup ONLY after successful server fetch
       try {
         const progressKey = `onboarding_progress_${userId}`;
         localStorage.setItem(progressKey, JSON.stringify({
-          ...result.data,
+          ...response.data.data,
           savedAt: new Date().toISOString()
         }));
       } catch (e) {
         console.warn('⚠️ Could not save to localStorage backup:', e);
       }
       
-      return result.data;
+      return response.data.data;
     } catch (error: any) {
       console.error('❌ Network error getting progress from server:', error.message);
       return null;

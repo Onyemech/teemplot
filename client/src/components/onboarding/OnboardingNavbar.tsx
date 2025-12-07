@@ -2,8 +2,7 @@ import { HelpCircle, Phone, MessageCircle, ChevronLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { apiClient } from '@/lib/api'
 
 interface OnboardingNavbarProps {
   currentStep?: number
@@ -79,10 +78,7 @@ export default function OnboardingNavbar({
       
       // Clear cookies by calling logout endpoint
       try {
-        await fetch(`${API_URL}/api/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-        })
+        await apiClient.post('/api/auth/logout', {})
       } catch (e) {
         // Ignore logout errors - we're clearing client-side anyway
       }

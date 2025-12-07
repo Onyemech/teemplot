@@ -14,8 +14,7 @@ import {
   Award
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiClient } from '@/lib/api';
 
 interface DashboardStats {
   totalEmployees?: number;
@@ -87,30 +86,21 @@ export default function DashboardPage() {
     try {
       if (isAdmin) {
         // Fetch admin stats
-        const statsResponse = await fetch(`${API_URL}/api/dashboard/stats`, {
-          credentials: 'include'
-        });
-        const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats(statsData.data);
+        const statsResponse = await apiClient.get('/api/dashboard/stats');
+        if (statsResponse.data.success) {
+          setStats(statsResponse.data.data);
         }
       } else {
         // Fetch employee stats
-        const statsResponse = await fetch(`${API_URL}/api/dashboard/employee-stats`, {
-          credentials: 'include'
-        });
-        const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats(statsData.data);
+        const statsResponse = await apiClient.get('/api/dashboard/employee-stats');
+        if (statsResponse.data.success) {
+          setStats(statsResponse.data.data);
         }
 
         // Fetch attendance status
-        const attendanceResponse = await fetch(`${API_URL}/api/attendance/status`, {
-          credentials: 'include'
-        });
-        const attendanceData = await attendanceResponse.json();
-        if (attendanceData.success) {
-          setAttendanceStatus(attendanceData.data);
+        const attendanceResponse = await apiClient.get('/api/attendance/status');
+        if (attendanceResponse.data.success) {
+          setAttendanceStatus(attendanceResponse.data.data);
         }
       }
     } catch (error) {
@@ -142,19 +132,13 @@ export default function DashboardPage() {
 
     setClockingIn(true);
     try {
-      const response = await fetch(`${API_URL}/api/attendance/clock-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ location })
-      });
+      const response = await apiClient.post('/api/attendance/clock-in', { location });
 
-      const data = await response.json();
-      if (data.success) {
-        setAttendanceStatus(data.data);
+      if (response.data.success) {
+        setAttendanceStatus(response.data.data);
         alert('Clocked in successfully!');
       } else {
-        alert(data.message || 'Failed to clock in');
+        alert(response.data.message || 'Failed to clock in');
       }
     } catch (error) {
       console.error('Clock in error:', error);
@@ -172,19 +156,13 @@ export default function DashboardPage() {
 
     setClockingIn(true);
     try {
-      const response = await fetch(`${API_URL}/api/attendance/clock-out`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ location })
-      });
+      const response = await apiClient.post('/api/attendance/clock-out', { location });
 
-      const data = await response.json();
-      if (data.success) {
-        setAttendanceStatus(data.data);
+      if (response.data.success) {
+        setAttendanceStatus(response.data.data);
         alert('Clocked out successfully!');
       } else {
-        alert(data.message || 'Failed to clock out');
+        alert(response.data.message || 'Failed to clock out');
       }
     } catch (error) {
       console.error('Clock out error:', error);

@@ -3,6 +3,7 @@ import { Search, ChevronDown, LogOut, User, Settings, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
+import { apiClient } from '@/lib/api'
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
@@ -21,10 +22,7 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const handleLogout = async () => {
     // Call logout endpoint to clear httpOnly cookies
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      })
+      await apiClient.post('/api/auth/logout', {})
     } catch (error) {
       console.error('Logout error:', error)
     }
