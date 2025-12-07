@@ -4,8 +4,8 @@ import { Eye, EyeOff, Check, Loader2, AlertCircle } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
+import { apiClient } from '@/lib/api'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 interface InvitationData {
   email: string
@@ -88,10 +88,10 @@ export default function AcceptInvitationPage() {
       }
 
       try {
-        const response = await fetch(`${API_URL}/api/employee-invitations/invitation/${token}`)
-        const data = await response.json()
+        const response = await apiClient.get(`/api/employee-invitations/invitation/${token}`)
+        const data = response.data
 
-        if (!response.ok) {
+        if (!data.success) {
           throw new Error(data.message || 'Failed to load invitation')
         }
 
@@ -133,20 +133,16 @@ export default function AcceptInvitationPage() {
     setSubmitting(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/employee-invitations/accept`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          password: formData.password,
-          phoneNumber: '', // Optional
-          dateOfBirth: '', // Optional
-        }),
+      const response = await apiClient.post('/api/employee-invitations/accept', {
+        token,
+        password: formData.password,
+        phoneNumber: '', // Optional
+        dateOfBirth: '', // Optional
       })
 
-      const data = await response.json()
+      const data = response.data
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Failed to accept invitation')
       }
 

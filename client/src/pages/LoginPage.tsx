@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { apiClient } from '@/lib/api'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 import { useUser } from '@/contexts/UserContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -33,7 +31,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
+      const response = await apiClient.post('/api/auth/login', {
         email: formData.email,
         password: formData.password,
       })

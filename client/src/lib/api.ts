@@ -1,9 +1,6 @@
 import axios from 'axios'
 import { env } from '@/config/env'
 
-// Clean baseURL setup:
-// - Development: empty string (uses Vite proxy at /api)
-// - Production: full API subdomain URL
 const baseURL = import.meta.env.MODE === 'production' 
   ? 'https://api.teemplot.com'
   : ''
@@ -14,11 +11,9 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Send cookies automatically
+  withCredentials: true, 
 })
 
-// No need for Authorization header - cookies are sent automatically
-// No need for request interceptor - paths are standardized with /api prefix
 
 apiClient.interceptors.response.use(
   (response) => response,

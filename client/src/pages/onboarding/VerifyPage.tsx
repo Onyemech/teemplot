@@ -4,6 +4,7 @@ import { LogoLoader } from '@/components/LogoLoader'
 import BackButton from '@/components/ui/BackButton'
 import Button from '@/components/ui/Button'
 import { useUser } from '@/contexts/UserContext'
+import { apiClient } from '@/lib/api'
 
 function VerifyEmailContent() {
   const navigate = useNavigate()
@@ -69,15 +70,12 @@ function VerifyEmailContent() {
     setError('')
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      
-      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: verificationCode }),
+      const response = await apiClient.post('/api/auth/verify-email', {
+        email,
+        code: verificationCode
       })
 
-      const data = await response.json()
+      const data = response.data
 
       if (data.success) {
         // Backend sets httpOnly cookies automatically - NO localStorage storage
@@ -104,17 +102,13 @@ function VerifyEmailContent() {
     setError('')
     
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      
-      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const response = await apiClient.post('/api/auth/resend-verification', {
+        email
       })
 
-      const data = await response.json()
+      const data = response.data
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Failed to resend code')
       }
       

@@ -22,12 +22,11 @@ export function setAuthCookies(
   const cookieOptions = {
     httpOnly: true, 
     secure: isProduction, 
-    sameSite: 'lax' as const, // 'lax' works for same-site subdomains (teemplot.com <-> api.teemplot.com)
-    domain: isProduction ? '.teemplot.com' : undefined, // Leading dot = shared across all subdomains
+    sameSite: 'lax' as const, 
+    domain: isProduction ? '.teemplot.com' : undefined, 
     path: '/',
   };
 
-  // Log cookie settings for debugging
   console.log('🍪 Setting auth cookies:', {
     domain: cookieOptions.domain || 'localhost',
     sameSite: cookieOptions.sameSite,

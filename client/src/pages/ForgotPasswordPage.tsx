@@ -5,8 +5,7 @@ import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import { Mail } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { apiClient } from '@/lib/api'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -21,13 +20,11 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const response = await apiClient.post('/api/auth/forgot-password', {
+        email
       })
 
-      const data = await response.json()
+      const data = response.data
 
       if (data.success) {
         toast.success('Verification code sent! Check your email.')

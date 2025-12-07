@@ -5,8 +5,7 @@ import Button from '@/components/ui/Button'
 import BackButton from '@/components/ui/BackButton'
 import { Lock, Check, Eye, EyeOff } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { apiClient } from '@/lib/api'
 
 // Password validation helper
 const validatePassword = (password: string) => {
@@ -122,13 +121,12 @@ function ResetPasswordContent() {
     setError('')
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/verify-reset-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: verificationCode }),
+      const response = await apiClient.post('/api/auth/verify-reset-code', {
+        email,
+        code: verificationCode
       })
 
-      const data = await response.json()
+      const data = response.data
 
       if (data.success) {
         toast.success('Code verified! Now set your new password.')
@@ -154,13 +152,11 @@ function ResetPasswordContent() {
   const handleResendCode = async () => {
     setResendLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const response = await apiClient.post('/api/auth/forgot-password', {
+        email
       })
       
-      const data = await response.json()
+      const data = response.data
       
       if (data.success) {
         toast.success('New code sent! Check your email.')
@@ -200,17 +196,13 @@ function ResetPasswordContent() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          code: code.join(''), 
-          password: formData.password 
-        }),
+      const response = await apiClient.post('/api/auth/reset-password', {
+        email,
+        code: code.join(''),
+        password: formData.password
       })
 
-      const data = await response.json()
+      const data = response.data
 
       if (data.success) {
         toast.success('Password reset successfully!')

@@ -139,8 +139,8 @@ export async function buildApp() {
     }
   });
 
-  // Health check
-  app.get('/health', async () => {
+  // Health check (both /health and /api/health for consistency)
+  const healthHandler = async () => {
     const dbHealth = await DatabaseFactory.healthCheck();
 
     return {
@@ -152,7 +152,10 @@ export async function buildApp() {
         type: dbHealth.type,
       },
     };
-  });
+  };
+  
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
 
   // Routes - Use /api prefix for all routes
   // This works for both development (localhost:5000/api/...) and production (api.teemplot.com/api/...)

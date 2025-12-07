@@ -1,5 +1,4 @@
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiClient } from '@/lib/api';
 
 export interface User {
   id: string
@@ -16,14 +15,8 @@ export interface User {
  */
 export async function getUser(): Promise<User | null> {
   try {
-    const response = await fetch(`${API_URL}/api/auth/me`, {
-      credentials: 'include', // Send cookies
-    });
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    return data.data;
+    const response = await apiClient.get('/api/auth/me');
+    return response.data.data;
   } catch (error) {
     console.error('Failed to get user:', error);
     return null;
@@ -43,10 +36,7 @@ export async function isAuthenticated(): Promise<boolean> {
  */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${API_URL}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await apiClient.post('/api/auth/logout');
     
     // Clear any remaining client-side data
     localStorage.clear();

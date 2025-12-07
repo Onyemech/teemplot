@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
 import { Link } from 'react-router-dom'
+import { apiClient } from '@/lib/api'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Check } from 'lucide-react'
@@ -42,26 +42,18 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
       // Call backend registration API
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          firstName: 'User', // Temporary - will be collected later
-          lastName: 'Account', // Temporary - will be collected later
-          companyName: 'My Company', // Temporary - will be collected later
-        }),
+      const response = await apiClient.post('/api/auth/register', {
+        email: formData.email,
+        password: formData.password,
+        firstName: 'User', // Temporary - will be collected later
+        lastName: 'Account', // Temporary - will be collected later
+        companyName: 'My Company', // Temporary - will be collected later
       })
 
-      const data = await response.json()
+      const data = response.data
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Registration failed')
       }
 
