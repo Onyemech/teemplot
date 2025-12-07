@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
 import { useEmployeeLimit } from '@/hooks/useEmployeeLimit'
+import EmployeeLimitUpgradeModal from './EmployeeLimitUpgradeModal'
 
 interface InviteEmployeeModalProps {
   isOpen: boolean
@@ -20,6 +21,8 @@ export default function InviteEmployeeModal({
   const { declaredLimit, currentCount, canAddMore, remaining } = useEmployeeLimit()
   const [loading, setLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeInfo, setUpgradeInfo] = useState<any>(null)
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -31,15 +34,10 @@ export default function InviteEmployeeModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!canAddMore) {
-      toast.error(`You've reached your declared employee limit of ${declaredLimit} employees. Contact support to increase your limit.`)
-      return
-    }
-
     setLoading(true)
 
     try {
-      await apiClient.post('/employees/invite', formData)
+      await apiClient.post('/employee-invitations/invite', formData)
       
       setShowSuccess(true)
       toast.success('Invitation sent successfully!')
@@ -59,16 +57,61 @@ export default function InviteEmployeeModal({
       }, 2000)
     } catch (error: any) {
       console.error('Failed to send invitation:', error)
-      toast.error(error.response?.data?.message || 'Failed to send invitation')
+      
+      // Check if it's an employee limit error
+      if (error.response?.data?.code === 'EMPLOYEE_LIMIT_REACHED') {
+        const upgradeData = error.response.data.upgradeInfo
+        setUpgradeInfo({
+          currentLimit: error.response.data.limit,
+          currentPlan: upgradeData.currentPlan,
+          pricePerEmployee: upgradeData.pricePerEmployee,
+          currency: upgradeData.currency,
+        })
+        setShowUpgradeModal(true)
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to send invitation')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpgrade = async (additionalEmployees: number) => {
+    try {
+      const response = await apiClient.post('/subscription/upgrade-employee-limit', {
+        additionalEmployees,
+      })
+
+      // Redirect to payment page
+      if (response.data.success && response.data.data.authorizationUrl) {
+        window.location.href = response.data.data.authorizationUrl
+      }
+    } catch (error: any) {
+      console.error('Failed to initiate upgrade:', error)
+      toast.error(error.response?.data?.message || 'Failed to initiate upgrade')
+      throw error
     }
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <>
+      {/* Upgrade Modal */}
+      {upgradeInfo && (
+        <EmployeeLimitUpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          currentLimit={upgradeInfo.currentLimit}
+          currentPlan={upgradeInfo.currentPlan}
+          pricePerEmployee={upgradeInfo.pricePerEmployee}
+          currency={upgradeInfo.currency}
+          onUpgrade={handleUpgrade}
+        />
+      )}
+
+      {/* Invite Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {showSuccess ? (
           <div className="p-8 text-center">
@@ -208,5 +251,6 @@ export default function InviteEmployeeModal({
         )}
       </div>
     </div>
+    </>
   )
 }

@@ -39,7 +39,7 @@ export const submitCompanySetup = async (data: {
   return requestDeduplicator.deduplicate(
     `company-setup-${data.companyId}`,
     async () => {
-      const response = await fetch(`${API_URL}/onboarding/company-setup`, {
+      const response = await fetch(`${API_URL}/api/onboarding/company-setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ export const submitOwnerDetails = async (data: {
   return requestDeduplicator.deduplicate(
     `owner-details-${data.companyId}`,
     async () => {
-      const response = await fetch(`${API_URL}/onboarding/owner-details`, {
+      const response = await fetch(`${API_URL}/api/onboarding/owner-details`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export const submitBusinessInfo = async (data: {
         headers['Authorization'] = `Bearer ${token}`
       }
       
-      const response = await fetch(`${API_URL}/onboarding/business-info`, {
+      const response = await fetch(`${API_URL}/api/onboarding/business-info`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -148,7 +148,7 @@ export const uploadLogo = async (_companyId: string, file: File) => {
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await fetch(`${API_URL}/onboarding/upload-logo`, {
+  const response = await fetch(`${API_URL}/api/onboarding/upload-logo`, {
     method: 'POST',
     credentials: 'include',
     body: formData,
@@ -176,7 +176,7 @@ export const uploadDocument = async (
   const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   
   // Step 2: Check if file already exists
-  const checkResponse = await fetch(`${API_URL}/files/check`, {
+  const checkResponse = await fetch(`${API_URL}/api/files/check`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ export const uploadDocument = async (
     formData.append('document', file)
     formData.append('hash', hash)
     
-    const uploadResponse = await fetch(`${API_URL}/files/upload`, {
+    const uploadResponse = await fetch(`${API_URL}/api/files/upload`, {
       method: 'POST',
       credentials: 'include',
       body: formData
@@ -230,7 +230,7 @@ export const uploadDocument = async (
   
   // Step 4: Attach file to company
   console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
-  const attachResponse = await fetch(`${API_URL}/files/attach-to-company`, {
+  const attachResponse = await fetch(`${API_URL}/api/files/attach-to-company`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -315,7 +315,7 @@ export const submitPlanSelection = async (data: {
   plan: 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly' | 'free'
   companySize: number
 }) => {
-  const response = await fetch(`${API_URL}/onboarding/select-plan`, {
+  const response = await fetch(`${API_URL}/api/onboarding/select-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -338,7 +338,7 @@ export const completeOnboarding = async (data: {
   companyId: string
   userId: string
 }) => {
-  const response = await fetch(`${API_URL}/onboarding/complete`, {
+  const response = await fetch(`${API_URL}/api/onboarding/complete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

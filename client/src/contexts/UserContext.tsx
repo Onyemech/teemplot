@@ -11,6 +11,8 @@ interface User {
   companyName?: string;
   companyLogo?: string;
   subscriptionPlan?: string;
+  subscriptionStatus?: string;
+  trialDaysLeft?: number | null;
   emailVerified: boolean;
   onboardingCompleted: boolean;
 }

@@ -54,4 +54,26 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  // Get subscription info
+  fastify.get('/subscription', {
+    onRequest: [fastify.authenticate]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const companyId = (request.user as any).companyId;
+      const { getSubscriptionInfo } = await import('../middleware/subscription.middleware');
+      const subscriptionInfo = await getSubscriptionInfo(companyId);
+      
+      return reply.send({
+        success: true,
+        data: subscriptionInfo
+      });
+    } catch (error: any) {
+      fastify.log.error('Error fetching subscription info:', error);
+      return reply.status(500).send({ 
+        success: false,
+        error: error.message || 'Failed to fetch subscription info' 
+      });
+    }
+  });
 }

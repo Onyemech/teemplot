@@ -29,7 +29,7 @@ export function useCurrentUser() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch(`${env.apiUrl}/auth/me`, {
+      const response = await fetch(`${env.apiUrl}/api/auth/me`, {
         credentials: 'include', // Send httpOnly cookies
       });
 

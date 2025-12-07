@@ -22,7 +22,7 @@ export function useOnboardingProgress() {
         });
       }
       
-      const response = await fetch(`${API_URL}/onboarding/save-progress`, {
+      const response = await fetch(`${API_URL}/api/onboarding/save-progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ export function useOnboardingProgress() {
     try {
       console.log('🔍 Fetching progress from server for user:', userId);
       
-      const response = await fetch(`${API_URL}/onboarding/progress/${userId}`, {
+      const response = await fetch(`${API_URL}/api/onboarding/progress/${userId}`, {
         credentials: 'include', // Use httpOnly cookies for auth
       });
 

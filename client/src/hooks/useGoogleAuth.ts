@@ -51,7 +51,7 @@ export function useGoogleAuth() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      const response = await fetch(`${apiUrl}/auth/google/verify`, {
+      const response = await fetch(`${apiUrl}/api/auth/google/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ export function useGoogleAuth() {
         // Check if there's saved progress in database
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         try {
-          const progressResponse = await fetch(`${apiUrl}/onboarding/progress/${user.id}`);
+          const progressResponse = await fetch(`${apiUrl}/api/onboarding/progress/${user.id}`);
           if (progressResponse.ok) {
             const progressData = await progressResponse.json();
             if (progressData.data) {
@@ -138,7 +138,7 @@ export function useGoogleAuth() {
 
         // Fetch user data
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        fetch(`${apiUrl}/auth/me`, {
+        fetch(`${apiUrl}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

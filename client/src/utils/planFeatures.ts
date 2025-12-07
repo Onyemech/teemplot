@@ -42,10 +42,10 @@ export const PLAN_FEATURES: Record<SubscriptionPlan, PlanFeatures> = {
     description: '30 days of full Gold plan access - all features included'
   },
   silver: {
-    // Silver: Attendance + Leave + Settings only
-    features: ['attendance', 'leave'],
+    // Silver: Attendance + Leave + Employees + Departments
+    features: ['attendance', 'leave', 'departments', 'employees'],
     displayName: 'Silver Plan',
-    description: 'Attendance Tracking + Leave Management'
+    description: 'Attendance + Leave + Employee & Department Management'
   },
   gold: {
     // Gold: All features

@@ -21,7 +21,14 @@ const AcceptInvitationSchema = z.object({
 export async function employeeInvitationRoutes(fastify: FastifyInstance) {
   // Send employee invitation (Owner/Admin only)
   fastify.post('/invite', {
-    preHandler: [fastify.authenticate],
+    preHandler: [
+      fastify.authenticate,
+      async (request, reply) => {
+        // Import middleware dynamically to avoid circular dependencies
+        const { checkEmployeeLimit } = await import('../middleware/subscription.middleware');
+        await checkEmployeeLimit(request, reply);
+      }
+    ],
   }, async (request, reply) => {
     try {
       // Check role

@@ -45,7 +45,7 @@ export default function RegisterPage() {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
       // Call backend registration API
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

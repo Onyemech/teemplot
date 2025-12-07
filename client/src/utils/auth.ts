@@ -16,7 +16,7 @@ export interface User {
  */
 export async function getUser(): Promise<User | null> {
   try {
-    const response = await fetch(`${API_URL}/auth/me`, {
+    const response = await fetch(`${API_URL}/api/auth/me`, {
       credentials: 'include', // Send cookies
     });
     
@@ -43,7 +43,7 @@ export async function isAuthenticated(): Promise<boolean> {
  */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${API_URL}/auth/logout`, {
+    await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     });

@@ -182,27 +182,42 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
                 throw new Error('Session expired. Please log in again.')
               }
               
-              // Submit plan selection
               const planKey = `${selectedPlan}_${billingCycle}` as 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly'
-              await submitPlanSelection({
-                companyId: user.companyId,
-                plan: planKey,
-                companySize: numberOfEmployees,
-              })
-
-              // Complete onboarding
-              await completeOnboarding({
-                companyId: user.companyId,
-                userId: user.id,
-              })
-
-              toast.success('Onboarding completed successfully!')
               
-              // Call parent completion handler
-              onComplete()
+              // Gold Monthly = Free Trial (no payment)
+              if (selectedPlan === 'gold' && billingCycle === 'monthly') {
+                // Submit plan selection (activates trial)
+                await submitPlanSelection({
+                  companyId: user.companyId,
+                  plan: planKey,
+                  companySize: numberOfEmployees,
+                })
+
+                // Complete onboarding
+                await completeOnboarding({
+                  companyId: user.companyId,
+                  userId: user.id,
+                })
+
+                toast.success('30-day free trial activated!')
+                onComplete()
+              } else {
+                // All other plans require payment
+                const paymentResponse = await apiClient.post('/subscription/initiate-subscription', {
+                  plan: planKey,
+                  companySize: numberOfEmployees,
+                })
+
+                if (paymentResponse.data.success && paymentResponse.data.data.authorizationUrl) {
+                  // Redirect to payment page
+                  window.location.href = paymentResponse.data.data.authorizationUrl
+                } else {
+                  throw new Error('Failed to initiate payment')
+                }
+              }
             } catch (error: any) {
-              console.error('Failed to complete onboarding:', error)
-              const errorMsg = error.message || 'Failed to complete onboarding'
+              console.error('Failed to process payment:', error)
+              const errorMsg = error.response?.data?.message || error.message || 'Failed to process payment'
               toast.error(errorMsg)
               
               // If auth error, redirect to login
@@ -216,7 +231,7 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
             }
           }}
           disabled={loading}
-          className="w-full bg-primary-600 text-white font-bold py-4 rounded-lg hover:bg-primary-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-primary text-white font-bold py-4 rounded-lg hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Processing...' : (selectedPlan === 'gold' && billingCycle === 'monthly' 
             ? 'Start 30-Day Free Trial' 

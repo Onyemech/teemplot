@@ -23,6 +23,9 @@ import './utils/debugAuth'
 // Auth Pages
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
 
+// Payment Pages
+import PaymentCallbackPage from './pages/PaymentCallbackPage'
+
 // Legal Pages
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
@@ -55,6 +58,9 @@ function App() {
       
       {/* Auth Callback Routes */}
       <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+      
+      {/* Payment Callback Route */}
+      <Route path="/payment/callback" element={<PaymentCallbackPage />} />
 
       {/* Onboarding Routes */}
       <Route path="/onboarding">

@@ -21,7 +21,7 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const handleLogout = async () => {
     // Call logout endpoint to clear httpOnly cookies
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/logout`, {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       })

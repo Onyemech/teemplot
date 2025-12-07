@@ -200,6 +200,10 @@ export async function buildApp() {
   const { companyRoutes } = await import('./routes/company.routes');
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
 
+  // Import and register subscription routes
+  const { subscriptionRoutes } = await import('./routes/subscription.routes');
+  await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
+
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {
     autoAttendanceService.initialize();
