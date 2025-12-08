@@ -7,10 +7,9 @@ export function registerServiceWorker() {
         (registration) => {
           console.log('✅ Service Worker registered:', registration.scope);
 
-          // Check for updates periodically
           setInterval(() => {
             registration.update();
-          }, 60000); // Check every minute
+          }, 60000); 
 
           // Handle updates
           registration.addEventListener('updatefound', () => {

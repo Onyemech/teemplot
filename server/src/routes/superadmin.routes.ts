@@ -223,4 +223,113 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  // Upload demo video
+  fastify.post('/demo-video', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const { videoUrl, title, description } = request.body as {
+        videoUrl: string;
+        title?: string;
+        description?: string;
+      };
+
+      if (!videoUrl) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Video URL is required',
+        });
+      }
+
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const { randomUUID } = await import('crypto');
+      const db = DatabaseFactory.getPrimaryDatabase();
+
+      // Deactivate all previous videos
+      const existingVideos = await db.find('demo_videos', {});
+      for (const video of existingVideos) {
+        await db.update('demo_videos', { is_active: 0 }, { id: video.id });
+      }
+
+      // Create new demo video
+      const videoId = randomUUID();
+      await db.insert('demo_videos', {
+        id: videoId,
+        video_url: videoUrl,
+        title: title || 'Teemplot Demo',
+        description: description || 'See how Teemplot transforms HR management',
+        is_active: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      return reply.code(201).send({
+        success: true,
+        data: { id: videoId, videoUrl, title, description },
+        message: 'Demo video uploaded successfully',
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to upload demo video',
+      });
+    }
+  });
+
+  // Get current demo video (for superadmin)
+  fastify.get('/demo-video', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const db = DatabaseFactory.getPrimaryDatabase();
+
+      const videos = await db.find('demo_videos', { is_active: 1 });
+
+      if (videos.length === 0) {
+        return reply.send({
+          success: true,
+          data: null,
+        });
+      }
+
+      const latestVideo = videos.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0];
+
+      return reply.send({
+        success: true,
+        data: latestVideo,
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to fetch demo video',
+      });
+    }
+  });
+
+  // Delete demo video
+  fastify.delete('/demo-video/:videoId', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const { videoId } = request.params as { videoId: string };
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const db = DatabaseFactory.getPrimaryDatabase();
+
+      await db.delete('demo_videos', { id: videoId });
+
+      return reply.send({
+        success: true,
+        message: 'Demo video deleted successfully',
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to delete demo video',
+      });
+    }
+  });
 }

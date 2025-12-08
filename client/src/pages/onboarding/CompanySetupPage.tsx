@@ -460,7 +460,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Company name</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Company name <span className="text-red-500">**</span></label>
               <input
                 type="text"
                 required
@@ -473,7 +473,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Tax identification number (TIN)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Tax identification number (TIN) <span className="text-red-500">**</span></label>
               <input
                 type="text"
                 required
@@ -527,7 +527,7 @@ export default function CompanySetupPage() {
 
             {formData.industry === 'other' && (
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Please specify your industry</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Please specify your industry <span className="text-red-500">**</span></label>
                 <input
                   type="text"
                   required
@@ -540,7 +540,7 @@ export default function CompanySetupPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Company size (Number of employees)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Company size (Number of employees) <span className="text-red-500">**</span></label>
               <input
                 type="text"
                 required
@@ -570,7 +570,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Company website (optional)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Company website <span className="text-gray-400">(Optional)</span></label>
               <div className="flex items-center border border-border rounded-lg overflow-hidden">
                 <span className="px-3 text-muted-foreground text-sm">http://</span>
                 <input
@@ -585,7 +585,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Business Address</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Business Address <span className="text-red-500">**</span></label>
               <p className="text-xs text-muted-foreground mb-2">
                 📍 Enter your company's head office address. We'll capture the exact coordinates for accurate attendance tracking.
               </p>
@@ -670,7 +670,7 @@ export default function CompanySetupPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Legal first name</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Legal first name <span className="text-red-500">**</span></label>
                 <input
                   type="text"
                   required
@@ -681,7 +681,7 @@ export default function CompanySetupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Legal last name</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Legal last name <span className="text-red-500">**</span></label>
                 <input
                   type="text"
                   required
@@ -695,7 +695,7 @@ export default function CompanySetupPage() {
 
             {!formData.isOwner && (
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Email address</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email address <span className="text-red-500">**</span></label>
                 <input
                   type="email"
                   required
@@ -783,7 +783,7 @@ export default function CompanySetupPage() {
         return (
           <div className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">C.A.C document</label>
+              <label className="block text-sm font-medium text-foreground mb-2">C.A.C document <span className="text-red-500">**</span></label>
               <p className="text-xs text-muted-foreground mb-3">This is used to verify the business detail you provided</p>
 
               {formData.cacDocument ? (
@@ -853,7 +853,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Proof of address</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Proof of address <span className="text-red-500">**</span></label>
               <p className="text-xs text-muted-foreground mb-3">This is used to verify the business address</p>
 
               {formData.proofOfAddress ? (
@@ -923,7 +923,7 @@ export default function CompanySetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Company policies document</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Company policies document <span className="text-red-500">**</span></label>
               <p className="text-xs text-muted-foreground mb-3">This is to ensure that your company adhere to standard company practices</p>
 
               {formData.companyPolicies ? (

@@ -187,6 +187,10 @@ export async function buildApp() {
   const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
 
+  // Import and register public routes (no auth required)
+  const { publicRoutes } = await import('./routes/public.routes');
+  await app.register(publicRoutes, { prefix: `${apiPrefix}/demo-video` });
+
   if (process.env.NODE_ENV === 'production') {
     autoAttendanceService.initialize();
   }

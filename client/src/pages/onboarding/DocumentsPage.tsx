@@ -323,7 +323,7 @@ export default function DocumentsPage() {
 
     return (
       <div className="mb-6">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">{title} <span className="text-red-500">**</span></h3>
         <p className="text-sm text-gray-600 mb-3">{description}</p>
 
         {uploadedFile ? (

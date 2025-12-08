@@ -57,7 +57,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className="block text-sm font-medium text-gray-900 mb-2"
           >
             {label}
-            {required && <span className="text-error ml-1">*</span>}
+            {required && <span className="text-error ml-1">**</span>}
           </label>
         )}
 

@@ -1,7 +1,18 @@
 User-agent: *
 Allow: /
-Disallow: /dashboard
-Disallow: /onboarding/
-Disallow: /auth/
+
+Disallow: /dashboard/
+Disallow: /app/
+Disallow: /admin/
+Disallow: /owner/
+
+Allow: /onboarding/
+Allow: /auth/
+Allow: /login
+Allow: /register
+
+Allow: /
+Allow: /privacy
+Allow: /terms
 
 Sitemap: https://teemplot.com/sitemap.xml

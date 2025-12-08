@@ -197,7 +197,7 @@ export default function BusinessInfoPage() {
                 {/* Company Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Name <span className="text-red-500">*</span>
+                    Company Name <span className="text-red-500">**</span>
                   </label>
                   <input
                     type="text"
@@ -217,7 +217,7 @@ export default function BusinessInfoPage() {
                 {/* Tax ID */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tax ID / RC Number <span className="text-red-500">*</span>
+                    Tax ID / RC Number <span className="text-red-500">**</span>
                   </label>
                   <input
                     type="text"
@@ -237,7 +237,7 @@ export default function BusinessInfoPage() {
                 {/* Industry */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Industry <span className="text-red-500">*</span>
+                    Industry <span className="text-red-500">**</span>
                   </label>
                   <select
                     name="industry"
@@ -260,7 +260,7 @@ export default function BusinessInfoPage() {
                 {/* Number of Employees */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Number of Employees <span className="text-red-500">*</span>
+                    Number of Employees <span className="text-red-500">**</span>
                   </label>
                   <input
                     type="number"
@@ -308,7 +308,7 @@ export default function BusinessInfoPage() {
                 {/* Address */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Street Address <span className="text-red-500">*</span>
+                    Street Address <span className="text-red-500">**</span>
                   </label>
                   <input
                     type="text"
@@ -329,7 +329,7 @@ export default function BusinessInfoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City <span className="text-red-500">*</span>
+                      City <span className="text-red-500">**</span>
                     </label>
                     <input
                       type="text"
@@ -348,7 +348,7 @@ export default function BusinessInfoPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State/Province <span className="text-red-500">*</span>
+                      State/Province <span className="text-red-500">**</span>
                     </label>
                     <input
                       type="text"
@@ -370,7 +370,7 @@ export default function BusinessInfoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Country <span className="text-red-500">*</span>
+                      Country <span className="text-red-500">**</span>
                     </label>
                     <select
                       name="country"
@@ -393,7 +393,7 @@ export default function BusinessInfoPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Postal Code <span className="text-red-500">*</span>
+                      Postal Code <span className="text-red-500">**</span>
                     </label>
                     <input
                       type="text"

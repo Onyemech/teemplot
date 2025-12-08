@@ -163,7 +163,7 @@ export default function OwnerDetailsPage() {
             {/* First Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner First Name <span className="text-red-500">*</span>
+                Owner First Name <span className="text-red-500">**</span>
               </label>
               <input
                 type="text"
@@ -183,7 +183,7 @@ export default function OwnerDetailsPage() {
             {/* Last Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner Last Name <span className="text-red-500">*</span>
+                Owner Last Name <span className="text-red-500">**</span>
               </label>
               <input
                 type="text"
@@ -203,7 +203,7 @@ export default function OwnerDetailsPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner Email <span className="text-red-500">*</span>
+                Owner Email <span className="text-red-500">**</span>
               </label>
               <input
                 type="email"
@@ -226,7 +226,7 @@ export default function OwnerDetailsPage() {
             {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner Phone Number <span className="text-red-500">*</span>
+                Owner Phone Number <span className="text-red-500">**</span>
               </label>
               <input
                 type="tel"
@@ -246,7 +246,7 @@ export default function OwnerDetailsPage() {
             {/* Date of Birth */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner Date of Birth <span className="text-red-500">*</span>
+                Owner Date of Birth <span className="text-red-500">**</span>
               </label>
               <input
                 type="date"

@@ -1,5 +1,6 @@
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
+import DemoVideo from '@/components/landing/DemoVideo'
 import Features from '@/components/landing/Features'
 import Benefits from '@/components/landing/Benefits'
 import CTA from '@/components/landing/CTA'
@@ -10,6 +11,7 @@ export default function LandingPage() {
     <main className="min-h-screen">
       <Navbar />
       <Hero />
+      <DemoVideo />
       <div id="features">
         <Features />
       </div>
