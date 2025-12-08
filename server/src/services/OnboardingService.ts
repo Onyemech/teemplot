@@ -226,7 +226,7 @@ export class OnboardingService {
       const company = await this.db.findOne('companies', { id: companyId });
       
       // Send branded owner setup invitation email (non-blocking)
-      const setupLink = `${process.env.CLIENT_URL}/owner-setup?token=${invitationToken}`;
+      const setupLink = `${process.env.FRONTEND_URL || 'https://teemplot.com'}/owner-setup?token=${invitationToken}`;
       const registrantName = `${registrant.first_name} ${registrant.last_name}`.trim();
       
       emailService.sendOwnerSetupInvitation(

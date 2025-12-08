@@ -86,7 +86,7 @@ export class EmployeeInvitationService {
       const inviter = await this.db.findOne('users', { id: invitedBy });
 
       // Send invitation email
-      const invitationLink = `${process.env.CLIENT_URL}/accept-invitation?token=${token}`;
+      const invitationLink = `${process.env.FRONTEND_URL || 'https://teemplot.com'}/accept-invitation?token=${token}`;
       
       await emailService.sendEmployeeInvitation(
         email,
