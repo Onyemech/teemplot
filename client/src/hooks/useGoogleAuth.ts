@@ -23,13 +23,10 @@ export function useGoogleAuth() {
         toast.error('Google sign-in is taking too long. Please try again.');
       }, 10000); // 10 second timeout
       
-      // In production, VITE_API_URL is https://api.teemplot.com (already points to API)
-      // In development, it's http://localhost:5000 (needs /api prefix)
+      // In production, VITE_API_URL is https://api.teemplot.com (already points to API subdomain)
+      // So we need /api prefix in both cases since backend always uses /api prefix
       const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const isProduction = import.meta.env.MODE === 'production';
-      const googleAuthUrl = isProduction 
-        ? `${backendUrl}/auth/google`  // Production: api.teemplot.com/auth/google
-        : `${backendUrl}/api/auth/google`; // Development: localhost:5000/api/auth/google
+      const googleAuthUrl = `${backendUrl}/api/auth/google`;
       
       window.location.href = googleAuthUrl;
       

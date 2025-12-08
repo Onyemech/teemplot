@@ -166,9 +166,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * Verify and fulfill payment
-   */
+ 
   fastify.post('/verify-payment', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -176,7 +174,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
       const { reference } = VerifyPaymentSchema.parse(request.body);
       const { companyId } = request.user as any;
 
-      // Get payment and verify it belongs to this company
       const payment = await paymentService.getPaymentByReference(reference);
       
       if (!payment) {
@@ -193,7 +190,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Verify and fulfill payment
       const result = await paymentService.fulfillPayment(reference);
 
       logger.info({ reference, companyId }, 'Payment verified and fulfilled');

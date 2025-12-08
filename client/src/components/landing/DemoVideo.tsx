@@ -28,11 +28,11 @@ export default function DemoVideo() {
     <section id="demo" className="py-20 px-6 bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="max-w-7xl mx-auto">
         <ScrollReveal direction="up">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
               See Teemplot in Action
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base sm:text-xl text-gray-600 max-w-2xl mx-auto px-4">
               Watch how our platform transforms HR management for businesses like yours
             </p>
           </div>
@@ -61,29 +61,29 @@ export default function DemoVideo() {
               </div>
             ) : (
               <div className="relative aspect-video bg-gradient-to-br from-primary/10 to-[#FF5722]/10 rounded-2xl shadow-2xl overflow-hidden border-2 border-dashed border-gray-300">
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-                  <div className="bg-white rounded-full p-6 shadow-lg mb-6">
-                    <Video className="h-16 w-16 text-primary" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+                  <div className="bg-white rounded-full p-4 sm:p-6 shadow-lg mb-4 sm:mb-6">
+                    <Video className="h-10 w-10 sm:h-16 sm:w-16 text-primary" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3 px-2">
                     Demo Video Coming Soon
                   </h3>
-                  <p className="text-gray-600 max-w-md">
+                  <p className="text-sm sm:text-base text-gray-600 max-w-md px-4">
                     We're preparing an exciting demo to showcase all the powerful features of Teemplot. Check back soon!
                   </p>
                   
                   {/* Animated Play Button */}
-                  <div className="mt-8 relative">
+                  <div className="mt-4 sm:mt-8 relative">
                     <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-                    <div className="relative bg-primary rounded-full p-4">
-                      <Play className="h-8 w-8 text-white" fill="white" />
+                    <div className="relative bg-primary rounded-full p-3 sm:p-4">
+                      <Play className="h-6 w-6 sm:h-8 sm:w-8 text-white" fill="white" />
                     </div>
                   </div>
                 </div>
 
                 {/* Decorative Elements */}
-                <div className="absolute top-10 right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl animate-pulse"></div>
-                <div className="absolute bottom-10 left-10 w-32 h-32 bg-[#FF5722]/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute top-4 right-4 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 bg-primary/10 rounded-full blur-2xl animate-pulse"></div>
+                <div className="absolute bottom-4 left-4 sm:bottom-10 sm:left-10 w-20 h-20 sm:w-32 sm:h-32 bg-[#FF5722]/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
               </div>
             )}
           </div>
@@ -91,14 +91,14 @@ export default function DemoVideo() {
 
         {/* Call to Action Below Video */}
         <ScrollReveal direction="up" delay={0.3}>
-          <div className="text-center mt-12">
-            <p className="text-lg text-gray-600 mb-6">
+          <div className="text-center mt-8 sm:mt-12 px-4">
+            <p className="text-base sm:text-lg text-gray-600 mb-4 sm:mb-6">
               Ready to transform your HR operations?
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md sm:max-w-none mx-auto">
               <a
                 href="/onboarding/register"
-                className="bg-primary text-white px-8 py-4 rounded-xl hover:bg-primary/90 transition-all duration-300 hover:scale-105 shadow-lg font-semibold"
+                className="bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:bg-primary/90 transition-all duration-300 hover:scale-105 shadow-lg font-semibold text-sm sm:text-base"
               >
                 Start Free Trial
               </a>
@@ -109,7 +109,7 @@ export default function DemoVideo() {
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   }
                 }}
-                className="border-2 border-primary text-primary px-8 py-4 rounded-xl hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 font-semibold"
+                className="border-2 border-primary text-primary px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 font-semibold text-sm sm:text-base"
               >
                 Contact Sales
               </button>

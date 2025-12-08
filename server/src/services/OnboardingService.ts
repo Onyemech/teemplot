@@ -210,6 +210,8 @@ export class OnboardingService {
       });
 
       // Store invitation token in employee_invitations table (reusing existing structure)
+      // Note: We use 'admin' role here because the constraint only allows 'admin' or 'staff'
+      // The actual user record already has 'owner' role set correctly
       await this.db.insert('employee_invitations', {
         id: randomUUID(),
         company_id: companyId,
@@ -217,7 +219,7 @@ export class OnboardingService {
         email: ownerEmail,
         first_name: ownerFirstName,
         last_name: ownerLastName,
-        role: 'owner', // Special case - owner invitation
+        role: 'admin', // Use admin for invitation (actual user has owner role)
         invitation_token: invitationToken,
         status: 'pending',
         expires_at: tokenExpiry.toISOString(),

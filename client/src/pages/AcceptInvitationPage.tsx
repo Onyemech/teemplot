@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, Check, Loader2, AlertCircle } from 'lucide-react'
+import { Check, Loader2, AlertCircle } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
@@ -58,8 +58,6 @@ export default function AcceptInvitationPage() {
     password: '',
     confirmPassword: '',
   })
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordValidation, setPasswordValidation] = useState({
     isValid: false,
     errors: [] as string[],
@@ -262,24 +260,15 @@ export default function AcceptInvitationPage() {
             />
 
             <div>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  label="Password"
-                  placeholder="Create a strong password"
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  fullWidth
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <Input
+                type="password"
+                label="Password"
+                placeholder="Create a strong password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                fullWidth
+              />
               
               {/* Password Requirements */}
               {formData.password && (
@@ -311,25 +300,16 @@ export default function AcceptInvitationPage() {
               )}
             </div>
 
-            <div className="relative">
-              <Input
-                type={showConfirmPassword ? 'text' : 'password'}
-                label="Confirm Password"
-                placeholder="Re-enter password"
-                required
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
-                fullWidth
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
-              >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+            <Input
+              type="password"
+              label="Confirm Password"
+              placeholder="Re-enter password"
+              required
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
+              fullWidth
+            />
 
             <Button 
               type="submit" 

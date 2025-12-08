@@ -154,14 +154,14 @@ export class EmployeeInvitationService {
         throw new Error('Invalid or expired invitation');
       }
 
-      // Check if user already exists
-      const existingUser = await this.db.findOne('users', {
-        email: invitation.email,
-        company_id: invitation.company_id
-      });
+      // Check if user already exists (case-insensitive email check)
+      const existingUserQuery = await this.db.query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND company_id = $2 AND deleted_at IS NULL',
+        [invitation.email, invitation.company_id]
+      );
 
-      if (existingUser) {
-        throw new Error('User account already exists');
+      if (existingUserQuery.rows && existingUserQuery.rows.length > 0) {
+        throw new Error('User account already exists for this email');
       }
 
       // Hash password
