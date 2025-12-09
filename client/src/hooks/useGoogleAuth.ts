@@ -23,9 +23,10 @@ export function useGoogleAuth() {
         toast.error('Google sign-in is taking too long. Please try again.');
       }, 10000); // 10 second timeout
       
-      // In production, VITE_API_URL is https://api.teemplot.com (already points to API subdomain)
-      // So we need /api prefix in both cases since backend always uses /api prefix
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      let backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      backendUrl = backendUrl.replace(/\/api\/?$/, '');
+      
       const googleAuthUrl = `${backendUrl}/api/auth/google`;
       
       window.location.href = googleAuthUrl;
@@ -47,8 +48,9 @@ export function useGoogleAuth() {
     try {
       setLoading(true);
 
-      // Send code to backend for verification with timeout
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      // Get base URL and ensure we don't double up on /api prefix
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      apiUrl = apiUrl.replace(/\/api\/?$/, '');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -81,7 +83,6 @@ export function useGoogleAuth() {
       // Handle onboarding resumption
       if (requiresOnboarding) {
         // Check if there's saved progress in database
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         try {
           const progressResponse = await fetch(`${apiUrl}/api/onboarding/progress/${user.id}`);
           if (progressResponse.ok) {
@@ -138,8 +139,10 @@ export function useGoogleAuth() {
         // Save token
         localStorage.setItem('token', token);
 
-        // Fetch user data
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        // Get base URL and ensure we don't double up on /api prefix
+        let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        apiUrl = apiUrl.replace(/\/api\/?$/, '');
+        
         fetch(`${apiUrl}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
