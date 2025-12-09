@@ -14,6 +14,7 @@ import {
   submitOwnerDetails,
   uploadLogo,
 } from '@/utils/onboardingApi'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 
@@ -391,7 +392,7 @@ export default function CompanySetupPage() {
       }
     } catch (error: any) {
       console.error('Failed to proceed:', error)
-      const errorMsg = error.message || 'Failed to save. Please try again.'
+      const errorMsg = getErrorMessage(error)
       setError(errorMsg)
       toast.error(errorMsg)
     } finally {
@@ -1350,7 +1351,7 @@ export default function CompanySetupPage() {
       }
     } catch (error: any) {
       console.error('Failed to save progress:', error)
-      toast.error(error.message || 'Failed to save progress')
+      toast.error(getErrorMessage(error))
     }
   }
 

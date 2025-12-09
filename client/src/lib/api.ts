@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { env } from '@/config/env'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 const baseURL = import.meta.env.MODE === 'production' 
   ? 'https://api.teemplot.com'
@@ -86,6 +87,11 @@ apiClient.interceptors.response.use(
         }
         return Promise.reject(refreshError);
       }
+    }
+    
+    // Enhance error with user-friendly message
+    if (error.response) {
+      error.userMessage = getErrorMessage(error);
     }
     
     return Promise.reject(error);

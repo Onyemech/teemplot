@@ -5,6 +5,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 
 interface InvitationData {
@@ -49,6 +50,7 @@ export default function AcceptInvitationPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [accepted, setAccepted] = useState(false)
   const [error, setError] = useState('')
   const [invitation, setInvitation] = useState<InvitationData | null>(null)
   
@@ -79,6 +81,9 @@ export default function AcceptInvitationPage() {
 
   useEffect(() => {
     const fetchInvitation = async () => {
+      // Don't fetch if already accepted
+      if (accepted) return
+      
       if (!token) {
         setError('Invalid invitation link')
         setLoading(false)
@@ -100,15 +105,19 @@ export default function AcceptInvitationPage() {
           lastName: data.data.lastName || '',
         }))
       } catch (err: any) {
-        setError(err.message || 'Failed to load invitation')
-        toast.error(err.message || 'Failed to load invitation')
+        const errorMsg = getErrorMessage(err)
+        setError(errorMsg)
+        // Only show toast if not already accepted
+        if (!accepted) {
+          toast.error(errorMsg)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchInvitation()
-  }, [token, toast])
+  }, [token, toast, accepted])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -148,19 +157,15 @@ export default function AcceptInvitationPage() {
         throw new Error(data.message || 'Failed to accept invitation')
       }
 
+      // Mark as accepted to prevent further API calls
+      setAccepted(true)
       toast.success('Welcome to the team! Please log in with your new account.')
 
       setTimeout(() => {
         navigate('/login')
       }, 1500)
     } catch (err: any) {
-      let errorMsg = err.message || 'Failed to accept invitation'
-      
-      // Handle timeout specifically
-      if (err.code === 'ECONNABORTED' || errorMsg.includes('timeout')) {
-        errorMsg = 'Request timed out. Please check your connection and try again.'
-      }
-      
+      const errorMsg = getErrorMessage(err)
       setError(errorMsg)
       toast.error(errorMsg)
     } finally {

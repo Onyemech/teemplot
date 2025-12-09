@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useOnboardingProgress } from '@/hooks/useOnboardingProgress'
 import { useUser } from '@/contexts/UserContext'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -80,10 +81,11 @@ export default function LoginPage() {
         }
       }
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Login failed. Please try again.'
+      const errorMsg = getErrorMessage(err)
 
       if (err.response?.status === 429) {
-        setError(err.response.data.message || 'Too many attempts. Please try again later.')
+        setError(errorMsg)
+        toast.error(errorMsg)
       } else if (err.response?.data?.requiresVerification) {
         toast.warning('Please verify your email first')
         setTimeout(() => navigate(`/onboarding/verify?email=${encodeURIComponent(formData.email)}`), 1000)
