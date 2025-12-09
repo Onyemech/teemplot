@@ -30,10 +30,10 @@ export default function DemoVideo() {
         <ScrollReveal direction="up">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
-              See Teemplot in Action
+              Product Demo (Coming This Week)
             </h2>
             <p className="text-base sm:text-xl text-gray-600 max-w-2xl mx-auto px-4">
-              Watch how our platform transforms HR management for businesses like yours
+              Discover how Teemplot helps Nigerian businesses manage attendance, analytics, and HR compliance with ease.
             </p>
           </div>
         </ScrollReveal>
@@ -66,10 +66,10 @@ export default function DemoVideo() {
                     <Video className="h-10 w-10 sm:h-16 sm:w-16 text-primary" />
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3 px-2">
-                    Demo Video Coming Soon
+                    Product Demo Coming This Week
                   </h3>
                   <p className="text-sm sm:text-base text-gray-600 max-w-md px-4">
-                    We're preparing an exciting demo to showcase all the powerful features of Teemplot. Check back soon!
+                    Discover how Teemplot helps Nigerian businesses manage attendance, analytics, and HR compliance with ease.
                   </p>
                   
                   {/* Animated Play Button */}

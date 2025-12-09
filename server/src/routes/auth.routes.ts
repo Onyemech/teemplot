@@ -729,6 +729,12 @@ export async function authRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       logger.error({ err: error }, 'Google OAuth callback failed');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
+      // Handle specific error cases
+      if (error.message === 'MANUAL_REGISTRATION_EXISTS') {
+        return reply.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+      }
+      
       return reply.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
   });
@@ -788,6 +794,16 @@ export async function authRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       logger.error({ err: error }, 'Google OAuth verification failed');
+      
+      // Handle specific error cases
+      if (error.message === 'MANUAL_REGISTRATION_EXISTS') {
+        return reply.code(400).send({
+          success: false,
+          message: 'This account was registered with email and password. Please sign in using your credentials instead of Google.',
+          errorCode: 'MANUAL_REGISTRATION_EXISTS',
+        });
+      }
+      
       return reply.code(500).send({
         success: false,
         message: error.message || 'Google authentication failed',

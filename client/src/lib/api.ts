@@ -5,14 +5,34 @@ const baseURL = import.meta.env.MODE === 'production'
   ? 'https://api.teemplot.com'
   : ''
 
+// Dynamic timeout based on operation type
+export const TIMEOUTS = {
+  fast: 5000,      // 5s - Quick operations (login, logout)
+  normal: 15000,   // 15s - Normal operations (fetch data)
+  slow: 30000,     // 30s - Slow operations (file uploads, invitations)
+  verySlow: 60000, // 60s - Very slow operations (large file uploads)
+}
+
 export const apiClient = axios.create({
   baseURL,
-  timeout: env.apiTimeout,
+  timeout: env.apiTimeout || TIMEOUTS.normal,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true, 
 })
+
+// Helper to create API client with custom timeout
+export const createApiClientWithTimeout = (timeout: number) => {
+  return axios.create({
+    baseURL,
+    timeout,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    withCredentials: true,
+  })
+}
 
 
 apiClient.interceptors.response.use(

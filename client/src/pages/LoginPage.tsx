@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -11,6 +11,7 @@ import { useUser } from '@/contexts/UserContext'
 export default function LoginPage() {
   const navigate = useNavigate()
   const toast = useToast()
+  const [searchParams] = useSearchParams()
   const { signInWithGoogle, loading: googleLoading } = useGoogleAuth()
   const { resumeOnboarding } = useOnboardingProgress()
   const { refetch: refetchUser } = useUser()
@@ -20,6 +21,29 @@ export default function LoginPage() {
     email: '',
     password: '',
   })
+
+  // Handle error from URL parameters (e.g., Google auth failures)
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    
+    if (errorParam === 'google_auth_failed') {
+      toast.error(
+        'This account was registered with email and password. Please sign in using your credentials instead of Google.',
+        { duration: 6000 }
+      )
+      // Clean up URL
+      window.history.replaceState({}, '', '/login')
+    } else if (errorParam === 'account_exists') {
+      toast.warning(
+        'An account with this email already exists. Please sign in with your existing credentials.',
+        { duration: 5000 }
+      )
+      window.history.replaceState({}, '', '/login')
+    } else if (errorParam === 'session_expired') {
+      toast.info('Your session has expired. Please sign in again.')
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [searchParams, toast])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()

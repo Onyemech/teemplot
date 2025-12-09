@@ -131,7 +131,11 @@ export default function AcceptInvitationPage() {
     setSubmitting(true)
 
     try {
-      const response = await apiClient.post('/api/employee-invitations/accept', {
+      // Use longer timeout for invitation acceptance (includes password hashing)
+      const { createApiClientWithTimeout, TIMEOUTS } = await import('@/lib/api')
+      const slowApiClient = createApiClientWithTimeout(TIMEOUTS.slow)
+      
+      const response = await slowApiClient.post('/api/employee-invitations/accept', {
         token,
         password: formData.password,
         phoneNumber: '', // Optional
@@ -150,7 +154,13 @@ export default function AcceptInvitationPage() {
         navigate('/login')
       }, 1500)
     } catch (err: any) {
-      const errorMsg = err.message || 'Failed to accept invitation'
+      let errorMsg = err.message || 'Failed to accept invitation'
+      
+      // Handle timeout specifically
+      if (err.code === 'ECONNABORTED' || errorMsg.includes('timeout')) {
+        errorMsg = 'Request timed out. Please check your connection and try again.'
+      }
+      
       setError(errorMsg)
       toast.error(errorMsg)
     } finally {

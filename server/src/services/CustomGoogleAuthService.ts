@@ -226,6 +226,12 @@ export class CustomGoogleAuthService {
       let isNewUser = false;
 
       if (user) {
+        // Check if user registered manually (has password but no Google ID)
+        if (user.password_hash && !user.google_id) {
+          // User registered with email/password, cannot use Google auth
+          throw new Error('MANUAL_REGISTRATION_EXISTS');
+        }
+
         // Update Google ID if not set
         if (!user.google_id) {
           await db.update('users', { google_id: googleId }, { id: user.id });

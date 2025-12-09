@@ -41,11 +41,15 @@ import OnboardingDocumentsPage from './pages/onboarding/DocumentsPage'
 import OnboardingSubscriptionPage from './pages/onboarding/SubscriptionPage'
 import OnboardingCompletePage from './pages/onboarding/CompletionPage'
 
+// Network Status Indicator
+import NetworkStatusIndicator from './components/ui/NetworkStatusIndicator'
+
 function App() {
   return (
     <ErrorBoundary>
       <UserProvider>
         <PWAUpdateNotification />
+        <NetworkStatusIndicator />
         <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
