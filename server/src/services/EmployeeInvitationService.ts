@@ -116,7 +116,7 @@ export class EmployeeInvitationService {
       });
 
       if (!invitation) {
-        return null;
+        return { status: 'not_found', invitation: null };
       }
 
       // Check if expired
@@ -125,18 +125,28 @@ export class EmployeeInvitationService {
           { status: 'expired' },
           { id: invitation.id }
         );
-        return null;
+        return { status: 'expired', invitation: null };
       }
 
       // Check if already accepted
-      if (invitation.status !== 'pending') {
-        return null;
+      if (invitation.status === 'accepted') {
+        return { status: 'already_accepted', invitation: null };
       }
 
-      return invitation;
+      // Check if cancelled
+      if (invitation.status === 'cancelled') {
+        return { status: 'cancelled', invitation: null };
+      }
+
+      // Only return invitation if it's pending
+      if (invitation.status === 'pending') {
+        return { status: 'pending', invitation };
+      }
+
+      return { status: 'invalid', invitation: null };
     } catch (error: any) {
       logger.error(`Failed to get invitation: ${error?.message}`);
-      return null;
+      return { status: 'error', invitation: null };
     }
   }
 
@@ -148,11 +158,21 @@ export class EmployeeInvitationService {
 
     try {
       // Get invitation
-      const invitation = await this.getInvitationByToken(token);
+      const result = await this.getInvitationByToken(token);
 
-      if (!invitation) {
-        throw new Error('Invalid or expired invitation');
+      if (result.status !== 'pending' || !result.invitation) {
+        if (result.status === 'already_accepted') {
+          throw new Error('This invitation has already been accepted');
+        } else if (result.status === 'expired') {
+          throw new Error('This invitation has expired');
+        } else if (result.status === 'cancelled') {
+          throw new Error('This invitation has been cancelled');
+        } else {
+          throw new Error('Invalid or expired invitation');
+        }
       }
+
+      const invitation = result.invitation;
 
       // Check if user already exists (case-insensitive email check)
       const existingUserQuery = await this.db.query(

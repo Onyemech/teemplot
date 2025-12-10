@@ -72,6 +72,8 @@ export function getErrorMessage(error: any): string {
         return 'The requested resource was not found.';
       case 409:
         return 'This information conflicts with existing data. Please review and try again.';
+      case 410:
+        return 'This resource is no longer available.';
       case 429:
         return 'Too many requests. Please wait a moment and try again.';
       case 500:

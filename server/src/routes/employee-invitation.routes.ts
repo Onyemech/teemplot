@@ -66,12 +66,40 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
     try {
       const { token } = request.params as { token: string };
       
-      const invitation = await employeeInvitationService.getInvitationByToken(token);
+      const result = await employeeInvitationService.getInvitationByToken(token);
 
-      if (!invitation) {
+      if (result.status === 'not_found') {
         return reply.code(404).send({
           success: false,
-          message: 'Invalid or expired invitation',
+          message: 'Invitation not found',
+        });
+      }
+
+      if (result.status === 'expired') {
+        return reply.code(410).send({
+          success: false,
+          message: 'This invitation has expired. Please contact your administrator for a new invitation.',
+        });
+      }
+
+      if (result.status === 'already_accepted') {
+        return reply.code(409).send({
+          success: false,
+          message: 'This invitation has already been accepted. You can now log in with your account.',
+        });
+      }
+
+      if (result.status === 'cancelled') {
+        return reply.code(410).send({
+          success: false,
+          message: 'This invitation has been cancelled. Please contact your administrator.',
+        });
+      }
+
+      if (result.status !== 'pending' || !result.invitation) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Invalid invitation',
         });
       }
 
@@ -79,18 +107,18 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({
         success: true,
         data: {
-          email: invitation.email,
-          firstName: invitation.first_name,
-          lastName: invitation.last_name,
-          role: invitation.role,
-          position: invitation.position,
-          companyId: invitation.company_id,
+          email: result.invitation.email,
+          firstName: result.invitation.first_name,
+          lastName: result.invitation.last_name,
+          role: result.invitation.role,
+          position: result.invitation.position,
+          companyId: result.invitation.company_id,
         },
       });
     } catch (error: any) {
-      return reply.code(400).send({
+      return reply.code(500).send({
         success: false,
-        message: error.message || 'Failed to get invitation',
+        message: 'Failed to get invitation',
       });
     }
   });
