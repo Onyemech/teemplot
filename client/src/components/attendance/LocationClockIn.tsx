@@ -167,7 +167,7 @@ export default function LocationClockIn({ isOpen, onClose, onSuccess }: Location
               
               {/* Current Location */}
               <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2">
-                <div className="w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
+                <div className="w-6 h-6 bg-primary rounded-full border-2 border-white shadow-lg"></div>
               </div>
 
               {/* Location Accuracy Circle */}
@@ -219,7 +219,7 @@ export default function LocationClockIn({ isOpen, onClose, onSuccess }: Location
           <button
             onClick={handleClockIn}
             disabled={!location || clockingIn}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-4 rounded-xl font-semibold text-lg transition-colors"
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-gray-300 text-white py-3 rounded-xl font-medium text-lg shadow-md hover:shadow-lg transition-all duration-200"
           >
             {clockingIn ? 'Clocking In...' : 'Clock In'}
           </button>

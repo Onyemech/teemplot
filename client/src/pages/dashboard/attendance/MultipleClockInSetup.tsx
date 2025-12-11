@@ -190,13 +190,13 @@ export default function MultipleClockInSetup() {
                     key={employee.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
                       selectedEmployees.includes(employee.id)
-                        ? 'border-green-500 bg-green-50'
+                        ? 'border-primary bg-primary/10'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => handleEmployeeToggle(employee.id)}
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      selectedEmployees.includes(employee.id) ? 'bg-green-600' : 'bg-orange-500'
+                      selectedEmployees.includes(employee.id) ? 'bg-primary' : 'bg-orange-500'
                     }`}>
                       <span className="text-white text-sm font-medium">
                         {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
@@ -245,9 +245,9 @@ export default function MultipleClockInSetup() {
                   return (
                     <div
                       key={employee.id}
-                      className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg"
+                      className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-xl shadow-sm"
                     >
-                      <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                         <span className="text-white text-sm font-medium">
                           {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                         </span>
@@ -277,7 +277,7 @@ export default function MultipleClockInSetup() {
               <button
                 onClick={handleAdd}
                 disabled={saving}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 px-6 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white py-2 px-4 rounded-xl font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
               >
                 {saving ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -298,7 +298,7 @@ export default function MultipleClockInSetup() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 w-full max-w-md text-center">
             <div className="mx-auto mb-6">
-              <AnimatedCheckmark isVisible={showSuccessModal} size="xl" color="green" withBackground={true} />
+              <AnimatedCheckmark size="lg" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Multiple Clock-in Added</h3>
             <p className="text-gray-600 mb-8">
@@ -306,7 +306,7 @@ export default function MultipleClockInSetup() {
             </p>
             <button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+              className="w-full bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200"
             >
               Continue
             </button>

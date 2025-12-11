@@ -18,6 +18,7 @@ interface CompanySettings {
   notifyEarlyDeparture: boolean
   gracePeriodMinutes: number
   requireGeofenceForClockIn: boolean
+  biometricEnabled: boolean
   timeFormat: '12h' | '24h'
   dateFormat: string
   currency: string
@@ -70,6 +71,7 @@ export default function SettingsPage() {
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'location', label: 'Location', icon: MapPin },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Shield },
     { id: 'display', label: 'Display', icon: Palette },
     { id: 'billing', label: 'Billing', icon: CreditCard },
   ]
@@ -318,6 +320,57 @@ export default function SettingsPage() {
                         max="120"
                       />
                       <p className="text-xs text-gray-500 mt-1">Minutes before end time to consider early departure</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'security' && settings && (
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Security Settings</h2>
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-6 border border-blue-200">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <Shield className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Biometric Authentication</h3>
+                          <p className="text-gray-600 text-sm mb-4">
+                            Enable biometric authentication for employee attendance. When enabled, new employees will be prompted to set up face recognition or fingerprint authentication during the invitation process.
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">Require Biometric Setup</p>
+                              <p className="text-xs text-gray-500">New employees will set up biometrics during onboarding</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={settings.biometricEnabled || false}
+                                onChange={(e) => updateSettings({ biometricEnabled: e.target.checked }, 'biometric')}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 text-yellow-600 mt-0.5">⚠️</div>
+                        <div>
+                          <h4 className="text-sm font-medium text-yellow-800 mb-1">Important Notes</h4>
+                          <ul className="text-xs text-yellow-700 space-y-1">
+                            <li>• Biometric setup is optional - employees can skip if their device doesn't support it</li>
+                            <li>• Employees can still use regular login even with biometrics enabled</li>
+                            <li>• This setting only affects new employee invitations</li>
+                            <li>• Existing employees can set up biometrics from their profile settings</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

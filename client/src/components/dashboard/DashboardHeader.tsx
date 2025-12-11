@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/lib/api'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
@@ -35,7 +36,7 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         {/* Mobile Menu Button */}
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors"
           aria-label="Open menu"
         >
           <Menu className="w-6 h-6 text-gray-700" />
@@ -48,18 +49,21 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
             <input
               type="text"
               placeholder="Search"
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
             />
           </div>
         </div>
 
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
+          {/* Notification Bell */}
+          <NotificationBell />
+          
           {/* User Menu */}
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 hover:bg-gray-100 rounded-xl transition-colors"
             >
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-sm font-medium">{userInitials}</span>
@@ -75,7 +79,7 @@ export default function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
                   className="fixed inset-0 z-10" 
                   onClick={() => setShowUserMenu(false)}
                 ></div>
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-20">
                   <button
                     onClick={() => {
                       setShowUserMenu(false)

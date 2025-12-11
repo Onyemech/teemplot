@@ -9,7 +9,7 @@ declare global {
 }
 
 interface SessionConfig {
-  accessTokenDuration: number; // 2 hours
+  accessTokenDuration: number;  
   refreshTokenDuration: number; // 30 days
   activityCheckInterval: number; // 5 minutes
   warningBeforeExpiry: number; // 10 minutes

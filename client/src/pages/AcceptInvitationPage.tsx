@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, Loader2, AlertCircle } from 'lucide-react'
 import Input from '@/components/ui/Input'
-import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/utils/errorHandler'
@@ -17,6 +16,7 @@ interface InvitationData {
   position: string
   companyName: string
   companyLogo: string | null
+  biometricEnabled: boolean
 }
 
 // Password validation helper
@@ -120,7 +120,8 @@ export default function AcceptInvitationPage() {
     }
 
     fetchInvitation()
-  }, [token, toast, accepted])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]) // Only depend on token to prevent repeated calls
 
   const handleBiometricComplete = (data: any) => {
     setBiometricData(data)
@@ -181,8 +182,8 @@ export default function AcceptInvitationPage() {
       // Mark as accepted to prevent further API calls
       setAccepted(true)
       
-      // Show biometric enrollment if not already done
-      if (!biometricData) {
+      // Show biometric enrollment only if company has it enabled and not already done
+      if (invitation?.biometricEnabled && !biometricData) {
         setShowBiometricEnrollment(true)
       } else {
         toast.success('Welcome to the team! Please log in with your new account.')
@@ -222,13 +223,12 @@ export default function AcceptInvitationPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invitation</h1>
             <p className="text-gray-600 mb-6">{error}</p>
-            <Button
+            <button
               onClick={() => navigate('/')}
-              variant="primary"
-              fullWidth
+              className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
             >
               Go to Homepage
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -264,7 +264,7 @@ export default function AcceptInvitationPage() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm shadow-sm">
               {error}
             </div>
           )}
@@ -352,17 +352,20 @@ export default function AcceptInvitationPage() {
               fullWidth
             />
 
-            <Button 
+            <button 
               type="submit" 
-              variant="primary" 
-              size="lg" 
-              fullWidth
-              loading={submitting}
-              loadingText="Creating Account..."
-              disabled={!passwordValidation.isValid || formData.password !== formData.confirmPassword}
+              disabled={!passwordValidation.isValid || formData.password !== formData.confirmPassword || submitting}
+              className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Accept Invitation & Create Account
-            </Button>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                'Accept Invitation & Create Account'
+              )}
+            </button>
           </form>
 
           <p className="mt-6 text-center text-xs text-gray-500">
@@ -379,7 +382,9 @@ export default function AcceptInvitationPage() {
         isOpen={showBiometricEnrollment}
         onClose={handleSkipBiometric}
         onComplete={handleBiometricComplete}
+        onSkip={handleSkipBiometric}
         employeeName={`${formData.firstName} ${formData.lastName}`}
+        isOptional={true}
       />
     </div>
   )

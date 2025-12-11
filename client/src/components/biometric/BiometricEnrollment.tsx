@@ -6,7 +6,9 @@ interface BiometricEnrollmentProps {
   isOpen: boolean
   onClose: () => void
   onComplete: (biometricData: BiometricData) => void
+  onSkip?: () => void
   employeeName: string
+  isOptional?: boolean
 }
 
 interface BiometricData {
@@ -20,7 +22,7 @@ interface BiometricData {
   }
 }
 
-export default function BiometricEnrollment({ isOpen, onClose, onComplete, employeeName }: BiometricEnrollmentProps) {
+export default function BiometricEnrollment({ isOpen, onClose, onComplete, onSkip, employeeName, isOptional = false }: BiometricEnrollmentProps) {
   const [currentStep, setCurrentStep] = useState<'choose' | 'face' | 'fingerprint' | 'complete'>('choose')
   const [faceEnrolled, setFaceEnrolled] = useState(false)
   const [fingerprintEnrolled, setFingerprintEnrolled] = useState(false)
@@ -257,12 +259,19 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Biometric Setup</h2>
-            <p className="text-sm text-gray-600">Secure your account with biometric authentication</p>
+            <h2 className="text-xl font-bold text-gray-900">
+              {isOptional ? 'Optional Biometric Setup' : 'Biometric Setup'}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {isOptional 
+                ? 'Set up biometric authentication for faster attendance (optional)'
+                : 'Secure your account with biometric authentication'
+              }
+            </p>
           </div>
           <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            onClick={onSkip || onClose}
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -273,8 +282,8 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
           {currentStep === 'choose' && (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Fingerprint className="w-8 h-8 text-green-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Fingerprint className="w-8 h-8 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Choose Authentication Method</h3>
                 <p className="text-gray-600 text-sm">Select how you'd like to authenticate for attendance</p>
@@ -287,9 +296,9 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                       setCurrentStep('face')
                       startCamera()
                     }}
-                    className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group"
+                    className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all duration-200 group shadow-md hover:shadow-lg"
                   >
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200">
                       <Camera className="w-6 h-6 text-blue-600" />
                     </div>
                     <div className="text-left">
@@ -302,10 +311,10 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                 {biometricSupport.length > 0 ? (
                   <button
                     onClick={() => setCurrentStep('fingerprint')}
-                    className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group"
+                    className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all duration-200 group shadow-md hover:shadow-lg"
                   >
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200">
-                      <Fingerprint className="w-6 h-6 text-green-600" />
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20">
+                      <Fingerprint className="w-6 h-6 text-primary" />
                     </div>
                     <div className="text-left">
                       <div className="font-semibold text-gray-900">Biometric Authentication</div>
@@ -315,12 +324,27 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                 ) : (
                   <div className="text-center py-8">
                     <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-3" />
-                    <p className="text-gray-600">Biometric authentication is not supported on this device.</p>
+                    <p className="text-gray-600 mb-4">Biometric authentication is not supported on this device.</p>
+                    {isOptional && (
+                      <p className="text-sm text-gray-500 mb-4">You can still use regular login to access your account.</p>
+                    )}
                     <button
-                      onClick={onClose}
-                      className="mt-4 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      onClick={onSkip || onClose}
+                      className="px-6 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors shadow-md hover:shadow-lg font-medium"
                     >
-                      Skip for Now
+                      {isOptional ? 'Continue Without Biometrics' : 'Skip for Now'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Skip Option for Optional Setup */}
+                {isOptional && biometricSupport.length > 0 && (
+                  <div className="text-center pt-4 border-t border-gray-200">
+                    <button
+                      onClick={onSkip || onClose}
+                      className="text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
+                    >
+                      Skip biometric setup for now
                     </button>
                   </div>
                 )}
@@ -346,13 +370,13 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                 <canvas ref={canvasRef} className="hidden" />
                 
                 {/* Face detection overlay */}
-                <div className="absolute inset-4 border-2 border-green-500 rounded-full opacity-50 pointer-events-none">
+                <div className="absolute inset-4 border-2 border-primary rounded-full opacity-50 pointer-events-none">
                   <div className="absolute inset-0 border-2 border-white rounded-full animate-pulse"></div>
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
@@ -364,14 +388,14 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                     setCurrentStep('choose')
                     stopCamera()
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   Back
                 </button>
                 <button
                   onClick={captureFace}
                   disabled={isProcessing}
-                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-primary text-white font-medium rounded-xl shadow-md hover:shadow-lg hover:bg-primary/90 disabled:bg-primary/50 transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   {isProcessing ? (
                     <>
@@ -392,8 +416,8 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
           {currentStep === 'fingerprint' && (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Fingerprint className="w-8 h-8 text-green-600" />
+                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Fingerprint className="w-8 h-8 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Biometric Authentication</h3>
                 <p className="text-gray-600 text-sm">
@@ -410,17 +434,15 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                     key={attempt}
                     className={`w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${
                       fingerprintAttempts >= attempt
-                        ? 'border-green-500 bg-green-50'
+                        ? 'border-primary bg-primary/10'
                         : isCapturingFingerprint && fingerprintAttempts + 1 === attempt
-                        ? 'border-green-500 bg-green-50 animate-pulse'
+                        ? 'border-primary bg-primary/10 animate-pulse'
                         : 'border-gray-300 bg-gray-50'
                     }`}
                   >
                     {fingerprintAttempts >= attempt ? (
                       <AnimatedCheckmark 
-                        isVisible={true} 
                         size="md" 
-                        color="green"
                         delay={0}
                       />
                     ) : (
@@ -433,18 +455,18 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
               {/* Fingerprint Animation */}
               <div className="flex justify-center mb-6">
                 <div className={`relative w-20 h-20 ${isCapturingFingerprint ? 'animate-pulse' : ''}`}>
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 rounded-full"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full"></div>
                   <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
-                    <Fingerprint className={`w-8 h-8 text-green-600 ${isCapturingFingerprint ? 'animate-ping' : ''}`} />
+                    <Fingerprint className={`w-8 h-8 text-primary ${isCapturingFingerprint ? 'animate-ping' : ''}`} />
                   </div>
                   {isCapturingFingerprint && (
-                    <div className="absolute inset-0 border-4 border-green-500 rounded-full animate-ping"></div>
+                    <div className="absolute inset-0 border-4 border-primary rounded-full animate-ping"></div>
                   )}
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
@@ -454,14 +476,14 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                 <button
                   onClick={() => setCurrentStep('choose')}
                   disabled={isCapturingFingerprint}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all duration-200"
                 >
                   Back
                 </button>
                 <button
                   onClick={enrollFingerprint}
                   disabled={isCapturingFingerprint || fingerprintAttempts >= 3}
-                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-primary text-white font-medium rounded-xl shadow-md hover:shadow-lg hover:bg-primary/90 disabled:bg-primary/50 transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   {isCapturingFingerprint ? (
                     <>
@@ -488,10 +510,7 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
             <div className="space-y-6 text-center">
               <div className="mx-auto">
                 <AnimatedCheckmark 
-                  isVisible={true} 
-                  size="xl" 
-                  color="green"
-                  withBackground={true}
+                  size="lg"
                   delay={200}
                 />
               </div>
@@ -504,8 +523,8 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
                 </p>
               </div>
 
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-center gap-2 text-green-700">
+              <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-center gap-2 text-primary">
                   {faceEnrolled && <Camera className="w-4 h-4" />}
                   {fingerprintEnrolled && <Fingerprint className="w-4 h-4" />}
                   <span className="text-sm font-medium">
@@ -517,7 +536,7 @@ export default function BiometricEnrollment({ isOpen, onClose, onComplete, emplo
 
               <button
                 onClick={handleComplete}
-                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                className="w-full px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
               >
                 Complete Setup
               </button>

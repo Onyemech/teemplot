@@ -137,15 +137,15 @@ export default function EmployeeHoursSetup() {
                       key={step.id}
                       className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                         step.status === 'current' ? 'bg-orange-50 border border-orange-200' :
-                        step.status === 'completed' ? 'bg-green-50' : 'bg-gray-50'
+                        step.status === 'completed' ? 'bg-primary/10' : 'bg-gray-50'
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        step.status === 'completed' ? 'bg-green-600' :
+                        step.status === 'completed' ? 'bg-primary' :
                         step.status === 'current' ? 'bg-orange-600' : 'bg-gray-400'
                       }`}>
                         {step.status === 'completed' ? (
-                          <AnimatedCheckmark isVisible={true} size="sm" color="green" />
+                          <AnimatedCheckmark size="sm" />
                         ) : (
                           <Icon className="w-4 h-4 text-white" />
                         )}
@@ -231,7 +231,7 @@ export default function EmployeeHoursSetup() {
                         key={day}
                         className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${
                           employeeHours.workingDays.includes(day)
-                            ? 'border-green-500 bg-green-50 text-green-700'
+                            ? 'border-primary bg-primary/10 text-primary'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
@@ -271,7 +271,7 @@ export default function EmployeeHoursSetup() {
                 <button
                   onClick={handleContinue}
                   disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 px-6 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white py-2 px-4 rounded-xl font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   {loading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

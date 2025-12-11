@@ -3,6 +3,7 @@ import { Fingerprint, Clock, MapPin, Settings, Bell, CheckCircle, Shield } from 
 import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 
 interface SetupStep {
   id: string
@@ -26,7 +27,7 @@ export default function BiometricSetup() {
       description: 'Set your office location for geofencing',
       icon: MapPin,
       status: 'completed',
-      color: 'text-green-600'
+      color: 'text-primary'
     },
     {
       id: 'employee-hours',
@@ -34,7 +35,7 @@ export default function BiometricSetup() {
       description: 'Configure work schedule and break times',
       icon: Clock,
       status: 'completed',
-      color: 'text-green-600'
+      color: 'text-primary'
     },
     {
       id: 'lateness-policy',
@@ -42,7 +43,7 @@ export default function BiometricSetup() {
       description: 'Set grace periods and late arrival rules',
       icon: Settings,
       status: 'completed',
-      color: 'text-green-600'
+      color: 'text-primary'
     },
     {
       id: 'automate-alerts',
@@ -50,7 +51,7 @@ export default function BiometricSetup() {
       description: 'Configure notification preferences',
       icon: Bell,
       status: 'completed',
-      color: 'text-green-600'
+      color: 'text-primary'
     },
     {
       id: 'biometric-clockin',
@@ -80,10 +81,7 @@ export default function BiometricSetup() {
     }
   }
 
-  const handleComplete = () => {
-    setShowSuccessModal(false)
-    navigate('/dashboard/attendance')
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -106,17 +104,17 @@ export default function BiometricSetup() {
                   return (
                     <div
                       key={step.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
                         step.status === 'current' ? 'bg-orange-50 border border-orange-200' :
-                        step.status === 'completed' ? 'bg-green-50' : 'bg-gray-50'
+                        step.status === 'completed' ? 'bg-primary/10' : 'bg-gray-50'
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        step.status === 'completed' ? 'bg-green-600' :
+                        step.status === 'completed' ? 'bg-primary' :
                         step.status === 'current' ? 'bg-orange-600' : 'bg-gray-400'
                       }`}>
                         {step.status === 'completed' ? (
-                          <AnimatedCheckmark isVisible={true} size="sm" color="green" />
+                          <AnimatedCheckmark size="sm" />
                         ) : (
                           <Icon className="w-4 h-4 text-white" />
                         )}
@@ -147,8 +145,8 @@ export default function BiometricSetup() {
               <div className="space-y-6">
                 {/* Biometric Option */}
                 <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Fingerprint className="w-12 h-12 text-green-600" />
+                  <div className="w-24 h-24 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Fingerprint className="w-12 h-12 text-primary" />
                   </div>
                   
                   <h3 className="text-2xl font-bold text-gray-900 mb-4">Face ID & Finger Print</h3>
@@ -157,11 +155,11 @@ export default function BiometricSetup() {
                   </p>
 
                   <div className="flex items-center justify-center gap-4 mb-8">
-                    <div className="flex items-center gap-2 text-green-600">
+                    <div className="flex items-center gap-2 text-primary">
                       <Shield className="w-5 h-5" />
                       <span className="text-sm font-medium">Enhanced Security</span>
                     </div>
-                    <div className="flex items-center gap-2 text-blue-600">
+                    <div className="flex items-center gap-2 text-primary">
                       <CheckCircle className="w-5 h-5" />
                       <span className="text-sm font-medium">Prevent Buddy Punching</span>
                     </div>
@@ -174,7 +172,7 @@ export default function BiometricSetup() {
                       onChange={(e) => setBiometricEnabled(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="relative w-16 h-9 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-green-600"></div>
+                    <div className="relative w-16 h-9 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-primary"></div>
                     <span className="ml-3 text-lg font-medium text-gray-900">
                       {biometricEnabled ? 'Enabled' : 'Disabled'}
                     </span>
@@ -182,15 +180,15 @@ export default function BiometricSetup() {
                 </div>
 
                 {biometricEnabled && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl p-6 shadow-sm">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="w-6 h-6 text-green-600 mt-0.5" />
+                      <CheckCircle className="w-6 h-6 text-primary mt-0.5" />
                       <div>
-                        <h4 className="font-semibold text-green-900 mb-2">Biometric Authentication Enabled</h4>
-                        <p className="text-green-700 text-sm mb-3">
+                        <h4 className="font-semibold text-primary mb-2">Biometric Authentication Enabled</h4>
+                        <p className="text-primary/80 text-sm mb-3">
                           Employees will be prompted to use their device's biometric sensors (Face ID, Touch ID, or Fingerprint) when clocking in.
                         </p>
-                        <ul className="text-sm text-green-700 space-y-1">
+                        <ul className="text-sm text-primary/80 space-y-1">
                           <li>• Prevents unauthorized clock-ins</li>
                           <li>• Works with device's built-in security</li>
                           <li>• Fallback to PIN if biometric fails</li>
@@ -206,7 +204,7 @@ export default function BiometricSetup() {
                 <button
                   onClick={handleFinish}
                   disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-3 px-6 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white py-2 px-4 rounded-xl font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   {loading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -227,23 +225,25 @@ export default function BiometricSetup() {
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-8 w-full max-w-md text-center">
-            <div className="mx-auto mb-6">
-              <AnimatedCheckmark isVisible={showSuccessModal} size="xl" color="green" withBackground={true} />
+            <div className="flex justify-center mb-6">
+              <AnimatedCheckmark size="lg" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Attendance Setup Completed</h3>
             <p className="text-gray-600 mb-8">
               All your attendance settings have been configured successfully. Your employees can now start using the platform.
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={handleComplete}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
-              >
-                Invite Employees
-              </button>
+              <div className="flex-1">
+                <InviteEmployeeCard 
+                  variant="compact"
+                  buttonText="Invite Employees"
+                  className="w-full justify-center"
+                  onSuccess={() => navigate('/dashboard/employees')}
+                />
+              </div>
               <button
                 onClick={() => navigate('/dashboard/attendance')}
-                className="flex-1 border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
               >
                 Skip for Now
               </button>

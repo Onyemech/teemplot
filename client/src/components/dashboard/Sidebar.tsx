@@ -26,7 +26,6 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
-import NotificationBell from '@/components/notifications/NotificationBell'
 
 interface SidebarProps {
   isOpen: boolean
@@ -176,6 +175,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (href === '/dashboard') {
       return pathname === href
     }
+    // For exact submenu matching - prevent parent from being active when child is active
+    if (href === '/dashboard/attendance' && pathname.startsWith('/dashboard/attendance/setup/')) {
+      return false // Don't highlight overview when in setup pages
+    }
     return pathname.startsWith(href)
   }
 
@@ -307,8 +310,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="text-base lg:text-lg font-bold text-foreground truncate">{companyName}</span>
           </div>
           <div className="flex items-center gap-2">
-            {/* Notification Bell */}
-            <NotificationBell />
             {/* Close button - mobile only */}
             <button
               onClick={onClose}

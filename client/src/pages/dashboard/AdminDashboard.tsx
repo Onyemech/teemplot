@@ -3,6 +3,7 @@ import { Users, Clock, CheckSquare, AlertTriangle, UserPlus } from 'lucide-react
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 
 interface DashboardStats {
   totalEmployees: number
@@ -53,13 +54,6 @@ export default function AdminDashboard() {
 
   const quickActions = [
     {
-      title: 'Invite Employee',
-      description: 'Add new team members',
-      icon: UserPlus,
-      color: 'bg-green-600',
-      action: () => navigate('/dashboard/employees')
-    },
-    {
       title: 'View Attendance',
       description: 'Check today\'s attendance',
       icon: Clock,
@@ -95,50 +89,50 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Employees</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalEmployees}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
+              <div className="bg-blue-100 p-3 rounded-xl">
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Present Today</p>
                 <p className="text-2xl font-bold text-green-600 mt-1">{stats.presentToday}</p>
               </div>
-              <div className="bg-green-100 p-3 rounded-lg">
+              <div className="bg-green-100 p-3 rounded-xl">
                 <CheckSquare className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Late Today</p>
                 <p className="text-2xl font-bold text-orange-600 mt-1">{stats.lateToday}</p>
               </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
+              <div className="bg-orange-100 p-3 rounded-xl">
                 <Clock className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Absent Today</p>
                 <p className="text-2xl font-bold text-red-600 mt-1">{stats.absentToday}</p>
               </div>
-              <div className="bg-red-100 p-3 rounded-lg">
+              <div className="bg-red-100 p-3 rounded-xl">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
             </div>
@@ -147,18 +141,25 @@ export default function AdminDashboard() {
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Invite Employee Card */}
+            <InviteEmployeeCard 
+              variant="card"
+              showCount={true}
+              className="hover:scale-[1.02]"
+            />
+            
             {quickActions.map((action, index) => {
               const Icon = action.icon
               return (
                 <div
                   key={index}
                   onClick={action.action}
-                  className="bg-white rounded-xl border border-gray-200 p-6 cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-[1.02]"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`${action.color} p-3 rounded-lg`}>
+                    <div className={`${action.color} p-3 rounded-xl`}>
                       <Icon className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -173,11 +174,11 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
           <div className="space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <div className="bg-green-100 p-2 rounded-lg">
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="bg-green-100 p-2 rounded-xl">
                 <Clock className="w-5 h-5 text-green-600" />
               </div>
               <div>
@@ -185,8 +186,8 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500">2 minutes ago</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <div className="bg-orange-100 p-2 rounded-lg">
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="bg-orange-100 p-2 rounded-xl">
                 <AlertTriangle className="w-5 h-5 text-orange-600" />
               </div>
               <div>
@@ -194,8 +195,8 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500">15 minutes ago</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <div className="bg-blue-100 p-2 rounded-lg">
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="bg-blue-100 p-2 rounded-xl">
                 <UserPlus className="w-5 h-5 text-blue-600" />
               </div>
               <div>

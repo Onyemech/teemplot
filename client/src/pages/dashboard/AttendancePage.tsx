@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api'
 import { useUser } from '@/contexts/UserContext'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { format, startOfWeek, endOfWeek, addDays, subDays } from 'date-fns'
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 
 interface AttendanceStats {
   totalEmployees: number
@@ -132,10 +133,10 @@ export default function AttendancePage() {
         
         <div className="flex items-center gap-4">
           {/* Date Navigation */}
-          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+          <div className="flex items-center gap-2 bg-white rounded-xl shadow-md border border-gray-100 px-3 py-2">
             <button
               onClick={() => navigateDate('prev')}
-              className="p-1 hover:bg-gray-100 rounded"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -144,16 +145,17 @@ export default function AttendancePage() {
             </span>
             <button
               onClick={() => navigateDate('next')}
-              className="p-1 hover:bg-gray-100 rounded"
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           
           {isAdmin && (
-            <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-              + Invite Employee
-            </button>
+            <InviteEmployeeCard 
+              variant="compact"
+              buttonText="Invite Employee"
+            />
           )}
         </div>
       </div>
@@ -162,43 +164,43 @@ export default function AttendancePage() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.totalEmployees}</div>
                 <div className="text-sm text-gray-500">Total Employees</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.totalClockIn}</div>
                 <div className="text-sm text-gray-500">Total Clock In</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.earlyClockIn}</div>
                 <div className="text-sm text-gray-500">Early Clock In</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.lateClockIn}</div>
                 <div className="text-sm text-gray-500">Late Clock In</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.absent}</div>
                 <div className="text-sm text-gray-500">Absent</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.earlyDeparture}</div>
                 <div className="text-sm text-gray-500">Early Departure</div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 hover:shadow-xl transition-all duration-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{stats.leave}</div>
                 <div className="text-sm text-gray-500">Leave</div>
@@ -207,7 +209,7 @@ export default function AttendancePage() {
           </div>
 
           {/* All Attendance Table */}
-          <div className="bg-white rounded-lg border border-gray-200">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100">
             <div className="p-4 border-b border-gray-200">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <h2 className="text-lg font-semibold text-gray-900">All Attendance</h2>
@@ -219,14 +221,14 @@ export default function AttendancePage() {
                       placeholder="Search"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
                     />
                   </div>
-                  <button className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200 text-sm">
                     <Filter className="w-4 h-4" />
                     Filter
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl shadow-md hover:shadow-lg transition-all duration-200 text-sm">
                     <Download className="w-4 h-4" />
                     Download
                   </button>
@@ -299,11 +301,11 @@ export default function AttendancePage() {
       ) : (
         // Employee View - Personal Attendance
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">My Attendance</h2>
             <div className="space-y-4">
               {attendanceRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={record.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
                   <div>
                     <div className="font-medium text-gray-900">
                       {format(new Date(record.clockInTime || new Date()), 'EEEE, MMM dd')}
@@ -317,7 +319,7 @@ export default function AttendancePage() {
                       }
                     </div>
                   </div>
-                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-xl shadow-sm ${
                     record.status === 'present' ? 'bg-green-100 text-green-800' :
                     record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
                     record.status === 'absent' ? 'bg-red-100 text-red-800' :

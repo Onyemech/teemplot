@@ -113,6 +113,19 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Get company settings to check biometric requirement
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const db = DatabaseFactory.getPrimaryDatabase();
+      
+      const companyQuery = await db.query(
+        'SELECT name, settings FROM companies WHERE id = $1',
+        [result.invitation.company_id]
+      );
+
+      const company = companyQuery.rows[0];
+      const companySettings = company?.settings || {};
+      const biometricEnabled = companySettings.biometricEnabled || false;
+
       // Return safe invitation details (no sensitive data)
       return reply.code(200).send({
         success: true,
@@ -123,6 +136,9 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
           role: result.invitation.role,
           position: result.invitation.position,
           companyId: result.invitation.company_id,
+          companyName: company?.name,
+          companyLogo: null, // Remove logo reference since column doesn't exist
+          biometricEnabled,
         },
       });
     } catch (error: any) {
