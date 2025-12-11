@@ -1,0 +1,3 @@
+# This is a placeholder for the notification sound file
+# In a real implementation, you would place an actual MP3 file here
+# For now, we'll use a data URL or web audio API to generate a beep sound

@@ -70,7 +70,7 @@ export default function OnboardingCompletePage() {
       <div className="text-center max-w-md w-full">
         {/* Success Checkmark Animation */}
         <div className="mb-8">
-          {showContent && <AnimatedCheckmark size="lg" />}
+          {showContent && <AnimatedCheckmark isVisible={showContent} size="lg" withBackground={true} />}
         </div>
 
         {/* Success Message */}

@@ -21,6 +21,16 @@ export interface AcceptInvitationData {
   password: string;
   phoneNumber?: string;
   dateOfBirth?: string;
+  biometricData?: {
+    faceData?: string;
+    fingerprintData?: string;
+    enrollmentMethod: 'face' | 'fingerprint' | 'both';
+    deviceInfo: {
+      userAgent: string;
+      deviceType: string;
+      biometricSupport: string[];
+    };
+  };
 }
 
 export class EmployeeInvitationService {
@@ -154,7 +164,7 @@ export class EmployeeInvitationService {
    * Accept invitation and create user account
    */
   async acceptInvitation(data: AcceptInvitationData): Promise<{ userId: string; companyId: string }> {
-    const { token, password, phoneNumber, dateOfBirth } = data;
+    const { token, password, phoneNumber, dateOfBirth, biometricData } = data;
 
     try {
       // Get invitation
@@ -206,6 +216,7 @@ export class EmployeeInvitationService {
         department_id: invitation.department_id || null,
         date_of_birth: dateOfBirth || null,
         hire_date: new Date().toISOString().split('T')[0],
+        biometric_data: biometricData ? JSON.stringify(biometricData) : null,
         is_active: true,
         email_verified: true, // Auto-verify since they accepted invitation
         created_at: new Date().toISOString(),

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import PWAUpdateNotification from './components/PWAUpdateNotification'
 import { UserProvider } from './contexts/UserContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -16,6 +17,14 @@ import DashboardLayout from './layouts/DashboardLayout'
 // Dashboard Sub-pages
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
+import AttendancePage from './pages/dashboard/AttendancePage'
+import EmployeeDashboard from './pages/dashboard/EmployeeDashboard'
+import SettingsPage from './pages/dashboard/SettingsPage'
+import EmployeeHoursSetup from './pages/dashboard/attendance/EmployeeHoursSetup'
+import AutomateAlertsSetup from './pages/dashboard/attendance/AutomateAlertsSetup'
+import BiometricSetup from './pages/dashboard/attendance/BiometricSetup'
+import MultipleClockInSetup from './pages/dashboard/attendance/MultipleClockInSetup'
+import NotificationsPage from './pages/dashboard/NotificationsPage'
 
 // Debug utilities (available in console as window.debugAuth())
 import './utils/debugAuth'
@@ -48,6 +57,7 @@ function App() {
   return (
     <ErrorBoundary>
       <UserProvider>
+        <NotificationProvider>
         <PWAUpdateNotification />
         <NetworkStatusIndicator />
         <Routes>
@@ -84,7 +94,15 @@ function App() {
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
-        <Route path="attendance" element={<AttendanceOverviewPage />} />
+        <Route path="attendance" element={<AttendancePage />} />
+        <Route path="attendance-overview" element={<AttendanceOverviewPage />} />
+        <Route path="attendance/setup/employee-hours" element={<EmployeeHoursSetup />} />
+        <Route path="attendance/setup/automate-alerts" element={<AutomateAlertsSetup />} />
+        <Route path="attendance/setup/biometric" element={<BiometricSetup />} />
+        <Route path="attendance/setup/multiple-clockin" element={<MultipleClockInSetup />} />
+        <Route path="employee-dashboard" element={<EmployeeDashboard />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       
       <Route path="/superadmin" element={<SuperAdminPage />} />
@@ -92,6 +110,7 @@ function App() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+        </NotificationProvider>
       </UserProvider>
     </ErrorBoundary>
   )

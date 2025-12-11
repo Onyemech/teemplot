@@ -5,7 +5,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  UserPlus,
   Check,
   Zap,
   X,
@@ -14,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { format } from 'date-fns'
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 
 interface AttendanceStats {
   totalEmployees: number
@@ -265,14 +265,10 @@ export default function AttendanceOverviewPage() {
           </div>
 
           {/* Invite Employee Button */}
-          <button
-            onClick={() => navigate('/dashboard/employees')}
-            className="bg-primary hover:bg-primary-dark text-primary-foreground px-3 md:px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors text-sm md:text-base w-full sm:w-auto justify-center"
-          >
-            <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
-            <span className="hidden sm:inline">Invite Employee</span>
-            <span className="sm:hidden">Invite</span>
-          </button>
+          <InviteEmployeeCard 
+            variant="compact"
+            className="w-full sm:w-auto justify-center"
+          />
         </div>
       </div>
 

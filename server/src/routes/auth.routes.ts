@@ -109,8 +109,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: result.email,
         role: 'owner', // Default role for new registrations
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.userId), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.userId), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -160,8 +160,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: user.email,
         role: user.role,
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -296,8 +296,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: user.email,
         role: user.role,
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -451,7 +451,6 @@ export async function authRoutes(fastify: FastifyInstance) {
         password_hash: hashedPassword,
         is_active: true,
         email_verified: true,
-        updated_at: new Date().toISOString(),
       }, { id: user.id });
 
       // Mark invitation as accepted
@@ -469,8 +468,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: user.email,
         role: user.role,
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -542,8 +541,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: user.email,
         role: user.role,
       });
-      const newAccessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const newRefreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+      const newAccessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const newRefreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '30d' });
 
       // Set new httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -646,8 +645,8 @@ export async function authRoutes(fastify: FastifyInstance) {
           email: user.email,
           role: user.role,
         });
-        const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-        const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '7d' });
+        const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+        const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(user.id), { expiresIn: '30d' });
 
         // Set httpOnly cookies
         const isProduction = process.env.NODE_ENV === 'production';
@@ -696,8 +695,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: result.user.email,
         role: result.user.role,
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -756,8 +755,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         email: result.user.email,
         role: result.user.role,
       });
-      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '30d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';

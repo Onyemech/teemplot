@@ -378,6 +378,53 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Update biometric settings
+  fastify.patch('/biometric', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update biometric settings'
+        });
+      }
+
+      const { biometricEnabled } = request.body as {
+        biometricEnabled: boolean;
+      };
+
+      // Update company settings to store biometric preference
+      const result = await query(
+        `UPDATE companies 
+         SET settings = COALESCE(settings, '{}') || $1,
+             updated_at = NOW()
+         WHERE id = $2
+         RETURNING settings`,
+        [JSON.stringify({ biometricEnabled }), request.user.companyId]
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        biometricEnabled
+      }, 'Biometric settings updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: { biometricEnabled },
+        message: 'Biometric settings updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update biometric settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update biometric settings'
+      });
+    }
+  });
+
   // Update display preferences
   fastify.patch('/display', {
     preHandler: [fastify.authenticate],

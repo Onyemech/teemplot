@@ -292,7 +292,8 @@ export class OnboardingService {
       name: companyName,
       tax_identification_number: taxId,
       industry,
-      employee_count: employeeCount,
+      // Don't overwrite employee_count (limit) with current employee count
+      // employee_count represents the LIMIT they paid for, not current count
       website,
       // Legacy address field (for backward compatibility)
       address: formattedAddress || address,

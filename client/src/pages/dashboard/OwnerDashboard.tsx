@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { apiClient } from '@/lib/api';
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -264,7 +265,7 @@ export default function OwnerDashboard() {
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <button
                   onClick={() => navigate('/dashboard/employees')}
                   className="flex flex-col items-center p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 transition-colors"
@@ -296,6 +297,14 @@ export default function OwnerDashboard() {
                   <Settings className="h-6 w-6 text-gray-600 mb-2" />
                   <span className="text-sm font-medium text-gray-900">Settings</span>
                 </button>
+              </div>
+
+              {/* Invite Employee Card */}
+              <div className="border-t border-gray-200 pt-6">
+                <InviteEmployeeCard 
+                  variant="card"
+                  showCount={true}
+                />
               </div>
             </div>
 

@@ -36,16 +36,32 @@ export const createApiClientWithTimeout = (timeout: number) => {
 }
 
 
+// Enterprise-standard session management
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: Function; reject: Function }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     
-    // Only handle 401 on PROTECTED routes
+    // Only handle 401 errors for session management
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+      const currentPath = window.location.pathname;
       
-      // Define public paths that should NEVER trigger redirect
+      // Define paths that should NEVER trigger session refresh or redirect
       const publicPaths = [
         '/',
         '/login',
@@ -61,36 +77,70 @@ apiClient.interceptors.response.use(
         '/accept-invitation',
       ];
       
-      const currentPath = window.location.pathname;
-      
       const isPublicPath = publicPaths.some(path => 
         currentPath === path || currentPath.startsWith(path + '/')
       );
       
-      // Also allow all /onboarding/* and /auth/* paths
+      // Special handling for onboarding - allow session refresh but don't redirect
       const isOnboarding = currentPath.startsWith('/onboarding');
       const isAuthCallback = currentPath.startsWith('/auth/');
       
-      // If we're on a public page or onboarding, DO NOT redirect or refresh token
-      if (isPublicPath || isOnboarding || isAuthCallback) {
-        return Promise.reject(error); // Just fail silently
+      // For public paths, just fail silently without any session management
+      if (isPublicPath || isAuthCallback) {
+        return Promise.reject(error);
       }
       
-      // Only for PROTECTED pages (like /dashboard, /settings, etc.)
+      // Mark request as retried to prevent infinite loops
+      originalRequest._retry = true;
+      
+      // If already refreshing, queue this request
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => {
+          return apiClient(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+      
+      isRefreshing = true;
+      
       try {
-        await axios.post(`${baseURL}/api/auth/refresh`, {}, { withCredentials: true });
+        // Attempt to refresh the session
+        await axios.post(`${baseURL}/api/auth/refresh`, {}, { 
+          withCredentials: true,
+          timeout: TIMEOUTS.fast // Use fast timeout for refresh
+        });
+        
+        // Session refreshed successfully
+        processQueue(null, 'refreshed');
+        isRefreshing = false;
+        
+        // Retry the original request
         return apiClient(originalRequest);
+        
       } catch (refreshError) {
-        // Only redirect if we're NOT already on login and it's a protected page
-        if (!currentPath.includes('/login')) {
-          window.location.href = '/login?redirect=' + encodeURIComponent(currentPath);
+        // Session refresh failed
+        processQueue(refreshError, null);
+        isRefreshing = false;
+        
+        // Only redirect to login if NOT in onboarding flow
+        if (!isOnboarding && !currentPath.includes('/login')) {
+          // Store current path for redirect after login
+          sessionStorage.setItem('redirectAfterLogin', currentPath);
+          
+          // Graceful redirect with user notification
+          console.warn('Session expired. Redirecting to login...');
+          window.location.href = '/login?session=expired&redirect=' + encodeURIComponent(currentPath);
         }
+        
         return Promise.reject(refreshError);
       }
     }
     
-    // Enhance error with user-friendly message
-    if (error.response) {
+    // Enhance error with user-friendly message but don't duplicate it
+    if (error.response && !error.userMessage) {
       error.userMessage = getErrorMessage(error);
     }
     

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, Mail, Clock, CheckCircle } from 'lucide-react'
+import { Mail, Clock, CheckCircle, UserPlus } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
-import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 import { format } from 'date-fns'
 
 interface Employee {
@@ -36,7 +36,6 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
-  const [showInviteModal, setShowInviteModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'employees' | 'invitations'>('employees')
 
   useEffect(() => {
@@ -88,13 +87,10 @@ export default function EmployeesPage() {
           <p className="text-gray-600 mt-2">Manage your employees and invitations</p>
         </div>
         
-        <button
-          onClick={() => setShowInviteModal(true)}
-          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
-        >
-          <UserPlus className="w-5 h-5" />
-          Invite Employee
-        </button>
+        <InviteEmployeeCard 
+          variant="button"
+          onSuccess={handleInviteSuccess}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -174,13 +170,11 @@ export default function EmployeesPage() {
                   <UserPlus className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No employees yet</h3>
                   <p className="text-gray-500 mb-6">Start building your team by inviting employees</p>
-                  <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    Invite Your First Employee
-                  </button>
+                  <InviteEmployeeCard 
+                    variant="button"
+                    buttonText="Invite Your First Employee"
+                    onSuccess={handleInviteSuccess}
+                  />
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -286,12 +280,7 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Invite Modal */}
-      <InviteEmployeeModal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        onSuccess={handleInviteSuccess}
-      />
+
     </div>
   )
 }

@@ -1,421 +1,307 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Clock,
-  CheckSquare,
-  Calendar,
-  MapPin,
-  TrendingUp,
-  Award,
-  Bell,
-  User
-} from 'lucide-react';
-import { useUser } from '@/contexts/UserContext';
-import { apiClient } from '@/lib/api';
+import { useState, useEffect } from 'react'
+import { Clock, MapPin, Timer, Calendar, FileText, User, Home, Inbox, Settings, ChevronDown } from 'lucide-react'
+import { apiClient } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
+
+import { format } from 'date-fns'
+import LocationClockIn from '@/components/attendance/LocationClockIn'
 
 interface AttendanceStatus {
-  isClockedIn: boolean;
-  clockInTime: string | null;
-  clockOutTime: string | null;
-  totalHoursToday: number;
-  isWithinGeofence: boolean;
-  distanceFromOffice: number;
+  isClockedIn: boolean
+  clockInTime: string | null
+  totalHoursToday: number
+  isWithinGeofence: boolean
+  distanceFromOffice: number
+  currentLocation?: {
+    latitude: number
+    longitude: number
+    address?: string
+  }
 }
 
-interface EmployeeStats {
-  myTasks: {
-    pending: number;
-    inProgress: number;
-    awaitingReview: number;
-    completed: number;
-  };
-  attendance: {
-    presentDays: number;
-    absentDays: number;
-    lateDays: number;
-    attendanceRate: number;
-  };
-  leave: {
-    available: number;
-    used: number;
-    pending: number;
-  };
-  performance: {
-    taskCompletionRate: number;
-    averageRating: number;
-    totalPoints: number;
-  };
+interface QuickAction {
+  id: string
+  title: string
+  description: string
+  icon: any
+  color: string
+  bgColor: string
+  action: () => void
 }
 
 export default function EmployeeDashboard() {
-  const navigate = useNavigate();
-  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
-  const [stats, setStats] = useState<EmployeeStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [clockingIn, setClockingIn] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-
-  // Get user data securely from context (uses httpOnly cookies)
-  const { user: currentUser } = useUser();
-  const companyName = currentUser?.companyName || 'Your Company';
-  const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
-  const userRole = currentUser?.role || 'employee';
+  const { user } = useUser()
+  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [location, setLocation] = useState<GeolocationPosition | null>(null)
+  const [clockingIn, setClockingIn] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
 
   useEffect(() => {
-    fetchDashboardData();
-    getCurrentLocation();
-  }, []);
+    // Update time every second
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
 
-  const fetchDashboardData = async () => {
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    fetchAttendanceStatus()
+    getCurrentLocation()
+  }, [])
+
+  const fetchAttendanceStatus = async () => {
     try {
-      // Fetch attendance status
-      const attendanceResponse = await apiClient.get('/api/attendance/status');
-      
-      if (attendanceResponse.data.success) {
-        setAttendanceStatus(attendanceResponse.data.data);
-      }
-
-      // Fetch employee stats
-      const statsResponse = await apiClient.get('/api/dashboard/employee-stats');
-      
-      if (statsResponse.data.success) {
-        setStats(statsResponse.data.data);
+      const response = await apiClient.get('/api/attendance/current')
+      if (response.data.success) {
+        setAttendanceStatus(response.data.data)
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch attendance status:', error)
     }
-  };
+  }
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
+          setLocation(position)
         },
         (error) => {
-          console.error('Error getting location:', error);
+          console.error('Error getting location:', error)
         }
-      );
+      )
     }
-  };
+  }
 
-  const handleClockIn = async () => {
-    if (!location) {
-      alert('Please enable location services to clock in');
-      return;
-    }
+  const handleClockIn = () => {
+    setShowLocationModal(true)
+  }
 
-    setClockingIn(true);
-    try {
-      const response = await apiClient.post('/api/attendance/clock-in', { location });
-      
-      if (response.data.success) {
-        setAttendanceStatus(response.data.data);
-        alert('Clocked in successfully!');
-      } else {
-        alert(response.data.message || 'Failed to clock in');
-      }
-    } catch (error) {
-      console.error('Clock in error:', error);
-      alert('Failed to clock in. Please try again.');
-    } finally {
-      setClockingIn(false);
-    }
-  };
+  const handleLocationClockInSuccess = (data: any) => {
+    setAttendanceStatus(data)
+    fetchAttendanceStatus() // Refresh status
+  }
 
   const handleClockOut = async () => {
-    if (!location) {
-      alert('Please enable location services to clock out');
-      return;
-    }
+    if (!attendanceStatus) return
 
-    setClockingIn(true);
+    setClockingIn(true)
     try {
-      const response = await apiClient.post('/api/attendance/clock-out', { location });
-      
-      if (response.data.success) {
-        setAttendanceStatus(response.data.data);
-        alert('Clocked out successfully!');
-      } else {
-        alert(response.data.message || 'Failed to clock out');
-      }
-    } catch (error) {
-      console.error('Clock out error:', error);
-      alert('Failed to clock out. Please try again.');
-    } finally {
-      setClockingIn(false);
-    }
-  };
+      const response = await apiClient.post('/api/attendance/check-out', {
+        attendanceId: attendanceStatus.clockInTime, // This should be the attendance record ID
+        location: location ? {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        } : undefined
+      })
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+      if (response.data.success) {
+        setAttendanceStatus(response.data.data)
+      }
+    } catch (error: any) {
+      console.error('Clock out failed:', error)
+      alert(error.response?.data?.message || 'Failed to clock out')
+    } finally {
+      setClockingIn(false)
+    }
+  }
+
+  const quickActions: QuickAction[] = [
+    {
+      id: 'attendance',
+      title: 'Attendance',
+      description: 'Effortless tracking of your time on the job',
+      icon: Clock,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      action: () => {
+        if (attendanceStatus?.isClockedIn) {
+          handleClockOut()
+        } else {
+          handleClockIn()
+        }
+      }
+    },
+    {
+      id: 'requests',
+      title: 'Send Requests',
+      description: 'Need approval? Send your request instantly',
+      icon: FileText,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      action: () => {
+        // TODO: Navigate to requests page
+        alert('Requests feature coming soon!')
+      }
+    },
+    {
+      id: 'leave',
+      title: 'Leave',
+      description: 'Balance your work and rest—',
+      icon: Calendar,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      action: () => {
+        // TODO: Navigate to leave page
+        alert('Leave management coming soon!')
+      }
+    }
+  ]
+
+  const formatTime = (date: Date) => {
+    return format(date, 'HH:mm')
+  }
+
+  const getGreeting = () => {
+    const hour = currentTime.getHours()
+    if (hour < 12) return 'Good Morning'
+    if (hour < 17) return 'Good Afternoon'
+    return 'Good Evening'
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{companyName}</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Welcome back, {userName}! 
-                <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                  {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
-                </span>
-              </p>
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{getGreeting()} 👋</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/notifications')}
-                className="relative p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100"
-              >
-                <Bell className="h-6 w-6" />
-              </button>
-              <button
-                onClick={() => navigate('/profile')}
-                className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100"
-              >
-                <User className="h-6 w-6" />
-              </button>
-            </div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {user?.firstName} {user?.lastName}
+            </h1>
+          </div>
+          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-gray-600" />
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Clock In/Out Card */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg shadow-lg p-8 mb-8 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">
-                {attendanceStatus?.isClockedIn ? 'You are clocked in' : 'Ready to start your day?'}
-              </h2>
-              {attendanceStatus?.isClockedIn && attendanceStatus.clockInTime && (
-                <p className="text-blue-100 mb-4">
-                  Clocked in at {new Date(attendanceStatus.clockInTime).toLocaleTimeString()}
-                </p>
-              )}
-              {attendanceStatus?.isClockedIn && (
-                <div className="flex items-center space-x-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{attendanceStatus.totalHoursToday.toFixed(1)} hours today</span>
-                  </div>
-                  {location && (
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4" />
-                      <span>
-                        {attendanceStatus.isWithinGeofence 
-                          ? 'Within office area' 
-                          : `${attendanceStatus.distanceFromOffice}m from office`
-                        }
-                      </span>
+      {/* Time Tracking Tabs */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-green-600">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-medium">In Time</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <Timer className="w-4 h-4" />
+            <span className="text-sm">Break Time</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm">Out Time</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="px-4 py-6 space-y-6">
+        {/* Quick Actions */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="space-y-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon
+              return (
+                <div
+                  key={action.id}
+                  onClick={action.action}
+                  className={`${action.bgColor} rounded-xl p-4 cursor-pointer transition-all duration-200 hover:scale-[1.02]`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-1">{action.title}</h3>
+                      <p className="text-sm text-gray-600">{action.description}</p>
                     </div>
-                  )}
+                    <div className={`w-12 h-12 ${action.bgColor} rounded-lg flex items-center justify-center ml-4`}>
+                      <Icon className={`w-6 h-6 ${action.color}`} />
+                    </div>
+                  </div>
                 </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Clock In/Out Card */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-1 mb-2">
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+              CURRENT TIME
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">
+              {formatTime(currentTime)}
+            </div>
+            <div className="text-xs text-red-500">
+              {attendanceStatus?.isClockedIn ? (
+                `Working since ${attendanceStatus.clockInTime ? format(new Date(attendanceStatus.clockInTime), 'HH:mm') : ''}`
+              ) : (
+                '00Hrs : 00Mins : 00Secs - Grace period ended'
               )}
             </div>
-            <button
-              onClick={attendanceStatus?.isClockedIn ? handleClockOut : handleClockIn}
-              disabled={clockingIn}
-              className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-blue-50 font-semibold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {clockingIn ? 'Processing...' : attendanceStatus?.isClockedIn ? 'Clock Out' : 'Clock In'}
-            </button>
           </div>
+
+          <button
+            onClick={attendanceStatus?.isClockedIn ? handleClockOut : handleClockIn}
+            disabled={clockingIn}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-4 rounded-xl font-semibold text-lg transition-colors"
+          >
+            {clockingIn ? 'Processing...' : attendanceStatus?.isClockedIn ? 'Clock Out' : 'Clock In'}
+          </button>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* My Tasks */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">My Tasks</h3>
-              <CheckSquare className="h-5 w-5 text-purple-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-2">
-              {stats?.myTasks.inProgress || 0}
-            </p>
-            <p className="text-xs text-gray-500">
-              {stats?.myTasks.pending || 0} pending, {stats?.myTasks.awaitingReview || 0} in review
-            </p>
-            <button
-              onClick={() => navigate('/tasks')}
-              className="mt-4 w-full text-sm text-purple-600 hover:text-purple-700 font-medium"
-            >
-              View All Tasks →
-            </button>
-          </div>
-
-          {/* Attendance */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Attendance</h3>
-              <Clock className="h-5 w-5 text-green-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-2">
-              {stats?.attendance.attendanceRate || 0}%
-            </p>
-            <p className="text-xs text-gray-500">
-              {stats?.attendance.presentDays || 0} present, {stats?.attendance.absentDays || 0} absent
-            </p>
-            <button
-              onClick={() => navigate('/attendance/history')}
-              className="mt-4 w-full text-sm text-green-600 hover:text-green-700 font-medium"
-            >
-              View History →
-            </button>
-          </div>
-
-          {/* Leave Balance */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Leave Balance</h3>
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-2">
-              {stats?.leave.available || 0}
-            </p>
-            <p className="text-xs text-gray-500">
-              {stats?.leave.used || 0} used, {stats?.leave.pending || 0} pending
-            </p>
-            <button
-              onClick={() => navigate('/leave/request')}
-              className="mt-4 w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Request Leave →
-            </button>
-          </div>
-
-          {/* Performance */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Performance</h3>
-              <Award className="h-5 w-5 text-yellow-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-2">
-              {stats?.performance.averageRating.toFixed(1) || '0.0'}
-            </p>
-            <p className="text-xs text-gray-500">
-              {stats?.performance.totalPoints || 0} points earned
-            </p>
-            <button
-              onClick={() => navigate('/performance')}
-              className="mt-4 w-full text-sm text-yellow-600 hover:text-yellow-700 font-medium"
-            >
-              View Details →
-            </button>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* My Tasks List */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">My Active Tasks</h2>
-              <button
-                onClick={() => navigate('/tasks')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View All
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-500 text-center py-8">
-                Your active tasks will appear here
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate('/leave/request')}
-                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
-                >
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-900">Request Leave</span>
-                </button>
-
-                <button
-                  onClick={() => navigate('/attendance/history')}
-                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-green-50 hover:bg-green-100 transition-colors"
-                >
-                  <Clock className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-gray-900">View Attendance</span>
-                </button>
-
-                <button
-                  onClick={() => navigate('/tasks')}
-                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors"
-                >
-                  <CheckSquare className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-900">My Tasks</span>
-                </button>
-
-                <button
-                  onClick={() => navigate('/performance')}
-                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors"
-                >
-                  <TrendingUp className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm font-medium text-gray-900">Performance</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Performance Chart */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">This Month</h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-600">Task Completion</span>
-                    <span className="text-xs font-medium text-gray-900">
-                      {stats?.performance.taskCompletionRate || 0}%
-                    </span>
-                  </div>
-                  <div className="bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-purple-600 h-2 rounded-full"
-                      style={{ width: `${stats?.performance.taskCompletionRate || 0}%` }}
-                    />
-                  </div>
+        {/* Location Status */}
+        {location && attendanceStatus && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              <div>
+                <div className="font-medium text-gray-900">
+                  {attendanceStatus.isWithinGeofence ? 'Within office area' : 'Outside office area'}
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-600">Attendance Rate</span>
-                    <span className="text-xs font-medium text-gray-900">
-                      {stats?.attendance.attendanceRate || 0}%
-                    </span>
-                  </div>
-                  <div className="bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full"
-                      style={{ width: `${stats?.attendance.attendanceRate || 0}%` }}
-                    />
-                  </div>
+                <div className="text-sm text-gray-500">
+                  {attendanceStatus.distanceFromOffice}m from office
                 </div>
               </div>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 lg:hidden">
+        <div className="flex items-center justify-around">
+          <div className="flex flex-col items-center py-2">
+            <Home className="w-6 h-6 text-green-600" />
+            <span className="text-xs text-green-600 mt-1">Home</span>
+          </div>
+          <div className="flex flex-col items-center py-2">
+            <Inbox className="w-6 h-6 text-gray-400" />
+            <span className="text-xs text-gray-400 mt-1">Inbox</span>
+          </div>
+          <div className="flex flex-col items-center py-2">
+            <Settings className="w-6 h-6 text-gray-400" />
+            <span className="text-xs text-gray-400 mt-1">Settings</span>
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Bottom padding for mobile navigation */}
+      <div className="h-20 lg:hidden"></div>
+
+      {/* Location Clock In Modal */}
+      <LocationClockIn
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSuccess={handleLocationClockInSuccess}
+      />
     </div>
-  );
+  )
 }

@@ -6,7 +6,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Check } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-import { formatErrorForToast } from '@/utils/errorHandler'
+import { getErrorMessage } from '@/utils/errorHandler'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 
 export default function RegisterPage() {
@@ -66,7 +66,7 @@ export default function RegisterPage() {
       navigate(`/onboarding/verify?email=${encodeURIComponent(formData.email)}`)
     } catch (err: any) {
       console.error('Registration error:', err)
-      const errorMessage = formatErrorForToast(err)
+      const errorMessage = getErrorMessage(err)
       setError(errorMessage)
       toast.error(errorMessage)
       setLoading(false)

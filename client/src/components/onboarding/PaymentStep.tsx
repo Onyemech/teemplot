@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check } from 'lucide-react'
 import { submitPlanSelection, completeOnboarding } from '@/utils/onboardingApi'
-import { getUser } from '@/utils/auth'
+import { useUser } from '@/contexts/UserContext'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 
@@ -10,25 +10,53 @@ interface PaymentStepProps {
   onComplete: () => void
 }
 
+interface PricingData {
+  silver_monthly: number;
+  silver_yearly: number;
+  gold_monthly: number;
+  gold_yearly: number;
+}
+
 export default function PaymentStep({ companySize, onComplete }: PaymentStepProps) {
   const toast = useToast()
+  const { user } = useUser() // Use UserContext instead of API call
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<'silver' | 'gold'>('gold')
   const [loading, setLoading] = useState(false)
+  const [pricingLoading, setPricingLoading] = useState(true)
+  const [pricing, setPricing] = useState<PricingData>({
+    silver_monthly: 1200,
+    silver_yearly: 12000,
+    gold_monthly: 2500,
+    gold_yearly: 25000,
+  })
 
   const numberOfEmployees = parseInt(companySize) || 1
 
-  // Pricing per user per month (from database schema)
-  const SILVER_MONTHLY = 1200
-  const SILVER_YEARLY = 12000
-  const GOLD_MONTHLY = 2500
-  const GOLD_YEARLY = 25000
+  // Load pricing from server
+  useEffect(() => {
+    const loadPricing = async () => {
+      try {
+        const response = await apiClient.get('/api/subscription/pricing')
+        if (response.data.success) {
+          setPricing(response.data.data.pricing)
+        }
+      } catch (error) {
+        console.error('Failed to load pricing:', error)
+        toast.error('Failed to load pricing. Using default values.')
+      } finally {
+        setPricingLoading(false)
+      }
+    }
+
+    loadPricing()
+  }, [toast])
 
   const calculatePrice = (plan: 'silver' | 'gold', cycle: 'monthly' | 'yearly') => {
     const perUser = plan === 'silver' 
-      ? (cycle === 'monthly' ? SILVER_MONTHLY : SILVER_YEARLY)
-      : (cycle === 'monthly' ? GOLD_MONTHLY : GOLD_YEARLY)
-    return perUser * numberOfEmployees
+      ? (cycle === 'monthly' ? pricing.silver_monthly : pricing.silver_yearly)
+      : (cycle === 'monthly' ? pricing.gold_monthly : pricing.gold_yearly)
+    return Math.round(perUser * numberOfEmployees * 100) / 100 // Round to 2 decimal places
   }
 
   const calculateSavings = (plan: 'silver' | 'gold') => {
@@ -75,6 +103,17 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
   const currentPlan = plans[selectedPlan]
   const price = billingCycle === 'monthly' ? currentPlan.monthlyPrice : currentPlan.yearlyPrice
   const savings = calculateSavings(selectedPlan)
+
+  if (pricingLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-2 text-gray-600">Loading pricing information...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -176,9 +215,7 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
           onClick={async () => {
             setLoading(true)
             try {
-              // Get user from httpOnly cookie (server validates automatically)
-              const user = await getUser()
-              
+              // Use user from context (no API call needed)
               if (!user || !user.companyId) {
                 throw new Error('Session expired. Please log in again.')
               }
@@ -207,6 +244,8 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
                 const paymentResponse = await apiClient.post('/api/subscription/initiate-subscription', {
                   plan: planKey,
                   companySize: numberOfEmployees,
+                }, {
+                  timeout: 10000 // 10 second timeout for payment initialization
                 })
 
                 if (paymentResponse.data.success && paymentResponse.data.data.authorizationUrl) {

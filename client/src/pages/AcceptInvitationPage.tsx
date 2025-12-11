@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import { getErrorMessage } from '@/utils/errorHandler'
+import BiometricEnrollment from '@/components/biometric/BiometricEnrollment'
 
 
 interface InvitationData {
@@ -53,6 +54,8 @@ export default function AcceptInvitationPage() {
   const [accepted, setAccepted] = useState(false)
   const [error, setError] = useState('')
   const [invitation, setInvitation] = useState<InvitationData | null>(null)
+  const [showBiometricEnrollment, setShowBiometricEnrollment] = useState(false)
+  const [biometricData, setBiometricData] = useState<any>(null)
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -119,6 +122,23 @@ export default function AcceptInvitationPage() {
     fetchInvitation()
   }, [token, toast, accepted])
 
+  const handleBiometricComplete = (data: any) => {
+    setBiometricData(data)
+    setShowBiometricEnrollment(false)
+    toast.success('Biometric enrollment completed! Welcome to the team!')
+    setTimeout(() => {
+      navigate('/login')
+    }, 1500)
+  }
+
+  const handleSkipBiometric = () => {
+    setShowBiometricEnrollment(false)
+    toast.success('Welcome to the team! Please log in with your new account.')
+    setTimeout(() => {
+      navigate('/login')
+    }, 1500)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -149,6 +169,7 @@ export default function AcceptInvitationPage() {
         password: formData.password,
         phoneNumber: '', // Optional
         dateOfBirth: '', // Optional
+        biometricData: biometricData // Include biometric data if enrolled
       })
 
       const data = response.data
@@ -159,11 +180,16 @@ export default function AcceptInvitationPage() {
 
       // Mark as accepted to prevent further API calls
       setAccepted(true)
-      toast.success('Welcome to the team! Please log in with your new account.')
-
-      setTimeout(() => {
-        navigate('/login')
-      }, 1500)
+      
+      // Show biometric enrollment if not already done
+      if (!biometricData) {
+        setShowBiometricEnrollment(true)
+      } else {
+        toast.success('Welcome to the team! Please log in with your new account.')
+        setTimeout(() => {
+          navigate('/login')
+        }, 1500)
+      }
     } catch (err: any) {
       const errorMsg = getErrorMessage(err)
       setError(errorMsg)
@@ -347,6 +373,14 @@ export default function AcceptInvitationPage() {
           </p>
         </div>
       </div>
+
+      {/* Biometric Enrollment Modal */}
+      <BiometricEnrollment
+        isOpen={showBiometricEnrollment}
+        onClose={handleSkipBiometric}
+        onComplete={handleBiometricComplete}
+        employeeName={`${formData.firstName} ${formData.lastName}`}
+      />
     </div>
   )
 }

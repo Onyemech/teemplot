@@ -3,7 +3,159 @@ import { enhancedAttendanceService } from '../services/EnhancedAttendanceService
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
+// Calculate distance between two coordinates using Haversine formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c;
+}
+
 export default async function attendanceRoutes(fastify: FastifyInstance) {
+  // Check location and geofence
+  fastify.post('/check-location', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { latitude, longitude } = request.body as {
+        latitude: number;
+        longitude: number;
+      };
+
+      // Get company settings for geofence
+      const companyResult = await query(
+        'SELECT office_latitude, office_longitude, geofence_radius_meters, formatted_address FROM companies WHERE id = $1',
+        [request.user.companyId]
+      );
+
+      if (companyResult.rows.length === 0) {
+        return reply.code(404).send({
+          success: false,
+          message: 'Company not found'
+        });
+      }
+
+      const company = companyResult.rows[0];
+      
+      // Calculate distance from office
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        company.office_latitude,
+        company.office_longitude
+      );
+
+      const isWithinGeofence = distance <= company.geofence_radius_meters;
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          isWithinGeofence,
+          distanceFromOffice: Math.round(distance),
+          officeName: 'Office Location',
+          officeAddress: company.formatted_address
+        }
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Location check failed');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to check location'
+      });
+    }
+  });
+
+  // Clock in (alias for check-in)
+  fastify.post('/clock-in', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { location } = request.body as {
+        location?: {
+          latitude: number;
+          longitude: number;
+          address?: string;
+        };
+      };
+
+      const attendance = await enhancedAttendanceService.checkIn({
+        userId: request.user.userId,
+        companyId: request.user.companyId,
+        location,
+        method: 'manual'
+      });
+
+      return reply.code(200).send({
+        success: true,
+        data: attendance,
+        message: attendance.isLateArrival
+          ? `Clocked in successfully. You are ${attendance.minutesLate} minutes late.`
+          : 'Clocked in successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Clock-in failed');
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to clock in'
+      });
+    }
+  });
+
+  // Clock out (alias for check-out)
+  fastify.post('/clock-out', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { attendanceId, location, departureReason } = request.body as {
+        attendanceId: string;
+        location?: {
+          latitude: number;
+          longitude: number;
+          address?: string;
+        };
+        departureReason?: string;
+      };
+
+      if (!attendanceId) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Attendance ID is required'
+        });
+      }
+
+      const attendance = await enhancedAttendanceService.checkOut({
+        userId: request.user.userId,
+        companyId: request.user.companyId,
+        attendanceId,
+        location,
+        method: 'manual',
+        departureReason
+      });
+
+      return reply.code(200).send({
+        success: true,
+        data: attendance,
+        message: attendance.isEarlyDeparture
+          ? `Clocked out successfully. You left ${attendance.minutesEarly} minutes early. Admin has been notified.`
+          : 'Clocked out successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Clock-out failed');
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to clock out'
+      });
+    }
+  });
+
   // Check in
   fastify.post('/check-in', {
     preHandler: [fastify.authenticate],
@@ -88,7 +240,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
   });
 
   // Get current attendance status
-  fastify.get('/current', {
+  fastify.get('/status', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
@@ -291,6 +443,63 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         message: 'Failed to retrieve early departures'
+      });
+    }
+  });
+
+  // Enable multiple clock-in for specific employees
+  fastify.post('/multiple-clockin', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can enable multiple clock-in'
+        });
+      }
+
+      const { employeeIds } = request.body as {
+        employeeIds: string[];
+      };
+
+      if (!employeeIds || employeeIds.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Employee IDs are required'
+        });
+      }
+
+      // Update user settings to enable multiple clock-in
+      const result = await query(
+        `UPDATE users 
+         SET settings = COALESCE(settings, '{}') || '{"multipleClockInEnabled": true}'
+         WHERE id = ANY($1) AND company_id = $2
+         RETURNING id, first_name, last_name`,
+        [employeeIds, request.user.companyId]
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        employeeIds,
+        updatedCount: result.rows.length
+      }, 'Multiple clock-in enabled for employees');
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          updatedEmployees: result.rows,
+          count: result.rows.length
+        },
+        message: `Multiple clock-in enabled for ${result.rows.length} employees`
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to enable multiple clock-in');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to enable multiple clock-in'
       });
     }
   });

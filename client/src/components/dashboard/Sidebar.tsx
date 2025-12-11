@@ -12,18 +12,21 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronRight,
-  UserPlus,
+
   ClipboardList,
   LayoutGrid,
   Lock,
   Calendar,
   TrendingUp,
-  X
+  X,
+  Bell,
+  Fingerprint
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 interface SidebarProps {
   isOpen: boolean
@@ -57,8 +60,10 @@ const navigationConfig: NavItemConfig[] = [
     feature: 'attendance', // Silver + Gold
     submenu: [
       { label: 'Overview', href: '/dashboard/attendance', icon: LayoutGrid, feature: 'attendance' },
-      { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus, feature: 'attendance', adminOnly: true },
-      { label: 'Multiple Clock-in Setup', href: '/dashboard/attendance/setup', icon: ClipboardList, feature: 'attendance', adminOnly: true },
+      { label: 'Employee Hours Setup', href: '/dashboard/attendance/setup/employee-hours', icon: Clock, feature: 'attendance', adminOnly: true },
+      { label: 'Automate Alerts', href: '/dashboard/attendance/setup/automate-alerts', icon: Bell, feature: 'attendance', adminOnly: true },
+      { label: 'Biometric Setup', href: '/dashboard/attendance/setup/biometric', icon: Fingerprint, feature: 'attendance', adminOnly: true },
+      { label: 'Multiple Clock-in', href: '/dashboard/attendance/setup/multiple-clockin', icon: ClipboardList, feature: 'attendance', adminOnly: true },
     ],
   },
   {
@@ -197,11 +202,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const implementedRoutes = [
       '/dashboard',
       '/dashboard/attendance',
-      '/dashboard/attendance/invites',
-      '/dashboard/attendance/setup',
+      '/dashboard/attendance/setup/employee-hours',
+      '/dashboard/attendance/setup/automate-alerts',
+      '/dashboard/attendance/setup/biometric',
+      '/dashboard/attendance/setup/multiple-clockin',
       '/dashboard/employees',
       '/dashboard/settings',
       '/dashboard/settings/billing',
+      '/dashboard/employee-dashboard',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 
@@ -224,18 +232,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             }
           }}
           className={`
-            flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg transition-all duration-200
+            flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl transition-all duration-200 relative
             ${isSubmenu ? 'pl-10 lg:pl-12 text-sm' : ''}
             ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
             ${active && !isLocked
-              ? 'bg-accent/10 text-accent font-medium' 
-              : 'text-foreground/70 hover:bg-secondary hover:text-foreground'
+              ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
+              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
             }
           `}
           title={isLocked ? `Upgrade to ${plan === 'trial' ? 'Silver or Gold' : 'Gold'} plan to access this feature` : ''}
         >
           <div className="flex items-center gap-2 lg:gap-3">
-            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? 'text-accent' : ''}`} />
+            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? 'text-primary' : ''}`} />
             <span className="text-sm lg:text-base">{item.label}</span>
             {isLocked && <Lock className="w-3 h-3 ml-1 flex-shrink-0" />}
           </div>
@@ -298,14 +306,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             />
             <span className="text-base lg:text-lg font-bold text-foreground truncate">{companyName}</span>
           </div>
-          {/* Close button - mobile only */}
-          <button
-            onClick={onClose}
-            className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors flex-shrink-0"
-            aria-label="Close menu"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <NotificationBell />
+            {/* Close button - mobile only */}
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors flex-shrink-0"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
       {/* Navigation */}
@@ -333,10 +345,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="p-3 lg:p-4 border-t border-border space-y-1">
         <Link to="/dashboard/settings"
           className={`
-            flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
+            flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 relative
             ${isActive('/dashboard/settings')
-              ? 'bg-accent/10 text-accent font-medium'
-              : 'text-foreground/70 hover:bg-secondary hover:text-foreground'
+              ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary'
+              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
             }
           `}
         >
@@ -346,7 +358,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <button
           onClick={() => toast.info('Help & Support - Coming Soon! 💬')}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-foreground/70 hover:bg-secondary hover:text-foreground transition-all duration-200"
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
         >
           <HelpCircle className="w-5 h-5" />
           <span>Help & support</span>

@@ -4,6 +4,7 @@ import { fileUploadService } from '../services/FileUploadService';
 import { z } from 'zod';
 import multipart from '@fastify/multipart';
 import { validateFileUpload, sanitizeInput } from '../middleware/security.middleware';
+import { enterpriseSessionManagement, extendSessionForCriticalOperation } from '../middleware/sessionExtension.middleware';
 
 const UploadDocumentSchema = z.object({
   companyId: z.string().uuid(),
@@ -111,7 +112,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
 
   // Stage 3: Company Setup
   fastify.post('/company-setup', {
-    preHandler: [fastify.authenticate],
+    preHandler: [enterpriseSessionManagement, extendSessionForCriticalOperation],
   }, async (request, reply) => {
     try {
       const rawData = CompanySetupSchema.parse(request.body);
@@ -132,7 +133,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
 
   // Stage 4: Owner Details (conditional)
   fastify.post('/owner-details', {
-    preHandler: [fastify.authenticate],
+    preHandler: [enterpriseSessionManagement, extendSessionForCriticalOperation],
   }, async (request, reply) => {
     try {
       const rawData = OwnerDetailsSchema.parse(request.body);
@@ -144,6 +145,27 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Owner details saved successfully',
       });
     } catch (error: any) {
+      // Handle database constraint errors with user-friendly messages
+      if (error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
+        if (error.message?.includes('email')) {
+          return reply.code(400).send({
+            success: false,
+            message: 'This email address is already in use. Please use a different email for the owner.',
+          });
+        }
+        return reply.code(400).send({
+          success: false,
+          message: 'Some information is already in use. Please review the details and try again.',
+        });
+      }
+      
+      if (error.message?.includes('check constraint')) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Invalid data provided. Please check all fields and try again.',
+        });
+      }
+      
       return reply.code(400).send({
         success: false,
         message: error.message || 'Failed to save owner details',
@@ -153,7 +175,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
 
   // Stage 5: Business Information
   fastify.post('/business-info', {
-    preHandler: [fastify.authenticate],
+    preHandler: [enterpriseSessionManagement, extendSessionForCriticalOperation],
   }, async (request, reply) => {
     try {
       const rawData = BusinessInfoSchema.parse(request.body);
@@ -403,7 +425,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/select-plan', {
-    preHandler: [fastify.authenticate],
+    preHandler: [enterpriseSessionManagement, extendSessionForCriticalOperation],
   }, async (request, reply) => {
     try {
       const data = SelectPlanSchema.parse(request.body);
@@ -423,7 +445,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/complete', {
-    preHandler: [fastify.authenticate],
+    preHandler: [enterpriseSessionManagement, extendSessionForCriticalOperation],
   }, async (request, reply) => {
     try {
       const data = CompleteOnboardingSchema.parse(request.body);
@@ -492,6 +514,43 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({
         success: false,
         message: error.message || 'Failed to save progress',
+      });
+    }
+  });
+
+  // Session health check for onboarding
+  fastify.get('/session-health', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // If we reach here, session is valid
+      const token = request.cookies.accessToken;
+      if (!token) {
+        return reply.code(401).send({
+          success: false,
+          message: 'No session token found'
+        });
+      }
+
+      // Decode token to get expiry info
+      const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      const expiryTime = decoded.exp * 1000;
+      const currentTime = Date.now();
+      const timeUntilExpiry = expiryTime - currentTime;
+
+      return reply.send({
+        success: true,
+        data: {
+          isValid: true,
+          expiresAt: new Date(expiryTime).toISOString(),
+          timeUntilExpiry: Math.round(timeUntilExpiry / 1000), // seconds
+          shouldRefresh: timeUntilExpiry < 30 * 60 * 1000 // refresh if < 30 minutes
+        }
+      });
+    } catch (error: any) {
+      return reply.code(401).send({
+        success: false,
+        message: 'Invalid session'
       });
     }
   });

@@ -111,6 +111,9 @@ export async function buildApp() {
     cookie: {
       cookieName: 'accessToken',
       signed: false 
+    },
+    sign: {
+      expiresIn: '2h' // Enterprise-standard: 2 hours for access tokens
     }
   });
 
@@ -174,6 +177,9 @@ export async function buildApp() {
 
   const companySettingsRoutes = await import('./routes/company-settings.routes');
   await app.register(companySettingsRoutes.default, { prefix: `${apiPrefix}/company-settings` });
+
+  const notificationsRoutes = await import('./routes/notifications.routes');
+  await app.register(notificationsRoutes.default, { prefix: `${apiPrefix}/notifications` });
 
   const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');
   await app.register(adminAddressAuditRoutes.default, { prefix: `${apiPrefix}/admin/address-audit` });

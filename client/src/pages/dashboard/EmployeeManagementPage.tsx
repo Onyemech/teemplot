@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Users, Mail, UserPlus, X, Loader2, CheckCircle, Clock } from 'lucide-react';
-import Input from '@/components/ui/Input';
+import { Users, Mail, Loader2, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { apiClient } from '@/lib/api';
+import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard';
 
 interface Employee {
   id: string;
@@ -32,16 +32,6 @@ export default function EmployeeManagementPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviting, setInviting] = useState(false);
-
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    role: 'staff' as 'admin' | 'staff',
-    position: '',
-  });
 
   useEffect(() => {
     fetchData();
@@ -68,32 +58,8 @@ export default function EmployeeManagementPage() {
     }
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInviting(true);
-
-    try {
-      const response = await apiClient.post('/api/employee-invitations/invite', inviteForm);
-
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Failed to send invitation');
-      }
-
-      toast.success('Invitation sent successfully!');
-      setShowInviteModal(false);
-      setInviteForm({
-        email: '',
-        firstName: '',
-        lastName: '',
-        role: 'staff',
-        position: '',
-      });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send invitation');
-    } finally {
-      setInviting(false);
-    }
+  const handleInviteSuccess = () => {
+    fetchData(); // Refresh the data when invitation is sent
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
@@ -133,13 +99,10 @@ export default function EmployeeManagementPage() {
                 Manage your team members and invitations
               </p>
             </div>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 bg-accent hover:bg-accent-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm"
-            >
-              <UserPlus className="w-5 h-5" />
-              Invite Employee
-            </button>
+            <InviteEmployeeCard 
+              variant="button"
+              onSuccess={handleInviteSuccess}
+            />
           </div>
         </div>
 
@@ -300,95 +263,7 @@ export default function EmployeeManagementPage() {
         </div>
       </div>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Invite Employee</h2>
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
 
-            <form onSubmit={handleInvite} className="space-y-4">
-              <Input
-                label="Email"
-                type="email"
-                required
-                value={inviteForm.email}
-                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                placeholder="employee@example.com"
-                fullWidth
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="First Name"
-                  type="text"
-                  value={inviteForm.firstName}
-                  onChange={(e) => setInviteForm({ ...inviteForm, firstName: e.target.value })}
-                  placeholder="John"
-                  fullWidth
-                />
-
-                <Input
-                  label="Last Name"
-                  type="text"
-                  value={inviteForm.lastName}
-                  onChange={(e) => setInviteForm({ ...inviteForm, lastName: e.target.value })}
-                  placeholder="Doe"
-                  fullWidth
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <select
-                  value={inviteForm.role}
-                  onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as 'admin' | 'staff' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  required
-                >
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <Input
-                label="Position"
-                type="text"
-                value={inviteForm.position}
-                onChange={(e) => setInviteForm({ ...inviteForm, position: e.target.value })}
-                placeholder="e.g. Developer, Manager"
-                fullWidth
-              />
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="flex-1 bg-accent hover:bg-accent-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {inviting ? 'Sending...' : 'Send Invitation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -73,8 +73,7 @@ export function requireFeature(feature: Feature) {
         const trialEnd = new Date(company.trial_end_date);
         if (trialEnd < new Date()) {
           await db.update('companies', {
-            subscription_status: 'expired',
-            updated_at: new Date().toISOString()
+            subscription_status: 'expired'
           }, { id: company.id });
 
           return reply.code(403).send({

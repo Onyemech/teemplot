@@ -27,22 +27,24 @@ export default function LoginPage() {
   useEffect(() => {
     const errorParam = searchParams.get('error')
     
-    if (errorParam === 'google_auth_failed') {
-      toast.error(
-        'This account was registered with email and password. Please sign in using your credentials instead of Google.',
-        6000
-      )
-      // Clean up URL
+    if (errorParam) {
+      // Clean up URL immediately to prevent repeated toasts
       window.history.replaceState({}, '', '/login')
-    } else if (errorParam === 'account_exists') {
-      toast.warning(
-        'An account with this email already exists. Please sign in with your existing credentials.',
-        5000
-      )
-      window.history.replaceState({}, '', '/login')
-    } else if (errorParam === 'session_expired') {
-      toast.info('Your session has expired. Please sign in again.')
-      window.history.replaceState({}, '', '/login')
+      
+      // Show appropriate toast based on error type
+      if (errorParam === 'google_auth_failed') {
+        toast.error(
+          'This account was registered with email and password. Please sign in using your credentials instead of Google.',
+          6000
+        )
+      } else if (errorParam === 'account_exists') {
+        toast.warning(
+          'An account with this email already exists. Please sign in with your existing credentials.',
+          5000
+        )
+      } else if (errorParam === 'session_expired') {
+        toast.info('Your session has expired. Please sign in again.')
+      }
     }
   }, [searchParams, toast])
 

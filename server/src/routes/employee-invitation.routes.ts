@@ -16,6 +16,16 @@ const AcceptInvitationSchema = z.object({
   password: z.string().min(8),
   phoneNumber: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  biometricData: z.object({
+    faceData: z.string().optional(),
+    fingerprintData: z.string().optional(),
+    enrollmentMethod: z.enum(['face', 'fingerprint', 'both']),
+    deviceInfo: z.object({
+      userAgent: z.string(),
+      deviceType: z.string(),
+      biometricSupport: z.array(z.string())
+    })
+  }).optional(),
 });
 
 export async function employeeInvitationRoutes(fastify: FastifyInstance) {

@@ -263,7 +263,6 @@ export class SuperAdminService {
       'companies',
       {
         subscription_status: 'active',
-        updated_at: new Date(),
       },
       { id: companyId }
     );
@@ -277,7 +276,6 @@ export class SuperAdminService {
       {
         subscription_status: 'suspended',
         is_active: false,
-        updated_at: new Date(),
       },
       { id: companyId }
     );

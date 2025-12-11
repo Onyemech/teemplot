@@ -66,10 +66,10 @@ export default function DemoVideo() {
                     <Video className="h-10 w-10 sm:h-16 sm:w-16 text-primary" />
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3 px-2">
-                    Product Demo Coming This Week
+                    Demo Video Coming Soon
                   </h3>
                   <p className="text-sm sm:text-base text-gray-600 max-w-md px-4">
-                    Discover how Teemplot helps Nigerian businesses manage attendance, analytics, and HR compliance with ease.
+                    Watch how easy it is to manage your team's attendance and HR operations.
                   </p>
                   
                   {/* Animated Play Button */}

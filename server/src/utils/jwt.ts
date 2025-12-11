@@ -35,15 +35,18 @@ export function setAuthCookies(
     isProduction
   });
 
+  // Enterprise-standard session durations
+  // Access token: 2 hours (long enough to prevent interruptions)
+  // Refresh token: 30 days (enterprise standard)
   reply.cookie('accessToken', accessToken, {
     ...cookieOptions,
-    maxAge: 15 * 60 
+    maxAge: 2 * 60 * 60 // 2 hours in seconds
   });
 
   reply.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
     path: '/', 
-    maxAge: 7 * 24 * 60 * 60 
+    maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
   });
 }
 

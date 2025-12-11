@@ -10,6 +10,7 @@ type PaymentPurpose = 'subscription' | 'employee_limit_upgrade' | 'plan_upgrade'
 interface InitiatePaymentData {
   companyId: string;
   userId: string;
+  userEmail: string; // Add email to avoid database query
   amount: number; 
   currency: string;
   purpose: PaymentPurpose;
@@ -39,17 +40,16 @@ export class PaymentService {
   }
 
   async initiatePayment(data: InitiatePaymentData) {
-    const { companyId, userId, amount, currency, purpose, metadata } = data;
+    const { companyId, userId, userEmail, amount, currency, purpose, metadata } = data;
 
-    const user = await this.db.findOne('users', { id: userId });
-    if (!user) {
-      throw new Error('User not found');
-    }
+    // No need to query database - we have email from auth middleware
 
     const reference = `${purpose}_${companyId}_${Date.now()}_${randomUUID().substring(0, 8)}`;
 
     const paymentId = randomUUID();
-    await this.db.insert('payments', {
+    
+    // Prepare payment data with required fields
+    const paymentData: any = {
       id: paymentId,
       company_id: companyId,
       user_id: userId,
@@ -61,12 +61,58 @@ export class PaymentService {
       provider: this.provider.getProviderName(),
       metadata: JSON.stringify(metadata),
       created_at: new Date().toISOString(),
-    });
+    };
+
+    // Add subscription-specific fields if this is a subscription payment
+    if (purpose === 'subscription' && metadata.plan) {
+      paymentData.subscription_plan = metadata.plan;
+      
+      // Extract billing cycle from plan name (e.g., 'silver_monthly' -> 'monthly')
+      let billingCycle = 'monthly'; // default
+      if (metadata.plan.includes('yearly')) {
+        billingCycle = 'yearly';
+      } else if (metadata.plan.includes('monthly')) {
+        billingCycle = 'monthly';
+      }
+      paymentData.billing_cycle = billingCycle;
+      
+      // Calculate period dates for subscription
+      const now = new Date();
+      paymentData.period_start = now.toISOString();
+      
+      const periodEnd = new Date(now);
+      if (billingCycle === 'monthly') {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      } else if (billingCycle === 'yearly') {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      }
+      paymentData.period_end = periodEnd.toISOString();
+    }
+
+    await this.db.insert('payments', paymentData);
 
     const callbackUrl = `${process.env.FRONTEND_URL}/payment/callback?reference=${reference}`;
     
+    // Validate amount is in kobo (should be >= 100 for minimum 1 Naira)
+    if (amount < 100) {
+      logger.error({ amount, purpose, companyId }, 'Invalid payment amount - too small (should be in kobo)');
+      throw new Error('Invalid payment amount. Amount should be in kobo (minimum 100 kobo = 1 Naira)');
+    }
+
+    // Log payment details for debugging
+    logger.info({ 
+      paymentId, 
+      reference, 
+      purpose, 
+      amount, 
+      amountInNaira: (amount / 100).toFixed(2),
+      currency,
+      companyId,
+      userId 
+    }, 'Initiating payment with provider');
+
     const result = await this.provider.initializePayment({
-      email: user.email,
+      email: userEmail,
       amount,
       currency,
       reference,
@@ -75,6 +121,7 @@ export class PaymentService {
         companyId,
         userId,
         purpose,
+        amountInNaira: (amount / 100).toFixed(2), // For debugging
       },
       callbackUrl,
     });
@@ -84,7 +131,13 @@ export class PaymentService {
       access_code: result.accessCode,
     }, { id: paymentId });
 
-    logger.info({ paymentId, reference, purpose }, 'Payment initiated');
+    logger.info({ 
+      paymentId, 
+      reference, 
+      purpose, 
+      amount, 
+      amountInNaira: (amount / 100).toFixed(2) 
+    }, 'Payment initiated successfully');
 
     return {
       paymentId,
@@ -187,7 +240,6 @@ export class PaymentService {
 
     await this.db.update('companies', {
       employee_count: newLimit.toString(),
-      updated_at: new Date().toISOString(),
     }, { id: companyId });
 
     logger.info({ companyId, oldLimit: currentLimit, newLimit }, 'Employee limit upgraded');
@@ -199,7 +251,6 @@ export class PaymentService {
     const updateData: any = {
       subscription_plan: plan,
       subscription_status: 'active',
-      updated_at: new Date().toISOString(),
     };
 
     if (companySize) {

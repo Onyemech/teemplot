@@ -43,22 +43,23 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get plan pricing
+      // Get plan pricing (ENV values are in Naira, convert to kobo)
       const planPrices: Record<string, number> = {
-        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200'),
-        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000'),
-        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
-        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
+        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200') * 100, // Convert to kobo
+        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000') * 100,
+        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500') * 100,
+        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000') * 100,
       };
 
       const currentPlan = company.subscription_plan || 'silver_monthly';
-      const pricePerEmployee = planPrices[currentPlan] || 1200;
-      const totalAmount = additionalEmployees * pricePerEmployee; // Already in kobo
+      const pricePerEmployee = planPrices[currentPlan] || 120000; // 1200 Naira in kobo
+      const totalAmount = Math.round(additionalEmployees * pricePerEmployee); // Ensure integer kobo
 
       // Initiate payment
       const payment = await paymentService.initiatePayment({
         companyId,
         userId,
+        userEmail: (request.user as any).email, // Pass email from auth middleware
         amount: totalAmount,
         currency: 'NGN',
         purpose: 'employee_limit_upgrade',
@@ -111,12 +112,12 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get plan pricing
+      // Get plan pricing (ENV values are in Naira, convert to kobo)
       const planPrices: Record<string, number> = {
-        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200'),
-        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000'),
-        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
-        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
+        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200') * 100, // Convert to kobo
+        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000') * 100,
+        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500') * 100,
+        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000') * 100,
       };
 
       const pricePerEmployee = planPrices[plan];
@@ -127,12 +128,13 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const totalAmount = pricePerEmployee * companySize; // Already in kobo
+      const totalAmount = Math.round(pricePerEmployee * companySize); // Ensure integer kobo
 
       // Initiate payment
       const payment = await paymentService.initiatePayment({
         companyId,
         userId,
+        userEmail: (request.user as any).email, // Pass email from auth middleware
         amount: totalAmount,
         currency: 'NGN',
         purpose: 'subscription',
@@ -239,9 +241,27 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
 
       const event = request.body as any;
       
+      // Log webhook event for debugging
+      logger.info({ 
+        event: event.event, 
+        reference: event.data?.reference,
+        amount: event.data?.amount,
+        currency: event.data?.currency,
+        plan: event.data?.metadata?.plan,
+        companySize: event.data?.metadata?.companySize,
+        purpose: event.data?.metadata?.purpose
+      }, 'Webhook received');
+      
       // Handle successful payment
       if (event.event === 'charge.success' || event.data?.status === 'success') {
         const reference = event.data.reference;
+        
+        logger.info({ 
+          reference, 
+          plan: event.data?.metadata?.plan,
+          amount: event.data?.amount,
+          amountInNaira: (event.data?.amount / 100).toFixed(2)
+        }, 'Processing successful payment from webhook');
         
         // Fulfill payment in background
         paymentService.fulfillPayment(reference).catch(error => {
@@ -253,6 +273,36 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       logger.error({ err: error }, 'Webhook processing failed');
       return reply.code(500).send({ success: false });
+    }
+  });
+
+  /**
+   * Get pricing information
+   */
+  fastify.get('/pricing', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      // Get plan pricing from ENV (in Naira)
+      const pricing = {
+        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200'),
+        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000'),
+        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
+        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
+      };
+
+      return reply.send({
+        success: true,
+        data: {
+          pricing,
+          currency: 'NGN',
+          note: 'Prices are per user per billing period in Naira',
+        },
+      });
+    } catch (error: any) {
+      logger.error({ err: error }, 'Failed to fetch pricing');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to fetch pricing information',
+      });
     }
   });
 

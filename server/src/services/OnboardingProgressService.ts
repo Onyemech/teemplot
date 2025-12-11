@@ -61,17 +61,41 @@ export class OnboardingProgressService {
   }
 
   /**
-   * Get user's onboarding progress with file URLs from database
+   * Get user's onboarding progress with file URLs from database (OPTIMIZED)
    */
   async getProgress(userId: string): Promise<OnboardingProgress | null> {
     try {
       logger.info(`Fetching onboarding progress for user: ${userId}`);
       
+      // OPTIMIZATION: Single query to get all data at once
       const { query } = await import('../config/database');
-      const result = await query(
-        'SELECT * FROM onboarding_progress WHERE user_id = $1 LIMIT 1',
-        [userId]
-      );
+      const result = await query(`
+        SELECT 
+          op.*,
+          c.logo_url as company_logo,
+          -- Get file data in a single query using JSON aggregation
+          COALESCE(
+            json_object_agg(
+              cf.document_type, 
+              json_build_object(
+                'url', f.secure_url,
+                'filename', f.original_filename,
+                'name', f.original_filename,
+                'size', f.file_size,
+                'uploaded', true
+              )
+            ) FILTER (WHERE cf.document_type IS NOT NULL),
+            '{}'::json
+          ) as files_data
+        FROM onboarding_progress op
+        LEFT JOIN companies c ON op.company_id = c.id
+        LEFT JOIN company_files cf ON op.company_id = cf.company_id AND cf.is_active = true
+        LEFT JOIN files f ON cf.file_id = f.id AND f.status = 'uploaded'
+        WHERE op.user_id = $1
+        GROUP BY op.id, op.user_id, op.company_id, op.current_step, 
+                 op.completed_steps, op.form_data, op.created_at, op.updated_at, c.logo_url
+        LIMIT 1
+      `, [userId]);
       
       const progress = result.rows[0];
 
@@ -82,6 +106,7 @@ export class OnboardingProgressService {
       
       logger.info(`Found onboarding progress for user: ${userId}, step: ${progress.current_step}`);
 
+      // Parse form data
       let formData: Record<string, any>;
       if (typeof progress.form_data === 'string') {
         formData = JSON.parse(progress.form_data || '{}');
@@ -91,45 +116,24 @@ export class OnboardingProgressService {
         formData = {};
       }
       
-      const companyId = progress.company_id;
-
-      if (companyId && companyId !== 'pending') {
-        try {
-          const company = await this.db.findOne('companies', { id: companyId });
-          if (company && company.logo_url) {
-            formData.companyLogo = company.logo_url;
-          }
-
-          const companyFiles = await this.db.find('company_files', { 
-            company_id: companyId,
-            is_active: true 
-          });
-
-          for (const cf of companyFiles) {
-            const file = await this.db.findOne('files', { id: cf.file_id });
-            if (file && file.secure_url) {
-              const fileData = {
-                url: file.secure_url,
-                filename: file.original_filename || 'Uploaded document',
-                name: file.original_filename || 'Uploaded document',
-                size: file.file_size || 0,
-                uploaded: true
-              };
-              
-              if (cf.document_type === 'cac') {
-                formData.cacDocument = fileData;
-              } else if (cf.document_type === 'proof_of_address') {
-                formData.proofOfAddress = fileData;
-              } else if (cf.document_type === 'company_policy') {
-                formData.companyPolicies = fileData;
-              }
-            }
-          }
-        } catch (fileError: any) {
-          logger.warn(`Failed to fetch file URLs for user ${userId}: ${fileError?.message}`);
-        }
+      // Add company logo if available
+      if (progress.company_logo) {
+        formData.companyLogo = progress.company_logo;
       }
 
+      // Add file data from the optimized query
+      const filesData = progress.files_data || {};
+      if (filesData.cac) {
+        formData.cacDocument = filesData.cac;
+      }
+      if (filesData.proof_of_address) {
+        formData.proofOfAddress = filesData.proof_of_address;
+      }
+      if (filesData.company_policy) {
+        formData.companyPolicies = filesData.company_policy;
+      }
+
+      // Parse completed steps
       let completedSteps: number[];
       if (typeof progress.completed_steps === 'string') {
         completedSteps = JSON.parse(progress.completed_steps || '[]');
