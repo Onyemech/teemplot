@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Menu, Search, Bell, ChevronDown } from 'lucide-react'
+import {  Search, Bell, ChevronDown } from 'lucide-react'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { useUser } from '@/contexts/UserContext'
 
