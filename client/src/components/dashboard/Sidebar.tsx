@@ -9,14 +9,13 @@ import {
   Wallet, 
   FileText, 
   Settings, 
-  HelpCircle,
   ChevronDown,
   ChevronRight,
   ClipboardList,
   Lock,
   Calendar,
   TrendingUp,
-  X
+ 
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
@@ -149,13 +148,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const pathname = location.pathname
   const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance'])
-  const { hasAccess, plan, loading } = useFeatureAccess()
+  const { hasAccess,  loading } = useFeatureAccess()
   const toast = useToast()
 
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser()
   const companyName = currentUser?.companyName || 'Teemplot'
-  const companyLogo = currentUser?.companyLogo || null
   const userRole = currentUser?.role || 'employee'
   const isAdmin = userRole === 'admin' || userRole === 'owner'
 
@@ -165,14 +163,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Close sidebar on route change (mobile) - but only if it's actually open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && window.innerWidth < 1024) {
       onClose()
     }
-  }, [pathname]) // Remove onClose from dependencies to prevent infinite loop
+  }, [pathname])
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && window.innerWidth < 1024) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -259,57 +257,76 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 
-    return (
-      <div>
-        <Link 
-          to={hasSubmenu ? '#' : (isLocked ? '#' : (isImplemented ? item.href : '#'))}
+    if (hasSubmenu) {
+      return (
+        <div>
+          <button
+            onClick={() => toggleExpand(item.label)}
+            className="w-full flex items-center justify-between px-3 py-2 text-gray-600 font-medium hover:bg-gray-50 rounded-lg group transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Icon className="text-xl text-gray-600 group-hover:text-gray-900" />
+              <span>{item.label}</span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="text-lg" />
+            ) : (
+              <ChevronRight className="text-lg" />
+            )}
+          </button>
+          {isExpanded && (
+            <div className="ml-9 mt-1 space-y-1 border-l border-gray-200 pl-2">
+              {item.submenu!.map((subItem) => (
+                <NavLink key={subItem.href} item={subItem} isSubmenu />
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (isSubmenu) {
+      return (
+        <Link
+          to={isLocked ? '#' : (isImplemented ? item.href : '#')}
           onClick={(e) => {
-            if (hasSubmenu) {
+            if (isLocked) {
               e.preventDefault()
-              toggleExpand(item.label)
-            } else if (isLocked) {
-              e.preventDefault()
-              // Show upgrade modal or redirect to billing
               window.location.href = '/dashboard/settings/billing'
             } else if (!isImplemented) {
               e.preventDefault()
-              // Show coming soon toast
               toast.info(`${item.label} - Coming Soon! 🚀`)
             }
           }}
-          className={`
-            flex items-center justify-between px-2 lg:px-3 py-1.5 lg:py-2 rounded-xl transition-all duration-200 relative mb-0.5
-            ${isSubmenu ? 'pl-8 lg:pl-10 text-sm' : ''}
-            ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
-            ${active && !isLocked
-              ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
-              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-            }
-          `}
-          title={isLocked ? `Upgrade to ${plan === 'trial' ? 'Silver or Gold' : 'Gold'} plan to access this feature` : ''}
+          className={`block px-3 py-2 text-sm transition-colors ${
+            active && !isLocked
+              ? 'text-primary font-medium bg-orange-50 rounded-md'
+              : 'text-gray-600 hover:text-primary'
+          }`}
         >
-          <div className="flex items-center gap-2 lg:gap-3">
-            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? 'text-primary' : ''}`} />
-            <span className="text-sm lg:text-base">{item.label}</span>
-            {isLocked && <Lock className="w-3 h-3 ml-1 flex-shrink-0" />}
-          </div>
-          {hasSubmenu && !isLocked && (
-            isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )
-          )}
+          {item.label}
         </Link>
+      )
+    }
 
-        {hasSubmenu && isExpanded && !isLocked && (
-          <div className="mt-0.5 space-y-0">
-            {item.submenu!.map((subItem) => (
-              <NavLink key={subItem.href} item={subItem} isSubmenu />
-            ))}
-          </div>
-        )}
-      </div>
+    return (
+      <Link
+        to={isLocked ? '#' : (isImplemented ? item.href : '#')}
+        onClick={(e) => {
+          if (isLocked) {
+            e.preventDefault()
+            window.location.href = '/dashboard/settings/billing'
+          } else if (!isImplemented) {
+            e.preventDefault()
+            toast.info(`${item.label} - Coming Soon! 🚀`)
+          }
+        }}
+        className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg group transition-colors"
+      >
+        <Icon className="text-xl" />
+        <span className="font-medium">{item.label}</span>
+        {isLocked && <Lock className="w-3 h-3 ml-auto flex-shrink-0" />}
+      </Link>
     )
   }
   
@@ -325,90 +342,31 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }
 
   return (
-    <>
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
-          onClick={onClose}
-          aria-label="Close sidebar"
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-72 max-w-[80vw] h-screen bg-background border-r border-border flex flex-col
-        transform transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Logo & Close Button */}
-        <div className="p-3 lg:p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <img 
-              src={companyLogo || '/logo.png'} 
-              alt={companyName}
-              className="w-6 h-6 lg:w-8 lg:h-8 rounded-lg object-contain flex-shrink-0"
-            />
-            <span className="text-base lg:text-lg font-bold text-foreground truncate">{companyName}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Close button - mobile only */}
-            <button
-              onClick={onClose}
-              className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors flex-shrink-0"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-full z-10 overflow-y-auto">
+      {/* Logo */}
+      <div className="h-16 flex items-center px-6 border-b border-gray-200">
+        <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <span className="text-primary text-2xl">⚡</span>
+          <span>{companyName}</span>
         </div>
+      </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2 lg:p-3 space-y-0">
+      <nav className="flex-1 px-4 py-6 space-y-1">
         {navigationConfig.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
 
         {/* Reporting Section - Admin Only */}
         {isAdmin && (
-          <div className="pt-3">
-            <div className="px-2 pb-1">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Reporting
-              </span>
-            </div>
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Reporting</p>
             {reportingConfig.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
           </div>
         )}
       </nav>
-
-      {/* Bottom Actions */}
-      <div className="p-2 lg:p-3 border-t border-border space-y-0">
-        <Link to="/dashboard/settings"
-          className={`
-            flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 relative mb-0.5
-            ${isActive('/dashboard/settings')
-              ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary'
-              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-            }
-          `}
-        >
-          <Settings className="w-5 h-5" />
-          <span>Settings</span>
-        </Link>
-
-        <button
-          onClick={() => toast.info('Help & Support - Coming Soon! 💬')}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
-        >
-          <HelpCircle className="w-5 h-5" />
-          <span>Help & support</span>
-        </button>
-      </div>
-      </aside>
-    </>
+    </aside>
   )
 }
