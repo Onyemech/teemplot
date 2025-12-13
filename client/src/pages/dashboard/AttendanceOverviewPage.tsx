@@ -10,10 +10,12 @@ import {
   X,
   Clock as ClockIcon
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { format } from 'date-fns'
 import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
+import AttendanceSetupPrompt from '@/components/dashboard/AttendanceSetupPrompt'
+import { useUser } from '@/contexts/UserContext'
+import { apiClient } from '@/lib/api'
 
 interface AttendanceStats {
   totalEmployees: number
@@ -153,11 +155,13 @@ const SAMPLE_DATA: AttendanceRecord[] = [
 ]
 
 export default function AttendanceOverviewPage() {
-  const navigate = useNavigate()
   const { hasAccess } = useFeatureAccess()
+  const { user } = useUser()
   const [selectedDate] = useState(new Date(2025, 2, 10)) // March 10, 2025 - Monday
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [, setAttendanceSetupCompleted] = useState(false)
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false)
   const recordsPerPage = 10
 
   // Use sample data for now - will be replaced with real API calls
@@ -176,10 +180,32 @@ export default function AttendanceOverviewPage() {
 
   useEffect(() => {
     if (!hasAccess('attendance')) {
-      navigate('/dashboard')
+      // Don't redirect - let FeatureGate handle this
       return
     }
+    checkAttendanceSetup()
   }, [])
+
+  const checkAttendanceSetup = async () => {
+    try {
+      const response = await apiClient.get('/api/company-settings/attendance-setup-status')
+      if (response.data.success) {
+        const isCompleted = response.data.data.attendanceSetupCompleted
+        setAttendanceSetupCompleted(isCompleted)
+        
+        // Show setup prompt for new users (admins/owners only)
+        if (!isCompleted && (user?.role === 'admin' || user?.role === 'owner')) {
+          setShowSetupPrompt(true)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check attendance setup status:', error)
+      // For new companies, assume setup is not completed
+      if (user?.role === 'admin' || user?.role === 'owner') {
+        setShowSetupPrompt(true)
+      }
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -245,22 +271,27 @@ export default function AttendanceOverviewPage() {
   }
 
   return (
-    <div className="h-full bg-background p-4 md:p-6">
+    <div className="space-y-6">
+      {/* Setup Prompt for New Users */}
+      {showSetupPrompt && (
+        <AttendanceSetupPrompt onDismiss={() => setShowSetupPrompt(false)} />
+      )}
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Attendance Overview</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Attendance Overview</h1>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Date Navigation */}
           <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-              <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+            <button className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
-            <span className="text-sm md:text-base text-muted-foreground min-w-[160px] md:min-w-[200px] text-center">
-              {format(selectedDate, 'EEE, MMM dd, yyyy')}
+            <span className="text-gray-600 min-w-[200px] text-center font-medium">
+              {format(selectedDate, 'EEEE, MMM dd, yyyy')}
             </span>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-              <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+            <button className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <ChevronRight className="w-5 h-5 text-gray-600" />
             </button>
           </div>
 
@@ -272,8 +303,8 @@ export default function AttendanceOverviewPage() {
         </div>
       </div>
 
-      {/* Stats Cards - Horizontal Scroll on Mobile, Grid on Desktop */}
-      <div className="grid grid-cols-2 md:flex gap-3 md:gap-4 mb-6 md:overflow-x-auto">
+      {/* Stats Cards - Properly balanced grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6">
         <StatCard label="Total Employees" value={stats.totalEmployees} />
         <StatCard label="Total Clock in" value={stats.totalClockIn} />
         <StatCard label="Early Clock in" value={stats.earlyClockIn} />
@@ -284,169 +315,169 @@ export default function AttendanceOverviewPage() {
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-card rounded-md border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
         {/* Table Header */}
-        <div className="p-4 md:p-6 border-b">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 className="text-base md:text-lg font-semibold text-foreground">All Attendance</h2>
+            <h2 className="text-lg font-semibold text-gray-900">All Attendance</h2>
             
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Search */}
               <div className="relative flex-1 sm:flex-initial">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-48 md:w-64 pl-9 pr-4 py-2 border border-input rounded-md text-sm focus:ring-2 focus:ring-ring focus:border-transparent bg-background"
+                  className="w-full sm:w-64 pl-9 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
                 />
               </div>
 
               {/* Filter & Export */}
-              <div className="flex gap-2">
-                <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
-                  <Filter className="w-4 h-4 text-muted-foreground" />
-                  <span className="hidden sm:inline">Filter</span>
+              <div className="flex gap-3">
+                <button className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200">
+                  <Filter className="w-4 h-4" />
+                  <span>Filter</span>
                 </button>
-                <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 py-2 border rounded-md hover:bg-muted transition-colors text-sm">
-                  <Download className="w-4 h-4 text-muted-foreground" />
-                  <span className="hidden sm:inline">Download</span>
+                <button className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200">
+                  <Download className="w-4 h-4" />
+                  <span>Download</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Table Content - Horizontal scroll on mobile */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  <input type="checkbox" className="rounded border-input" />
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Employee Name
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Clock-in
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Clock-out
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Location
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-background divide-y divide-border">
-              {paginatedRecords.length === 0 ? (
+          {/* Table Content - Horizontal scroll on mobile */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <td colSpan={8} className="px-3 md:px-6 py-12 text-center text-muted-foreground text-sm">
-                    No attendance records found
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input type="checkbox" className="rounded border-gray-300" />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Department
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Clock-in Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Clock-out Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
+                  </th>
                 </tr>
-              ) : (
-                paginatedRecords.map((record, index) => (
-                  <tr key={record.id} className={`hover:bg-muted/50 transition-colors ${index % 2 === 1 ? 'bg-background/50' : ''}`}>
-                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                      <input type="checkbox" className="rounded border-input" />
-                    </td>
-                    <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="text-sm text-muted-foreground mr-3">{index + 1}.</span>
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                            <span className="text-white font-medium text-sm">
-                              {record.employeeName.split(' ').map(n => n[0]).join('')}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-bold text-foreground">
-                            {record.employeeName}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-foreground">{record.department}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${
-                        record.status === 'late_arrival' ? 'text-error font-medium' : 'text-foreground'
-                      }`}>
-                        {record.clockInTime || '--:--'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${
-                        record.status === 'early_departure' ? 'text-error font-medium' : 'text-foreground'
-                      }`}>
-                        {record.clockOutTime || '--:--'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-foreground">{record.duration}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(record.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-muted-foreground">
-                        {record.location ? (record.location === 'onsite' ? 'Onsite' : 'Remote') : '--'}
-                      </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-sm">
+                      No attendance records found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
+                ) : (
+                  paginatedRecords.map((record, index) => (
+                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input type="checkbox" className="rounded border-gray-300" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span className="text-sm text-gray-500 mr-3">{index + 1}.</span>
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                              <span className="text-white font-medium text-sm">
+                                {record.employeeName.split(' ').map(n => n[0]).join('')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">
+                              {record.employeeName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{record.department}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm ${
+                          record.status === 'late_arrival' ? 'text-red-600 font-medium' : 'text-gray-900'
+                        }`}>
+                          {record.clockInTime || '--:--'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm ${
+                          record.status === 'early_departure' ? 'text-red-600 font-medium' : 'text-gray-900'
+                        }`}>
+                          {record.clockOutTime || '--:--'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{record.duration}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(record.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {record.location ? (record.location === 'onsite' ? 'Onsite' : 'Remote') : '--'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
           </table>
         </div>
 
-        {/* Footer with Pagination */}
-        <div className="px-6 py-4 border-t flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {filteredRecords.length} records
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-1 hover:bg-muted rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1 hover:bg-muted rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
+          {/* Footer with Pagination */}
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              {filteredRecords.length} records
             </div>
-          )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-600" />
+                </button>
+                <span className="text-sm text-gray-600 px-3">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            )}
         </div>
       </div>
     </div>
   )
 }
 
-// StatCard Component - Minimal design matching verification checklist
+// StatCard Component - Following design system rules
 interface StatCardProps {
   label: string
   value: number
@@ -454,9 +485,9 @@ interface StatCardProps {
 
 function StatCard({ label, value }: StatCardProps) {
   return (
-    <div className="bg-card rounded-md p-4 border shadow-sm min-w-[140px]">
-      <div className="text-sm text-muted-foreground mb-1">{label}</div>
-      <div className="text-3xl font-bold text-foreground">{value}</div>
+    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+      <div className="text-sm text-gray-600 mb-2">{label}</div>
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
     </div>
   )
 }

@@ -1,55 +1,54 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { CheckCircle } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { useSettingsSync } from '@/hooks/useSettingsSync'
 import { apiClient } from '@/lib/api'
+import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 
 
 
 
-interface EmployeeHours {
-  resumptionTime: string
-  closingTime: string
-  breakTime: string
-  workingDays: string[]
-  timezone: string
-}
-
-export default function EmployeeHoursSetup() {
+export default function CompanyLocationSetup() {
   const navigate = useNavigate()
   const toast = useToast()
   const { updateSettings, markSetupStepCompleted } = useSettingsSync()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
-
-  const [employeeHours, setEmployeeHours] = useState<EmployeeHours>({
-    resumptionTime: '08:00',
-    closingTime: '17:00',
-    breakTime: '12:00',
-    workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    timezone: 'Africa/Lagos'
+  const [formData, setFormData] = useState({
+    address: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    radius: 100,
+    locationTitle: ''
   })
 
-
-
-  // Fetch existing company work schedule data on component mount
+  // Fetch existing company location data on component mount
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
         const response = await apiClient.get('/api/company-settings')
         if (response.data.success) {
           const data = response.data.data
-          setEmployeeHours({
-            resumptionTime: data.work_start_time || '08:00',
-            closingTime: data.work_end_time || '17:00',
-            breakTime: '12:00', // Default break time
-            workingDays: data.working_days ? Object.keys(data.working_days).filter(day => data.working_days[day]) : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-            timezone: data.timezone || 'Africa/Lagos'
+          // Parse settings JSON if it exists
+          let settings: any = {}
+          try {
+            settings = typeof data.settings === 'string' ? JSON.parse(data.settings) : (data.settings || {})
+          } catch (e) {
+            console.warn('Failed to parse settings JSON:', e)
+          }
+          
+          setFormData({
+            address: data.office_address || '',
+            latitude: data.office_latitude || null,
+            longitude: data.office_longitude || null,
+            radius: data.geofence_radius_meters || 100,
+            locationTitle: settings.locationTitle || 'Head Office'
           })
         }
       } catch (error) {
         console.error('Failed to fetch company data:', error)
+        // If no data exists yet, keep default values
       } finally {
         setLoadingData(false)
       }
@@ -60,31 +59,50 @@ export default function EmployeeHoursSetup() {
 
 
 
+  const handleAddressChange = (value: string, addressData?: any) => {
+    if (addressData) {
+      setFormData({
+        ...formData,
+        address: value,
+        latitude: addressData.latitude,
+        longitude: addressData.longitude
+      })
+    } else {
+      setFormData({
+        ...formData,
+        address: value,
+        latitude: null,
+        longitude: null
+      })
+    }
+  }
+
   const handleContinue = async () => {
+    if (!formData.address || !formData.latitude || !formData.longitude) {
+      toast.error('Please select a valid address from the dropdown')
+      return
+    }
+
     setLoading(true)
     try {
       // Update settings using the sync hook
-      await updateSettings('work-schedule', {
-        workStartTime: employeeHours.resumptionTime,
-        workEndTime: employeeHours.closingTime,
-        breakTime: employeeHours.breakTime,
-        workingDays: employeeHours.workingDays.reduce((acc, day) => {
-          acc[day.toLowerCase()] = true
-          return acc
-        }, {} as Record<string, boolean>),
-        timezone: employeeHours.timezone
+      await updateSettings('location', {
+        officeAddress: formData.address,
+        officeLatitude: formData.latitude,
+        officeLongitude: formData.longitude,
+        geofenceRadiusMeters: formData.radius,
+        locationTitle: formData.locationTitle || 'Head Office'
       })
 
       // Mark this step as completed
-      await markSetupStepCompleted('employee-hours')
+      await markSetupStepCompleted('company-location')
       
-      toast.success('Employee hours saved successfully!')
+      toast.success('Location saved successfully!')
       
       // Move to next step
-      navigate('/dashboard/attendance/setup/lateness-policy')
+      navigate('/dashboard/attendance/setup/employee-hours')
     } catch (error: any) {
-      console.error('Failed to save employee hours:', error)
-      toast.error('Failed to save employee hours')
+      console.error('Failed to save location:', error)
     } finally {
       setLoading(false)
     }
@@ -104,7 +122,7 @@ export default function EmployeeHoursSetup() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-white border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-900">Set employee hours</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Add location</h1>
         </div>
 
         {/* Form Content - Centered */}
@@ -113,47 +131,53 @@ export default function EmployeeHoursSetup() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Resumption Time
+                  Company Address
                 </label>
-                <input
-                  type="time"
-                  value={employeeHours.resumptionTime}
-                  onChange={(e) => setEmployeeHours(prev => ({ ...prev, resumptionTime: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                <AddressAutocomplete
+                  value={formData.address}
+                  onChange={handleAddressChange}
+                  placeholder="34 Oduduwa Way Ikeja, Nigeria"
+                  required
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Closing Time
-                </label>
-                <input
-                  type="time"
-                  value={employeeHours.closingTime}
-                  onChange={(e) => setEmployeeHours(prev => ({ ...prev, closingTime: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Break Time
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={employeeHours.breakTime}
-                    onChange={(e) => setEmployeeHours(prev => ({ ...prev, breakTime: e.target.value }))}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
-                  />
-                  <span className="text-sm text-gray-500">:</span>
-                  <input
-                    type="time"
-                    value="01:00"
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
-                    readOnly
-                  />
+              {formData.latitude && formData.longitude && (
+                <div className="bg-gray-900 rounded-xl p-3 text-white shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-medium">
+                      Coordinate: {Number(formData.latitude).toFixed(6)}, {Number(formData.longitude).toFixed(6)}
+                    </span>
+                  </div>
                 </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Clock-in Radius (meters)
+                </label>
+                <input
+                  type="number"
+                  value={formData.radius}
+                  onChange={(e) => setFormData({ ...formData, radius: parseInt(e.target.value) || 100 })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                  placeholder="E.g. 100"
+                  min="10"
+                  max="1000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Location Title
+                </label>
+                <input
+                  type="text"
+                  value={formData.locationTitle}
+                  onChange={(e) => setFormData({ ...formData, locationTitle: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                  placeholder="E.g. Head Office"
+                />
               </div>
             </div>
 
@@ -161,7 +185,7 @@ export default function EmployeeHoursSetup() {
             <div className="mt-8">
               <button
                 onClick={handleContinue}
-                disabled={loading || !employeeHours.resumptionTime || !employeeHours.closingTime}
+                disabled={loading || !formData.latitude || !formData.address}
                 className="w-full disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-white py-3 px-6 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
                 {loading ? (
@@ -182,16 +206,16 @@ export default function EmployeeHoursSetup() {
       <div className="w-80 bg-gray-50 border-l border-gray-200 p-6">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-              <CheckCircle className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-sm font-medium text-green-700">Company location</span>
-          </div>
-          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center">
               <div className="w-3 h-3 bg-white rounded-full" />
             </div>
-            <span className="text-sm font-medium text-orange-700">Employee hours</span>
+            <span className="text-sm font-medium text-orange-700">Company location</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+              <div className="w-3 h-3 bg-white rounded-full" />
+            </div>
+            <span className="text-sm font-medium text-gray-600">Employee hours</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">

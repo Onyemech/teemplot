@@ -45,9 +45,27 @@ export default function InviteEmployeeCard({
     email: '',
     firstName: '',
     lastName: '',
-    role: 'staff' as 'admin' | 'staff',
-    position: ''
+    role: 'employee' as 'admin' | 'employee' | 'department_manager',
+    position: '',
+    departmentId: ''
   })
+
+  const [departments, setDepartments] = useState<any[]>([])
+  const [loadingDepartments, setLoadingDepartments] = useState(false)
+
+  const fetchDepartments = async () => {
+    setLoadingDepartments(true)
+    try {
+      const response = await apiClient.get('/api/departments')
+      if (response.data.success) {
+        setDepartments(response.data.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch departments:', error)
+    } finally {
+      setLoadingDepartments(false)
+    }
+  }
 
   const handleInviteClick = () => {
     if (!canAddMore) {
@@ -60,6 +78,7 @@ export default function InviteEmployeeCard({
       })
       setShowUpgradeModal(true)
     } else {
+      fetchDepartments()
       setShowInviteModal(true)
     }
   }
@@ -78,8 +97,9 @@ export default function InviteEmployeeCard({
           email: '',
           firstName: '',
           lastName: '',
-          role: 'staff',
-          position: ''
+          role: 'employee',
+          position: '',
+          departmentId: ''
         })
         
         // Refresh employee count
@@ -132,7 +152,9 @@ export default function InviteEmployeeCard({
       <>
         <button
           onClick={handleInviteClick}
-          className={`inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200 ${className}`}
+          disabled={loading}
+          className={`inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200 ${className}`}
+          onBlur={(e) => e.target.blur()}
         >
           <UserPlus className="w-4 h-4" />
           <span className="hidden sm:inline">{buttonText || 'Invite Employee'}</span>
@@ -146,46 +168,44 @@ export default function InviteEmployeeCard({
   if (variant === 'card') {
     return (
       <>
-        <div className={`bg-white rounded-xl shadow-md border border-gray-100 p-6 ${className}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Team Management</h3>
-                <p className="text-sm text-gray-600">Invite new team members</p>
-              </div>
+        <div className={`bg-white rounded-xl shadow-lg border border-gray-100 p-4 ${className}`}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm">Team Management</h3>
+              <p className="text-xs text-gray-600">Invite new team members</p>
             </div>
           </div>
 
           {showCount && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Current Team Size</span>
+            <div className="mb-3 p-2.5 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">Team Size</span>
                 <span className="font-medium text-gray-900">{currentCount}/{declaredLimit}</span>
               </div>
-              <div className="mt-2 bg-gray-200 rounded-full h-2">
+              <div className="mt-1.5 bg-gray-200 rounded-full h-1.5">
                 <div
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                  className="bg-primary h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${(currentCount / declaredLimit) * 100}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mt-1">
                 {remaining} {remaining === 1 ? 'slot' : 'slots'} remaining
               </p>
             </div>
           )}
 
           {!canAddMore && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600" />
-                <p className="text-sm text-amber-800 font-medium">
+                <AlertCircle className="w-3 h-3 text-amber-600" />
+                <p className="text-xs text-amber-800 font-medium">
                   Employee limit reached
                 </p>
               </div>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-amber-700 mt-0.5">
                 Upgrade your plan to invite more team members
               </p>
             </div>
@@ -193,9 +213,11 @@ export default function InviteEmployeeCard({
 
           <button
             onClick={handleInviteClick}
-            className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+            disabled={loading}
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+            onBlur={(e) => e.target.blur()}
           >
-            <UserPlus className="w-5 h-5" />
+            <UserPlus className="w-4 h-4" />
             {canAddMore ? (buttonText || 'Invite Employee') : 'Upgrade Plan'}
           </button>
         </div>
@@ -209,7 +231,9 @@ export default function InviteEmployeeCard({
     <>
       <button
         onClick={handleInviteClick}
-        className={`bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200 ${className}`}
+        disabled={loading}
+        className={`bg-primary hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200 ${className}`}
+        onBlur={(e) => e.target.blur()}
       >
         <UserPlus className="w-5 h-5" />
         {buttonText || 'Invite Employee'}
@@ -287,13 +311,40 @@ export default function InviteEmployeeCard({
                   </label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'staff' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'employee' | 'department_manager' })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
                   >
-                    <option value="staff">Staff</option>
+                    <option value="employee">Employee</option>
                     <option value="admin">Admin</option>
+                    <option value="department_manager">Department Manager</option>
                   </select>
                 </div>
+
+                {formData.role === 'department_manager' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Department *
+                    </label>
+                    <select
+                      value={formData.departmentId}
+                      onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                      required
+                    >
+                      <option value="">
+                        {loadingDepartments ? 'Loading departments...' : 'Select department'}
+                      </option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      This person will become the manager of the selected department
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -325,9 +376,17 @@ export default function InviteEmployeeCard({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-primary hover:bg-primary/90 text-white py-2 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+                    className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed text-white py-3 px-6 rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    onBlur={(e) => e.target.blur()}
                   >
-                    {loading ? 'Sending...' : 'Send Invitation'}
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      'Send Invitation'
+                    )}
                   </button>
                 </div>
               </form>

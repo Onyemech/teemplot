@@ -18,13 +18,31 @@ import DashboardLayout from './layouts/DashboardLayout'
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
 import AttendancePage from './pages/dashboard/AttendancePage'
+import EmployeeAttendanceDetail from './pages/dashboard/EmployeeAttendanceDetail'
 import EmployeeDashboard from './pages/dashboard/EmployeeDashboard'
 import SettingsPage from './pages/dashboard/SettingsPage'
 import EmployeeHoursSetup from './pages/dashboard/attendance/EmployeeHoursSetup'
+import LatenessPolicySetup from './pages/dashboard/attendance/LatenessPolicySetup'
 import AutomateAlertsSetup from './pages/dashboard/attendance/AutomateAlertsSetup'
 import BiometricSetup from './pages/dashboard/attendance/BiometricSetup'
 import MultipleClockInSetup from './pages/dashboard/attendance/MultipleClockInSetup'
+import MultipleClockInPage from './pages/dashboard/attendance/MultipleClockInPage'
+import AttendanceSetupWizard from './pages/dashboard/attendance/AttendanceSetupWizard'
+import AttendanceSetupPage from './pages/dashboard/attendance/AttendanceSetupPage'
+import CompanyLocationSetup from './pages/dashboard/attendance/CompanyLocationSetup'
+import ManageInvitesPage from './pages/dashboard/attendance/ManageInvitesPage'
 import NotificationsPage from './pages/dashboard/NotificationsPage'
+import TasksPage from './pages/dashboard/TasksPage'
+import LeaveManagementPage from './pages/dashboard/LeaveManagementPage'
+import DepartmentsPage from './pages/dashboard/DepartmentsPage'
+import PerformancePage from './pages/dashboard/PerformancePage'
+import ManagerDashboard from './pages/dashboard/ManagerDashboard'
+
+// Mobile Pages
+import EmployeeSettingsPage from './pages/mobile/EmployeeSettingsPage'
+import ProfilePage from './pages/mobile/ProfilePage'
+import MobileAttendancePage from './pages/mobile/AttendancePage'
+import ChangePasswordPage from './pages/mobile/ChangePasswordPage'
 
 // Debug utilities (available in console as window.debugAuth())
 import './utils/debugAuth'
@@ -95,14 +113,34 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="attendance" element={<AttendancePage />} />
+        <Route path="attendance/employee/:employeeId" element={<EmployeeAttendanceDetail />} />
         <Route path="attendance-overview" element={<AttendanceOverviewPage />} />
+        <Route path="attendance/setup" element={<AttendanceSetupPage />} />
+        <Route path="attendance/setup/company-location" element={<CompanyLocationSetup />} />
         <Route path="attendance/setup/employee-hours" element={<EmployeeHoursSetup />} />
+        <Route path="attendance/setup/lateness-policy" element={<LatenessPolicySetup />} />
         <Route path="attendance/setup/automate-alerts" element={<AutomateAlertsSetup />} />
         <Route path="attendance/setup/biometric" element={<BiometricSetup />} />
+        <Route path="attendance/manage-invites" element={<ManageInvitesPage />} />
+        <Route path="attendance/multiple-clockin" element={<MultipleClockInPage />} />
         <Route path="attendance/setup/multiple-clockin" element={<MultipleClockInSetup />} />
+        <Route path="attendance/setup-wizard" element={<AttendanceSetupWizard />} />
         <Route path="employee-dashboard" element={<EmployeeDashboard />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="leave" element={<LeaveManagementPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="performance" element={<PerformancePage />} />
+        <Route path="manager" element={<ManagerDashboard />} />
         <Route path="settings" element={<SettingsPage />} />
+      </Route>
+
+      {/* Mobile Routes */}
+      <Route path="/mobile">
+        <Route path="settings" element={<EmployeeSettingsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="attendance" element={<MobileAttendancePage />} />
+        <Route path="change-password" element={<ChangePasswordPage />} />
       </Route>
       
       <Route path="/superadmin" element={<SuperAdminPage />} />

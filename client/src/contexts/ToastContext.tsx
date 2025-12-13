@@ -24,25 +24,27 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
   const [toasts, setToasts] = useState<(ToastProps & { id: string })[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'info', duration = 5000) => {
-    // Prevent duplicate toasts with same message and type
+    // Prevent duplicate toasts with same message and type within 1 second
     setToasts((prev) => {
+      const now = Date.now();
       const isDuplicate = prev.some(toast => 
         toast.message === message && 
         toast.type === type && 
-        toast.visible
+        toast.visible &&
+        (now - parseInt(toast.id.split('-')[1])) < 1000 // Within 1 second
       );
       
       if (isDuplicate) {
         return prev; // Don't add duplicate
       }
       
-      const id = `toast-${Date.now()}-${Math.random()}`;
+      const id = `toast-${now}-${Math.random()}`;
       const newToast = { id, message, type, duration, visible: true };
       
-      // Limit to maximum 5 toasts to prevent accumulation
+      // Limit to maximum 3 toasts to prevent accumulation
       const updatedToasts = [...prev, newToast];
-      if (updatedToasts.length > 5) {
-        return updatedToasts.slice(-5); // Keep only the last 5
+      if (updatedToasts.length > 3) {
+        return updatedToasts.slice(-3); // Keep only the last 3
       }
       
       return updatedToasts;

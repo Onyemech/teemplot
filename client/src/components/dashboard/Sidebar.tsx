@@ -12,15 +12,11 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronRight,
-
   ClipboardList,
-  LayoutGrid,
   Lock,
   Calendar,
   TrendingUp,
-  X,
-  Bell,
-  Fingerprint
+  X
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
@@ -45,7 +41,8 @@ interface NavItemConfig extends NavItem {
   // NavItemConfig is same as NavItem now
 }
 
-const navigationConfig: NavItemConfig[] = [
+// Dynamic navigation based on user role and plan access
+const getNavigationConfig = (): NavItemConfig[] => [
   {
     label: 'Home',
     href: '/dashboard',
@@ -58,11 +55,29 @@ const navigationConfig: NavItemConfig[] = [
     icon: Clock,
     feature: 'attendance', // Silver + Gold
     submenu: [
-      { label: 'Overview', href: '/dashboard/attendance', icon: LayoutGrid, feature: 'attendance' },
-      { label: 'Employee Hours Setup', href: '/dashboard/attendance/setup/employee-hours', icon: Clock, feature: 'attendance', adminOnly: true },
-      { label: 'Automate Alerts', href: '/dashboard/attendance/setup/automate-alerts', icon: Bell, feature: 'attendance', adminOnly: true },
-      { label: 'Biometric Setup', href: '/dashboard/attendance/setup/biometric', icon: Fingerprint, feature: 'attendance', adminOnly: true },
-      { label: 'Multiple Clock-in', href: '/dashboard/attendance/setup/multiple-clockin', icon: ClipboardList, feature: 'attendance', adminOnly: true },
+      {
+        label: 'Overview',
+        href: '/dashboard/attendance',
+        icon: BarChart3,
+      },
+      {
+        label: 'Manage Invites',
+        href: '/dashboard/attendance/manage-invites',
+        icon: Users,
+        adminOnly: true,
+      },
+      {
+        label: 'Multiple Clock-in',
+        href: '/dashboard/attendance/multiple-clockin',
+        icon: Users,
+        adminOnly: true,
+      },
+      {
+        label: 'Setup',
+        href: '/dashboard/attendance/setup',
+        icon: Settings,
+        adminOnly: true,
+      },
     ],
   },
   {
@@ -144,6 +159,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const userRole = currentUser?.role || 'employee'
   const isAdmin = userRole === 'admin' || userRole === 'owner'
 
+  
+  // Get dynamic navigation based on user role and plan access
+  const navigationConfig = getNavigationConfig()
+
   // Close sidebar on route change (mobile) - but only if it's actually open
   useEffect(() => {
     if (isOpen) {
@@ -175,10 +194,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (href === '/dashboard') {
       return pathname === href
     }
-    // For exact submenu matching - prevent parent from being active when child is active
-    if (href === '/dashboard/attendance' && pathname.startsWith('/dashboard/attendance/setup/')) {
-      return false // Don't highlight overview when in setup pages
+    
+    // Exact matching for submenu items to prevent multiple active states
+    if (href === '/dashboard/attendance') {
+      return pathname === href // Only highlight if exactly on attendance overview
     }
+    
+    if (href === '/dashboard/attendance/manage-invites') {
+      return pathname === href
+    }
+    
+    if (href === '/dashboard/attendance/multiple-clockin') {
+      return pathname === href
+    }
+    
+    if (href === '/dashboard/attendance/setup') {
+      return pathname.startsWith('/dashboard/attendance/setup')
+    }
+    
+    // For other routes, use startsWith for nested paths
     return pathname.startsWith(href)
   }
 
@@ -205,11 +239,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const implementedRoutes = [
       '/dashboard',
       '/dashboard/attendance',
+      '/dashboard/attendance/setup',
+      '/dashboard/attendance/setup/company-location',
       '/dashboard/attendance/setup/employee-hours',
+      '/dashboard/attendance/setup/lateness-policy',
       '/dashboard/attendance/setup/automate-alerts',
       '/dashboard/attendance/setup/biometric',
       '/dashboard/attendance/setup/multiple-clockin',
+      '/dashboard/attendance/manage-invites',
+      '/dashboard/attendance/multiple-clockin',
       '/dashboard/employees',
+      '/dashboard/leave',
+      '/dashboard/tasks',
+      '/dashboard/departments',
+      '/dashboard/notifications',
       '/dashboard/settings',
       '/dashboard/settings/billing',
       '/dashboard/employee-dashboard',
@@ -235,8 +278,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             }
           }}
           className={`
-            flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl transition-all duration-200 relative
-            ${isSubmenu ? 'pl-10 lg:pl-12 text-sm' : ''}
+            flex items-center justify-between px-2 lg:px-3 py-1.5 lg:py-2 rounded-xl transition-all duration-200 relative mb-0.5
+            ${isSubmenu ? 'pl-8 lg:pl-10 text-sm' : ''}
             ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
             ${active && !isLocked
               ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
@@ -260,7 +303,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </Link>
 
         {hasSubmenu && isExpanded && !isLocked && (
-          <div className="mt-1 space-y-1">
+          <div className="mt-0.5 space-y-0">
             {item.submenu!.map((subItem) => (
               <NavLink key={subItem.href} item={subItem} isSubmenu />
             ))}
@@ -300,7 +343,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo & Close Button */}
-        <div className="p-4 lg:p-6 border-b border-border flex items-center justify-between">
+        <div className="p-3 lg:p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <img 
               src={companyLogo || '/logo.png'} 
@@ -322,15 +365,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto p-2 lg:p-3 space-y-0">
         {navigationConfig.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
 
         {/* Reporting Section - Admin Only */}
         {isAdmin && (
-          <div className="pt-6">
-            <div className="px-4 pb-2">
+          <div className="pt-3">
+            <div className="px-2 pb-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Reporting
               </span>
@@ -343,10 +386,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-3 lg:p-4 border-t border-border space-y-1">
+      <div className="p-2 lg:p-3 border-t border-border space-y-0">
         <Link to="/dashboard/settings"
           className={`
-            flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 relative
+            flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 relative mb-0.5
             ${isActive('/dashboard/settings')
               ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary'
               : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
@@ -359,7 +402,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <button
           onClick={() => toast.info('Help & Support - Coming Soon! 💬')}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
         >
           <HelpCircle className="w-5 h-5" />
           <span>Help & support</span>

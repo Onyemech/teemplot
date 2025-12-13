@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MapPin, Navigation } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import GoogleMapLocation from '@/components/maps/GoogleMapLocation'
 
 interface LocationClockInProps {
   isOpen: boolean
@@ -135,58 +136,53 @@ export default function LocationClockIn({ isOpen, onClose, onSuccess }: Location
         </div>
 
         {/* Map Area */}
-        <div className="h-64 bg-gray-100 relative overflow-hidden">
+        <div className="h-64 relative overflow-hidden">
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+            <div className="bg-gray-100 h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm text-gray-600">Getting your location...</p>
+              </div>
             </div>
           ) : location ? (
-            <>
-              {/* Simulated Map Background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100">
-                <div className="absolute inset-0 opacity-20">
-                  <svg className="w-full h-full" viewBox="0 0 400 300">
-                    <path d="M50 150 Q 200 50 350 150 T 350 250" stroke="#3B82F6" strokeWidth="2" fill="none" opacity="0.5" />
-                    <path d="M0 200 Q 100 100 200 200 T 400 200" stroke="#10B981" strokeWidth="2" fill="none" opacity="0.5" />
-                  </svg>
-                </div>
-              </div>
-              
-              {/* Location Markers */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="relative">
-                  {/* Office Location */}
-                  <div className="absolute -top-8 -left-4 bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium">
-                    {location.distanceFromOffice}m
-                  </div>
-                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Current Location */}
-              <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2">
-                <div className="w-6 h-6 bg-primary rounded-full border-2 border-white shadow-lg"></div>
-              </div>
-
-              {/* Location Accuracy Circle */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-green-500 border-opacity-30 rounded-full"></div>
-            </>
+            <GoogleMapLocation
+              locations={[
+                {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  address: location.address || 'Your Location',
+                  timestamp: new Date().toISOString()
+                }
+              ]}
+              centerLocation={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+                address: location.officeName || 'Office Location'
+              }}
+              height="256px"
+              showControls={false}
+            />
           ) : error ? (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="bg-gray-100 h-full flex items-center justify-center p-4">
               <div className="text-center">
                 <Navigation className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">{error}</p>
                 <button
                   onClick={getCurrentLocation}
-                  className="mt-2 text-green-600 text-sm font-medium"
+                  className="mt-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   Try Again
                 </button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="bg-gray-100 h-full flex items-center justify-center">
+              <div className="text-center">
+                <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Tap to get location</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Time and Status */}

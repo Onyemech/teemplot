@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Mail, Clock, CheckCircle, UserPlus } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import InviteEmployeeCard from '@/components/dashboard/InviteEmployeeCard'
 import { format } from 'date-fns'
@@ -31,7 +30,6 @@ interface Invitation {
 }
 
 export default function EmployeesPage() {
-  const navigate = useNavigate()
   const { hasAccess } = useFeatureAccess()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
@@ -40,7 +38,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     if (!hasAccess('employees')) {
-      navigate('/dashboard')
+      // Don't redirect - let FeatureGate handle this
       return
     }
     fetchData()
@@ -79,9 +77,9 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="h-full bg-gray-50 p-6 lg:p-8">
+    <div className="h-full bg-gray-50 p-2 lg:p-3">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Management</h1>
           <p className="text-gray-600 mt-2">Manage your employees and invitations</p>
@@ -94,7 +92,7 @@ export default function EmployeesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <div className="bg-white rounded-xl shadow-md hover:shadow-lg border border-gray-100 p-6 transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
@@ -137,7 +135,7 @@ export default function EmployeesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-6">
+      <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-3">
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('employees')}
