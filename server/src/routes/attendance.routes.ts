@@ -447,62 +447,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Enable multiple clock-in for specific employees
-  fastify.post('/multiple-clockin', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
-    try {
-      // Check role
-      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
-        return reply.code(403).send({
-          success: false,
-          message: 'Only owners and admins can enable multiple clock-in'
-        });
-      }
 
-      const { employeeIds } = request.body as {
-        employeeIds: string[];
-      };
-
-      if (!employeeIds || employeeIds.length === 0) {
-        return reply.code(400).send({
-          success: false,
-          message: 'Employee IDs are required'
-        });
-      }
-
-      // Update user settings to enable multiple clock-in
-      const result = await query(
-        `UPDATE users 
-         SET settings = COALESCE(settings, '{}') || '{"multipleClockInEnabled": true}'
-         WHERE id = ANY($1) AND company_id = $2
-         RETURNING id, first_name, last_name`,
-        [employeeIds, request.user.companyId]
-      );
-
-      logger.info({
-        companyId: request.user.companyId,
-        userId: request.user.userId,
-        employeeIds,
-        updatedCount: result.rows.length
-      }, 'Multiple clock-in enabled for employees');
-
-      return reply.code(200).send({
-        success: true,
-        data: {
-          updatedEmployees: result.rows,
-          count: result.rows.length
-        },
-        message: `Multiple clock-in enabled for ${result.rows.length} employees`
-      });
-    } catch (error: any) {
-      logger.error({ error, companyId: request.user.companyId }, 'Failed to enable multiple clock-in');
-      return reply.code(500).send({
-        success: false,
-        message: 'Failed to enable multiple clock-in'
-      });
-    }
-  });
 
   // Admin: Get late arrivals
   fastify.get('/late-arrivals', {
@@ -560,6 +505,97 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         message: 'Failed to retrieve late arrivals'
+      });
+    }
+  });
+
+  // Get my attendance records (for mobile app)
+  fastify.get('/my-records', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { filter = 'all' } = request.query as { filter?: string };
+      const { userId } = request.user;
+
+      let dateFilter = '';
+      const params: any[] = [userId];
+
+      // Apply date filters
+      switch (filter) {
+        case 'this_week':
+          dateFilter = `AND DATE(ar.clock_in_time) >= DATE_TRUNC('week', CURRENT_DATE)`;
+          break;
+        case 'this_month':
+          dateFilter = `AND DATE(ar.clock_in_time) >= DATE_TRUNC('month', CURRENT_DATE)`;
+          break;
+        case 'last_3_months':
+          dateFilter = `AND DATE(ar.clock_in_time) >= CURRENT_DATE - INTERVAL '3 months'`;
+          break;
+        default:
+          // Show last 30 days for 'all'
+          dateFilter = `AND DATE(ar.clock_in_time) >= CURRENT_DATE - INTERVAL '30 days'`;
+      }
+
+      // Get attendance records
+      const recordsResult = await query(
+        `SELECT 
+          ar.id,
+          DATE(ar.clock_in_time) as date,
+          TO_CHAR(ar.clock_in_time, 'HH12:MI AM') as "clockInTime",
+          TO_CHAR(ar.clock_out_time, 'HH12:MI AM') as "clockOutTime",
+          CASE 
+            WHEN ar.is_late_arrival THEN 'late'
+            WHEN ar.clock_in_time IS NOT NULL THEN 'present'
+            ELSE 'absent'
+          END as status,
+          CASE 
+            WHEN ar.check_in_location_type = 'remote' THEN 'remote'
+            ELSE 'onsite'
+          END as location,
+          CASE 
+            WHEN ar.clock_out_time IS NOT NULL AND ar.clock_in_time IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (ar.clock_out_time - ar.clock_in_time))/3600
+            ELSE NULL
+          END as duration_hours
+        FROM attendance_records ar
+        WHERE ar.user_id = $1 
+          ${dateFilter}
+        ORDER BY ar.clock_in_time DESC
+        LIMIT 100`,
+        params
+      );
+
+      // Get stats for the filtered period
+      const statsResult = await query(
+        `SELECT 
+          COUNT(CASE WHEN ar.clock_in_time IS NOT NULL AND NOT ar.is_late_arrival THEN 1 END) as present,
+          COUNT(CASE WHEN ar.is_late_arrival THEN 1 END) as late,
+          COUNT(CASE WHEN ar.clock_in_time IS NULL THEN 1 END) as absent
+        FROM attendance_records ar
+        WHERE ar.user_id = $1 
+          ${dateFilter}`,
+        params
+      );
+
+      const stats = statsResult.rows[0] || { present: 0, late: 0, absent: 0 };
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          records: recordsResult.rows,
+          stats: {
+            present: parseInt(stats.present || 0),
+            late: parseInt(stats.late || 0),
+            absent: parseInt(stats.absent || 0)
+          }
+        },
+        message: 'Attendance records retrieved successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Failed to get my attendance records');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve attendance records'
       });
     }
   });

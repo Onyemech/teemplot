@@ -11,7 +11,7 @@ export interface InviteEmployeeData {
   email: string;
   firstName?: string;
   lastName?: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'employee' | 'department_manager';
   position?: string;
   departmentId?: string;
 }

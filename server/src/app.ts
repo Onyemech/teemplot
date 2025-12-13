@@ -91,12 +91,13 @@ export async function buildApp() {
     max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
     errorResponseBuilder: (request, context) => {
-      const retryAfter = Math.ceil(Number(context.after) / 1000 / 60);
+      const retryAfterMs = context.ttl || 900000; // Default to 15 minutes if ttl is undefined
+      const retryAfterMinutes = Math.ceil(retryAfterMs / 1000 / 60);
       return {
         statusCode: 429,
         error: 'Too Many Requests',
-        message: `Too many attempts. Please try again in ${retryAfter} minute${retryAfter > 1 ? 's' : ''}.`,
-        retryAfter: context.after,
+        message: `Too many attempts. Please try again in ${retryAfterMinutes} minute${retryAfterMinutes > 1 ? 's' : ''}.`,
+        retryAfter: `${retryAfterMinutes} minutes`,
         success: false
       };
     }
@@ -113,7 +114,7 @@ export async function buildApp() {
       signed: false 
     },
     sign: {
-      expiresIn: '2h' // Enterprise-standard: 2 hours for access tokens
+      expiresIn: '2h' 
     }
   });
 
@@ -187,11 +188,38 @@ export async function buildApp() {
   const dashboardRoutes = await import('./routes/dashboard.routes');
   await app.register(dashboardRoutes.default, { prefix: `${apiPrefix}/dashboard` });
 
+  const multipleClockInRoutes = await import('./routes/multiple-clockin.routes');
+  await app.register(multipleClockInRoutes.default, { prefix: `${apiPrefix}/attendance/multiple-clockin` });
+
   const { companyRoutes } = await import('./routes/company.routes');
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
 
   const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
+
+  // Register timezone routes for optimized timezone queries
+  const timezoneRoutes = await import('./routes/timezone.routes');
+  await app.register(timezoneRoutes.default, { prefix: `${apiPrefix}/timezones` });
+
+  // Import and register tasks routes
+  const tasksRoutes = await import('./routes/tasks.routes');
+  await app.register(tasksRoutes.default, { prefix: `${apiPrefix}/tasks` });
+
+  // Import and register leave routes
+  const leaveRoutes = await import('./routes/leave.routes');
+  await app.register(leaveRoutes.default, { prefix: `${apiPrefix}/leave` });
+
+  // Import and register departments routes
+  const departmentsRoutes = await import('./routes/departments.routes');
+  await app.register(departmentsRoutes.default, { prefix: `${apiPrefix}/departments` });
+
+  // Import and register users routes
+  const usersRoutes = await import('./routes/users.routes');
+  await app.register(usersRoutes.default, { prefix: `${apiPrefix}/users` });
+
+  // Import and register managers routes
+  const managersRoutes = await import('./routes/managers.routes');
+  await app.register(managersRoutes.default, { prefix: `${apiPrefix}/managers` });
 
   // Import and register public routes (no auth required)
   const { publicRoutes } = await import('./routes/public.routes');

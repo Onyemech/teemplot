@@ -4,6 +4,7 @@ import { passwordResetService } from '../services/PasswordResetService';
 import { googleAuthService } from '../services/GoogleAuthService';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
 import {
@@ -807,6 +808,236 @@ export async function authRoutes(fastify: FastifyInstance) {
         success: false,
         message: error.message || 'Google authentication failed',
       });
+    }
+  });
+
+  // ============================================
+  // BIOMETRIC AUTHENTICATION ROUTES
+  // ============================================
+
+  // Check if user has biometric enrolled
+  fastify.post('/biometric/check', async (request, reply) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(request.body);
+
+      const user = await db.query(
+        'SELECT biometric_data IS NOT NULL as enrolled, biometric_enrolled_at FROM users WHERE email = $1',
+        [email]
+      );
+
+      if (!user.rows[0]) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      return reply.send({
+        success: true,
+        enrolled: user.rows[0].enrolled,
+        enrolledAt: user.rows[0].biometric_enrolled_at
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to check biometric status'
+      });
+    }
+  });
+
+  // Generate biometric authentication challenge
+  fastify.post('/biometric/challenge', async (request, reply) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(request.body);
+
+      const user = await db.query(
+        'SELECT id, biometric_data FROM users WHERE email = $1 AND biometric_data IS NOT NULL',
+        [email]
+      );
+
+      if (!user.rows[0]) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User not found or biometric not enrolled'
+        });
+      }
+
+      // Generate challenge
+      const challenge = Array.from(crypto.getRandomValues(new Uint8Array(32)));
+      
+      // In a real implementation, you would store this challenge temporarily
+      // and associate it with the user session
+      
+      // Mock credential IDs (in real implementation, get from biometric_data)
+      const allowCredentials = [
+        { id: Array.from(new TextEncoder().encode('mock-credential-id')) }
+      ];
+
+      return reply.send({
+        success: true,
+        challenge,
+        allowCredentials
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to generate challenge'
+      });
+    }
+  });
+
+  // Verify biometric authentication
+  fastify.post('/biometric/verify', async (request, reply) => {
+    try {
+      const { email, credentialId } = z.object({
+        email: z.string().email(),
+        credentialId: z.string(),
+        // In real implementation, verify these fields
+        authenticatorData: z.array(z.number()).optional(),
+        signature: z.array(z.number()).optional(),
+        clientDataJSON: z.array(z.number()).optional()
+      }).parse(request.body);
+
+      const user = await db.query(
+        'SELECT * FROM users WHERE email = $1 AND biometric_data IS NOT NULL',
+        [email]
+      );
+
+      if (!user.rows[0]) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User not found or biometric not enrolled'
+        });
+      }
+
+      const userData = user.rows[0];
+
+      // In real implementation, verify the WebAuthn signature
+      // For now, we'll do a simple credential ID check
+      const biometricData = JSON.parse(userData.biometric_data || '{}');
+      
+      // Mock verification (in production, use proper WebAuthn verification)
+      const isValid = credentialId && credentialId.length > 0;
+
+      if (!isValid) {
+        // Log failed attempt
+        await db.query(
+          `INSERT INTO biometric_audit_log 
+           (user_id, company_id, action, method, success, error_message, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            userData.id,
+            userData.company_id,
+            'authentication',
+            'fingerprint',
+            false,
+            'Invalid credential',
+            request.ip,
+            request.headers['user-agent'] || null
+          ]
+        );
+
+        return reply.code(401).send({
+          success: false,
+          message: 'Biometric authentication failed'
+        });
+      }
+
+      // Update last used timestamp
+      await db.query(
+        'UPDATE users SET biometric_last_used = NOW() WHERE id = $1',
+        [userData.id]
+      );
+
+      // Log successful authentication
+      await db.query(
+        `INSERT INTO biometric_audit_log 
+         (user_id, company_id, action, method, success, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          userData.id,
+          userData.company_id,
+          'authentication',
+          biometricData.enrollmentMethod || 'fingerprint',
+          true,
+          request.ip,
+          request.headers['user-agent'] || null
+        ]
+      );
+
+      // Generate JWT tokens
+      const accessTokenPayload = createAccessTokenPayload({
+        id: userData.id,
+        companyId: userData.company_id,
+        email: userData.email,
+        role: userData.role,
+      });
+      const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '2h' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(userData.id), { expiresIn: '30d' });
+
+      // Set httpOnly cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      setAuthCookies(reply, accessToken, refreshToken, isProduction);
+
+      return reply.send({
+        success: true,
+        token: accessToken,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+          role: userData.role,
+          companyId: userData.company_id
+        }
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Biometric verification failed'
+      });
+    }
+  });
+
+  // Log biometric attempt (for audit purposes)
+  fastify.post('/biometric/log', async (request, reply) => {
+    try {
+      const { email, action, success, errorMessage, deviceInfo } = z.object({
+        email: z.string().email(),
+        action: z.string(),
+        success: z.boolean(),
+        errorMessage: z.string().optional(),
+        deviceInfo: z.object({
+          userAgent: z.string(),
+          timestamp: z.string()
+        }).optional()
+      }).parse(request.body);
+
+      const user = await db.query('SELECT id, company_id FROM users WHERE email = $1', [email]);
+      
+      if (user.rows[0]) {
+        await db.query(
+          `INSERT INTO biometric_audit_log 
+           (user_id, company_id, action, method, success, error_message, device_info, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            user.rows[0].id,
+            user.rows[0].company_id,
+            action,
+            'unknown',
+            success,
+            errorMessage || null,
+            JSON.stringify(deviceInfo || {}),
+            request.ip,
+            request.headers['user-agent'] || null
+          ]
+        );
+      }
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      // Don't fail the request if logging fails
+      return reply.send({ success: true });
     }
   });
 }

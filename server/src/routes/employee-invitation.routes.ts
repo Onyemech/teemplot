@@ -6,7 +6,7 @@ const InviteEmployeeSchema = z.object({
   email: z.string().email(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'staff']),
+  role: z.enum(['admin', 'employee', 'department_manager']),
   position: z.string().optional(),
   departmentId: z.string().uuid().optional(),
 });
@@ -25,7 +25,7 @@ const AcceptInvitationSchema = z.object({
       deviceType: z.string(),
       biometricSupport: z.array(z.string())
     })
-  }).optional(),
+  }).nullable().optional(),
 });
 
 export async function employeeInvitationRoutes(fastify: FastifyInstance) {
@@ -152,7 +152,13 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
   // Accept invitation (public - no auth required)
   fastify.post('/accept', async (request, reply) => {
     try {
-      const data = AcceptInvitationSchema.parse(request.body);
+      const parsedData = AcceptInvitationSchema.parse(request.body);
+      
+      // Fix biometricData type issue
+      const data = {
+        ...parsedData,
+        biometricData: parsedData.biometricData || undefined
+      };
       
       const result = await employeeInvitationService.acceptInvitation(data);
 

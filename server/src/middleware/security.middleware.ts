@@ -297,6 +297,8 @@ export function detectSuspiciousActivity(request: FastifyRequest): {
     '/api/onboarding/select-plan',
     '/api/company/select',
     '/api/subscription/select',
+    '/api/company-settings/update',
+    '/api/company-settings',
   ];
   
   const isWhitelisted = whitelistedRoutes.some(route => request.url.includes(route));

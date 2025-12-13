@@ -20,11 +20,11 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
         tags
       } = request.body as any;
 
-      // Only owners and admins can create tasks
-      if (role !== 'owner' && role !== 'admin') {
+      // Only owners, admins, and department managers can create tasks
+      if (!['owner', 'admin', 'department_manager'].includes(role)) {
         return reply.code(403).send({
           success: false,
-          message: 'Only owners and admins can create tasks'
+          message: 'Only owners, admins, and department managers can create tasks'
         });
       }
 
@@ -38,7 +38,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
       // Verify assigned user exists and belongs to company
       const userCheck = await db.query(
-        'SELECT id FROM users WHERE id = $1 AND company_id = $2 AND is_active = true',
+        'SELECT id, department_id FROM users WHERE id = $1 AND company_id = $2 AND is_active = true',
         [assignedTo, companyId]
       );
 
@@ -49,12 +49,31 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
         });
       }
 
+      const assignedUser = userCheck.rows[0];
+
+      // Department managers can only assign tasks to users in their department
+      if (role === 'department_manager') {
+        const managerDeptCheck = await db.query(
+          'SELECT department_id FROM users WHERE id = $1 AND company_id = $2',
+          [userId, companyId]
+        );
+
+        const managerDept = managerDeptCheck.rows[0]?.department_id;
+        
+        if (!managerDept || assignedUser.department_id !== managerDept) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Department managers can only assign tasks to users in their department'
+          });
+        }
+      }
+
       // Create task
       const result = await db.query(
         `INSERT INTO tasks (
           company_id, title, description, assigned_to, created_by,
-          priority, due_date, estimated_hours, tags, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+          department_id, priority, due_date, estimated_hours, tags, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
         RETURNING *`,
         [
           companyId,
@@ -62,6 +81,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
           description,
           assignedTo,
           userId,
+          assignedUser.department_id,
           priority || 'medium',
           dueDate,
           estimatedHours,

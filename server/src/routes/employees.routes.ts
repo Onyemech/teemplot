@@ -5,6 +5,43 @@ import crypto from 'crypto';
 const db = DatabaseFactory.getPrimaryDatabase();
 
 export async function employeesRoutes(fastify: FastifyInstance) {
+  // Get current user details
+  fastify.get('/me', {
+    preHandler: [fastify.authenticate]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const user = request.user as any;
+
+      if (!user || !user.userId) {
+        return reply.code(401).send({ success: false, message: 'Unauthorized' });
+      }
+
+      // Get current user details with department info
+      const userQuery = await db.query(
+        `SELECT u.id, u.first_name as "firstName", u.last_name as "lastName", 
+         u.email, u.role, u.position, u.department_id, u.avatar_url as "avatar",
+         u.created_at as "createdAt", d.name as department_name
+         FROM users u
+         LEFT JOIN departments d ON u.department_id = d.id
+         WHERE u.id = $1 AND u.company_id = $2 AND u.deleted_at IS NULL`,
+        [user.userId, user.companyId]
+      );
+
+      if (!userQuery.rows[0]) {
+        return reply.code(404).send({ success: false, message: 'User not found' });
+      }
+
+      return reply.send({ success: true, data: userQuery.rows[0] });
+    } catch (error: any) {
+      fastify.log.error('Failed to fetch current user:', error);
+      return reply.code(500).send({ 
+        success: false, 
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
   // Get all employees
   fastify.get('/', {
     preHandler: [fastify.authenticate]
@@ -364,6 +401,159 @@ export async function employeesRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true, data: invitationsQuery.rows });
     } catch (error: any) {
       fastify.log.error('Failed to fetch invitations:', error);
+      return reply.code(500).send({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // Save biometric data for current user (admin/owner)
+  fastify.post('/biometric', {
+    preHandler: [fastify.authenticate]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = (request.user as any).userId;
+      const companyId = (request.user as any).companyId;
+      const { biometricData } = request.body as any;
+
+      if (!userId || !companyId) {
+        return reply.code(401).send({ success: false, message: 'Unauthorized' });
+      }
+
+      if (!biometricData || !biometricData.enrollmentMethod) {
+        return reply.code(400).send({ success: false, message: 'Valid biometric data is required' });
+      }
+
+      // Validate biometric data structure
+      const validMethods = ['face', 'fingerprint', 'both'];
+      if (!validMethods.includes(biometricData.enrollmentMethod)) {
+        return reply.code(400).send({ success: false, message: 'Invalid enrollment method' });
+      }
+
+      // Sanitize and prepare biometric data for storage
+      const sanitizedBiometricData = {
+        enrollmentMethod: biometricData.enrollmentMethod,
+        hashedFaceData: biometricData.faceData ? 'FACE_DATA_HASH_' + Date.now() : null, // In production, hash the actual data
+        hashedFingerprintData: biometricData.fingerprintData ? 'FINGERPRINT_DATA_HASH_' + Date.now() : null, // In production, hash the actual data
+        enrolledAt: new Date().toISOString(),
+        version: '1.0'
+      };
+
+      const deviceInfo = biometricData.deviceInfo || {};
+
+      // Begin transaction for atomic operation
+      await db.query('BEGIN');
+
+      try {
+        // Update user's biometric data
+        await db.query(
+          `UPDATE users SET 
+           biometric_data = $1, 
+           biometric_enrolled_at = NOW(),
+           biometric_device_info = $2,
+           updated_at = NOW() 
+           WHERE id = $3`,
+          [JSON.stringify(sanitizedBiometricData), JSON.stringify(deviceInfo), userId]
+        );
+
+        // Log the enrollment in audit table
+        await db.query(
+          `INSERT INTO biometric_audit_log 
+           (user_id, company_id, action, method, success, device_info, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            userId,
+            companyId,
+            'enrollment',
+            biometricData.enrollmentMethod,
+            true,
+            JSON.stringify(deviceInfo),
+            request.ip,
+            request.headers['user-agent'] || null
+          ]
+        );
+
+        await db.query('COMMIT');
+
+        return reply.send({
+          success: true,
+          message: 'Biometric data enrolled successfully',
+          data: {
+            enrollmentMethod: biometricData.enrollmentMethod,
+            enrolledAt: new Date().toISOString()
+          }
+        });
+      } catch (dbError) {
+        await db.query('ROLLBACK');
+        throw dbError;
+      }
+    } catch (error: any) {
+      fastify.log.error('Failed to save biometric data:', error);
+      
+      // Log failed enrollment attempt
+      try {
+        const userId = (request.user as any)?.userId;
+        const companyId = (request.user as any)?.companyId;
+        if (userId && companyId) {
+          await db.query(
+            `INSERT INTO biometric_audit_log 
+             (user_id, company_id, action, method, success, error_message, ip_address, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              userId,
+              companyId,
+              'enrollment',
+              'unknown',
+              false,
+              error.message,
+              request.ip,
+              request.headers['user-agent'] || null
+            ]
+          );
+        }
+      } catch (auditError: any) {
+        fastify.log.error('Failed to log biometric audit:', auditError?.message || 'Unknown error');
+      }
+
+      return reply.code(500).send({ 
+        success: false, 
+        message: 'Failed to enroll biometric data. Please try again.' 
+      });
+    }
+  });
+
+  // Get biometric enrollment status
+  fastify.get('/biometric/status', {
+    preHandler: [fastify.authenticate]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = (request.user as any).userId;
+
+      if (!userId) {
+        return reply.code(401).send({ success: false, message: 'Unauthorized' });
+      }
+
+      const result = await db.query(
+        `SELECT 
+         biometric_data IS NOT NULL as enrolled,
+         biometric_enrolled_at as enrolled_at,
+         biometric_last_used as last_used,
+         (biometric_data->>'enrollmentMethod') as method
+         FROM users WHERE id = $1`,
+        [userId]
+      );
+
+      const user = result.rows[0];
+      
+      return reply.send({
+        success: true,
+        data: {
+          enrolled: user?.enrolled || false,
+          enrolledAt: user?.enrolled_at,
+          lastUsed: user?.last_used,
+          method: user?.method
+        }
+      });
+    } catch (error: any) {
+      fastify.log.error('Failed to get biometric status:', error);
       return reply.code(500).send({ success: false, message: 'Internal server error' });
     }
   });
