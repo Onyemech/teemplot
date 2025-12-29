@@ -88,7 +88,7 @@ class ErrorBoundary extends Component<Props, State> {
                 </div>
               )}
 
-              <div className="flex gap-3 w-full">
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
                 <Button
                   variant="outline"
                   onClick={this.handleGoHome}

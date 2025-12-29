@@ -105,12 +105,24 @@ passport.use(
 
         user = await db.findOne('users', { id: userId });
 
+        // Create initial onboarding progress for new Google user
+        await db.insert('onboarding_progress', {
+          id: uuidv4(),
+          user_id: userId,
+          company_id: companyId,
+          current_step: 1,
+          completed_steps: JSON.stringify([]),
+          form_data: JSON.stringify({}),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
         logger.info({
           userId,
           companyId,
           email,
           provider: 'google'
-        }, 'New user created via Google OAuth');
+        }, 'New user created via Google OAuth with initial progress');
 
         return done(null, user);
       } catch (error: any) {
@@ -147,7 +159,7 @@ export class CustomGoogleAuthService {
       response_type: 'code',
       scope: 'openid email profile',
       access_type: 'offline',
-      prompt: 'consent',
+      prompt: 'select_account',
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -172,8 +184,9 @@ export class CustomGoogleAuthService {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to exchange code: ${error}`);
+      const errorText = await response.text();
+      console.error('Google OAuth token exchange error:', errorText);
+      throw new Error(`Failed to exchange code: ${errorText}`);
     }
 
     return response.json();
@@ -183,7 +196,7 @@ export class CustomGoogleAuthService {
    * Get user info from Google
    */
   async getUserInfo(accessToken: string): Promise<any> {
-    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

@@ -40,6 +40,8 @@
     "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
     "@googlemaps/google-maps-services-js": "^3.4.2",
+    "@simplewebauthn/browser": "^13.2.2",
+    "@simplewebauthn/server": "^13.2.2",
     "@supabase/supabase-js": "^2.46.2",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",

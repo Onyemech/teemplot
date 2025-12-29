@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Users, Mail, UserPlus, X, Loader2, CheckCircle, Clock } from 'lucide-react';
-import Input from '@/components/ui/Input';
+import { Users, Mail, UserPlus, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -34,15 +34,6 @@ export default function EmployeeManagementPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviting, setInviting] = useState(false);
-
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    role: 'staff' as 'admin' | 'staff',
-    position: '',
-  });
 
   useEffect(() => {
     fetchData();
@@ -72,41 +63,6 @@ export default function EmployeeManagementPage() {
       toast.error('Failed to load employee data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInviting(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/employee-invitations/invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(inviteForm),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send invitation');
-      }
-
-      toast.success('Invitation sent successfully!');
-      setShowInviteModal(false);
-      setInviteForm({
-        email: '',
-        firstName: '',
-        lastName: '',
-        role: 'staff',
-        position: '',
-      });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send invitation');
-    } finally {
-      setInviting(false);
     }
   };
 
@@ -154,7 +110,7 @@ export default function EmployeeManagementPage() {
             </div>
             <button
               onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 bg-accent hover:bg-accent-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm"
+              className="flex items-center gap-2 bg-[#0F5D5D] hover:bg-[#0a4545] text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm"
             >
               <UserPlus className="w-5 h-5" />
               Invite Employee
@@ -168,10 +124,10 @@ export default function EmployeeManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Total Employees</p>
-                <p className="text-3xl font-bold text-primary mt-2">{employees.length}</p>
+                <p className="text-3xl font-bold text-[#0F5D5D] mt-2">{employees.length}</p>
               </div>
-              <div className="bg-primary/10 p-3 rounded-lg">
-                <Users className="h-8 w-8 text-primary" />
+              <div className="bg-[#0F5D5D]/10 p-3 rounded-lg">
+                <Users className="h-8 w-8 text-[#0F5D5D]" />
               </div>
             </div>
           </div>
@@ -180,12 +136,12 @@ export default function EmployeeManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Pending Invitations</p>
-                <p className="text-3xl font-bold text-accent mt-2">
+                <p className="text-3xl font-bold text-blue-600 mt-2">
                   {invitations.filter(i => i.status === 'pending').length}
                 </p>
               </div>
-              <div className="bg-accent/10 p-3 rounded-lg">
-                <Mail className="h-8 w-8 text-accent" />
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <Mail className="h-8 w-8 text-blue-600" />
               </div>
             </div>
           </div>
@@ -194,12 +150,12 @@ export default function EmployeeManagementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Active Employees</p>
-                <p className="text-3xl font-bold text-success mt-2">
+                <p className="text-3xl font-bold text-green-600 mt-2">
                   {employees.filter(e => e.status === 'active').length}
                 </p>
               </div>
-              <div className="bg-success/10 p-3 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-success" />
+              <div className="bg-green-100 p-3 rounded-lg">
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </div>
           </div>
@@ -319,95 +275,11 @@ export default function EmployeeManagementPage() {
         </div>
       </div>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Invite Employee</h2>
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleInvite} className="space-y-4">
-              <Input
-                label="Email"
-                type="email"
-                required
-                value={inviteForm.email}
-                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                placeholder="employee@example.com"
-                fullWidth
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="First Name"
-                  type="text"
-                  value={inviteForm.firstName}
-                  onChange={(e) => setInviteForm({ ...inviteForm, firstName: e.target.value })}
-                  placeholder="John"
-                  fullWidth
-                />
-
-                <Input
-                  label="Last Name"
-                  type="text"
-                  value={inviteForm.lastName}
-                  onChange={(e) => setInviteForm({ ...inviteForm, lastName: e.target.value })}
-                  placeholder="Doe"
-                  fullWidth
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <select
-                  value={inviteForm.role}
-                  onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as 'admin' | 'staff' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  required
-                >
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <Input
-                label="Position"
-                type="text"
-                value={inviteForm.position}
-                onChange={(e) => setInviteForm({ ...inviteForm, position: e.target.value })}
-                placeholder="e.g. Developer, Manager"
-                fullWidth
-              />
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="flex-1 bg-accent hover:bg-accent-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {inviting ? 'Sending...' : 'Send Invitation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <InviteEmployeeModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

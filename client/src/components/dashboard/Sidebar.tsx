@@ -39,11 +39,11 @@ interface NavItem {
   adminOnly?: boolean // Only show to admins/owners
 }
 
-interface NavItemConfig extends NavItem {
+export interface NavItemConfig extends NavItem {
   // NavItemConfig is same as NavItem now
 }
 
-const navigationConfig: NavItemConfig[] = [
+export const navigationConfig: NavItemConfig[] = [
   {
     label: 'Home',
     href: '/dashboard',
@@ -109,7 +109,7 @@ const navigationConfig: NavItemConfig[] = [
   },
 ]
 
-const reportingConfig: NavItemConfig[] = [
+export const reportingConfig: NavItemConfig[] = [
   {
     label: 'Reports',
     href: '/dashboard/reports',

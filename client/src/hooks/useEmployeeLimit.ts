@@ -30,7 +30,7 @@ export function useEmployeeLimit() {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
       
-      const response = await apiClient.get('/company/info')
+      const response = await apiClient.get('/api/company/info')
       const { employee_count: declaredLimit, current_employee_count: currentCount } = response.data
 
       const remaining = Math.max(0, declaredLimit - currentCount)

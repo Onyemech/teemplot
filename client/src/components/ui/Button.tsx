@@ -38,6 +38,7 @@ const Button: React.FC<ButtonProps> = ({
     focus:ring-primary-500/20
     disabled:cursor-not-allowed
     disabled:transform-none
+    whitespace-nowrap
     ${loading ? 'blur-[0.5px] opacity-90 cursor-wait' : ''}
     ${fullWidth ? 'w-full' : ''}
     ${!loading && !disabled ? 'hover:scale-[1.02] active:scale-[0.98]' : ''}

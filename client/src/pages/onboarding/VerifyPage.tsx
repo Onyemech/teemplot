@@ -5,12 +5,14 @@ import BackButton from '@/components/ui/BackButton'
 import Button from '@/components/ui/Button'
 import { useUser } from '@/contexts/UserContext'
 import { apiClient } from '@/lib/api'
+import { useToast } from '@/contexts/ToastContext'
 
 function VerifyEmailContent() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const email = searchParams.get('email')
-  const { refetch: refetchUser } = useUser()
+  const { refetch: refetchUser, user } = useUser()
+  const toast = useToast()
   
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isVerifying, setIsVerifying] = useState(false)
@@ -23,6 +25,18 @@ function VerifyEmailContent() {
     // Prefetch next page for instant navigation
     // prefetch not needed in React Router: '/onboarding/company-setup')
   }, [])
+
+  // Check if user is already authenticated (cookies are set)
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (user) {
+        // User is already authenticated, proceed to onboarding
+        console.log('User already authenticated, proceeding to onboarding')
+        navigate('/onboarding/company-setup')
+      }
+    }
+    checkAuth()
+  }, [user, navigate])
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) {
@@ -79,17 +93,37 @@ function VerifyEmailContent() {
 
       if (data.success) {
         // Backend sets httpOnly cookies automatically - NO localStorage storage
+        // Wait a moment for cookies to be set, then refetch user
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         // Refetch user data to populate context
         await refetchUser()
-        // After email verification, proceed to company setup
+        
+        toast.success('Email verified successfully!')
+        
+        // Navigate to company setup after successful verification
         navigate('/onboarding/company-setup')
       } else{
         setError(data.message || 'Invalid verification code. Please try again.')
         setCode(['', '', '', '', '', ''])
         inputRefs.current[0]?.focus()
       }
-    } catch (err) {
-      setError('Verification failed. Please try again.')
+    } catch (err: any) {
+      console.error('Verification error:', err)
+      
+      let errorMessage = 'Verification failed. Please try again.'
+      
+      if (!err.response && err.request) {
+        errorMessage = 'Unable to connect to server. Please check if the backend server is running.'
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid verification code. Please check and try again.'
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please request a new verification code.'
+      }
+      
+      setError(errorMessage)
       setCode(['', '', '', '', '', ''])
       inputRefs.current[0]?.focus()
     } finally {
@@ -112,12 +146,20 @@ function VerifyEmailContent() {
         throw new Error(data.message || 'Failed to resend code')
       }
       
-      // Show success message
-      alert('✅ Verification code sent! Check your email.')
+      toast.success('Verification code sent! Check your email.')
       console.log('Verification code resent to:', email)
     } catch (err: any) {
       console.error('Failed to resend code:', err)
-      setError(err.message || 'Failed to resend code. Please try again.')
+      
+      let errorMessage = 'Failed to resend code. Please try again.'
+      
+      if (!err.response && err.request) {
+        errorMessage = 'Unable to connect to server. Please check if the backend server is running.'
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsResending(false)
     }

@@ -3,7 +3,7 @@ import { env } from '@/config/env'
 
 const baseURL = import.meta.env.MODE === 'production' 
   ? 'https://api.teemplot.com'
-  : ''
+  : 'http://localhost:5000'
 
 export const apiClient = axios.create({
   baseURL,

@@ -1,12 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { employeeInvitationService } from '../services/EmployeeInvitationService';
 import { z } from 'zod';
+import { requireOnboarding } from '../middleware/onboarding.middleware';
+import { query } from '../config/database';
 
 const InviteEmployeeSchema = z.object({
   email: z.string().email(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  role: z.enum(['admin', 'staff']),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  role: z.enum(['admin', 'department_head', 'employee']),
   position: z.string().optional(),
   departmentId: z.string().uuid().optional(),
 });
@@ -16,13 +18,103 @@ const AcceptInvitationSchema = z.object({
   password: z.string().min(8),
   phoneNumber: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  biometric: z
+    .object({
+      type: z.literal('webauthn'),
+      credentialId: z.string(),
+      attestationObject: z.string().optional(),
+      clientDataJSON: z.string().optional(),
+      signCount: z.number().optional(),
+    })
+    .optional(),
 });
 
 export async function employeeInvitationRoutes(fastify: FastifyInstance) {
+  // Real-time counter updates via Server-Sent Events
+  fastify.get('/counter-updates', {
+    preHandler: [fastify.authenticate, requireOnboarding],
+  }, async (request, reply) => {
+    try {
+      const { companyId } = request.user;
+      
+      // Send initial counter data
+      const limits = await employeeInvitationService.verifyPlanLimits(companyId);
+      const initialData = {
+        currentCount: limits.currentCount,
+        declaredLimit: limits.declaredLimit,
+        remaining: limits.remaining,
+        planType: limits.currentPlan,
+        pendingInvitations: limits.pendingInvitations
+      };
+
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      reply.hijack();
+
+      (reply.raw as any).flushHeaders?.();
+
+      reply.raw.write('retry: 5000\n\n');
+      reply.raw.write(`data: ${JSON.stringify(initialData)}\n\n`);
+
+      const heartbeat = setInterval(() => {
+        if (reply.raw.writableEnded || reply.raw.destroyed) return;
+        reply.raw.write(': keep-alive\n\n');
+      }, 25000);
+
+      // Set up periodic updates (every 5 seconds)
+      const interval = setInterval(async () => {
+        try {
+          if (reply.raw.writableEnded || reply.raw.destroyed) return;
+          const updatedLimits = await employeeInvitationService.verifyPlanLimits(companyId);
+          const updateData = {
+            currentCount: updatedLimits.currentCount,
+            declaredLimit: updatedLimits.declaredLimit,
+            remaining: updatedLimits.remaining,
+            planType: updatedLimits.currentPlan,
+            pendingInvitations: updatedLimits.pendingInvitations
+          };
+          
+          reply.raw.write(`data: ${JSON.stringify(updateData)}\n\n`);
+        } catch (error) {
+          console.error('Error fetching counter updates:', error);
+          // Send error notification
+          if (!reply.raw.writableEnded && !reply.raw.destroyed) {
+            reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: 'Failed to fetch updates' })}\n\n`);
+          }
+        }
+      }, 5000);
+
+      // Clean up on client disconnect
+      const cleanup = () => {
+        clearInterval(interval);
+        clearInterval(heartbeat);
+      };
+
+      request.raw.once('close', cleanup);
+      request.raw.once('aborted', cleanup);
+      reply.raw.once('close', cleanup);
+
+      return;
+
+    } catch (error: any) {
+      console.error('SSE setup error:', error);
+      reply.code(500).send({
+        success: false,
+        message: 'Failed to establish real-time connection'
+      });
+    }
+  });
+
   // Send employee invitation (Owner/Admin only)
   fastify.post('/invite', {
     preHandler: [
       fastify.authenticate,
+      requireOnboarding,
       async (request, reply) => {
         // Import middleware dynamically to avoid circular dependencies
         const { checkEmployeeLimit } = await import('../middleware/subscription.middleware');
@@ -42,11 +134,11 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
       const data = InviteEmployeeSchema.parse(request.body);
       const { companyId, userId } = request.user;
 
-      const result = await employeeInvitationService.inviteEmployee({
+      const result = await employeeInvitationService.sendInvitation(
         companyId,
-        invitedBy: userId,
-        ...data,
-      });
+        userId,
+        data
+      );
 
       return reply.code(200).send({
         success: true,
@@ -54,9 +146,49 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
         message: 'Invitation sent successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
+      console.error('Invitation error:', error);
+      
+      // Handle specific error codes with proper HTTP status codes
+      if (error.code === 'EMPLOYEE_LIMIT_REACHED') {
+        return reply.code(400).send({
+          success: false,
+          code: 'EMPLOYEE_LIMIT_REACHED',
+          message: error.message,
+          limit: error.details?.limit,
+          upgradeInfo: error.details?.upgradeInfo,
+        });
+      } else if (error.code === 'PLAN_VERIFICATION_FAILED') {
+        return reply.code(400).send({
+          success: false,
+          code: 'PLAN_VERIFICATION_FAILED',
+          message: error.message,
+          details: error.details,
+          troubleshooting: error.details?.troubleshooting,
+        });
+      } else if (error.code === 'TRANSACTION_ROLLBACK') {
+        return reply.code(500).send({
+          success: false,
+          code: 'TRANSACTION_ROLLBACK',
+          message: error.message,
+          details: error.details,
+          troubleshooting: error.details?.troubleshooting,
+        });
+      } else if (error.code === 'DUPLICATE_EMAIL') {
+        return reply.code(400).send({
+          success: false,
+          code: 'DUPLICATE_EMAIL',
+          message: error.message,
+          details: error.details,
+          troubleshooting: error.details?.troubleshooting,
+        });
+      }
+      
+      // Generic error response
+      return reply.code(error.statusCode || 400).send({
         success: false,
+        code: error.code || 'INVITATION_FAILED',
         message: error.message || 'Failed to send invitation',
+        details: error.details,
       });
     }
   });
@@ -75,6 +207,18 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Fetch company settings to determine biometrics requirements
+      let biometricsEnabled = false;
+      let biometricsMandatory = false;
+      try {
+        const companyRes = await query(
+          'SELECT biometrics_required FROM companies WHERE id = $1',
+          [invitation.company_id]
+        );
+        biometricsEnabled = Boolean(companyRes.rows[0]?.biometrics_required);
+        biometricsMandatory = biometricsEnabled;
+      } catch {}
+
       // Return safe invitation details (no sensitive data)
       return reply.code(200).send({
         success: true,
@@ -85,6 +229,8 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
           role: invitation.role,
           position: invitation.position,
           companyId: invitation.company_id,
+          biometricsEnabled,
+          biometricsMandatory,
         },
       });
     } catch (error: any) {
@@ -117,7 +263,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
 
   // List company invitations (Owner/Admin only)
   fastify.get('/list', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireOnboarding],
   }, async (request, reply) => {
     try {
       // Check role
@@ -150,7 +296,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
 
   // Cancel invitation (Owner/Admin only)
   fastify.delete('/:invitationId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireOnboarding],
   }, async (request, reply) => {
     try {
       // Check role
@@ -164,7 +310,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
       const { invitationId } = request.params as { invitationId: string };
       const { companyId } = request.user;
 
-      await employeeInvitationService.cancelInvitation(invitationId, companyId);
+      await employeeInvitationService.cancelInvitation(invitationId, companyId, request.user.userId);
 
       return reply.code(200).send({
         success: true,

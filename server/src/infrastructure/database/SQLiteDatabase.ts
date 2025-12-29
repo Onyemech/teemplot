@@ -115,13 +115,20 @@ export class SQLiteDatabase implements IDatabase {
       return result.changes;
     } else {
       // Hard delete
-      const whereClause = Object.keys(where)
-        .map((key) => `${key} = ?`)
-        .join(' AND ');
+      const keys = Object.keys(where);
+      let sql = `DELETE FROM ${table}`;
+      const params: any[] = [];
 
-      const sql = `DELETE FROM ${table} WHERE ${whereClause}`;
+      if (keys.length > 0) {
+        const whereClause = keys
+          .map((key) => `${key} = ?`)
+          .join(' AND ');
+        sql += ` WHERE ${whereClause}`;
+        params.push(...Object.values(where));
+      }
+
       const stmt = this.db.prepare(sql);
-      const result = stmt.run(...Object.values(where));
+      const result = stmt.run(...params);
       return result.changes;
     }
   }

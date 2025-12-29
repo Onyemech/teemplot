@@ -1,30 +1,35 @@
 import { useEffect, useRef } from 'react';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+// import { useNavigate } from 'react-router-dom';
 
 export default function GoogleCallbackPage() {
-  const { handleGoogleCallback, handleTokenFromUrl } = useGoogleAuth();
+  const { handleTokenFromUrl } = useGoogleAuth();
+  // const navigate = useNavigate();
   const hasCalled = useRef(false);
 
   useEffect(() => {
     if (!hasCalled.current) {
       hasCalled.current = true;
       
-      // Check if we have a code (from Google redirect)
+      // Check if we have parameters from backend redirect
       const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
       const token = params.get('token');
+      // const isNewUser = params.get('isNewUser') === 'true';
+      // const requiresOnboarding = params.get('requiresOnboarding') === 'true';
+      const code = params.get('code');
 
-      if (code) {
-        // Handle OAuth code
-        handleGoogleCallback(code);
-      } else if (token) {
+      if (token) {
+        // Handle token from backend redirect
         handleTokenFromUrl();
+      } else if (code) {
+        // Handle OAuth code (should not happen with redirect flow)
+        window.location.href = '/login?error=invalid_google_auth_flow';
       } else {
-        // No code or token, redirect to login
-        window.location.href = '/login?error=missing_auth_code';
+        // No token or code, redirect to login
+        window.location.href = '/login?error=missing_auth_token';
       }
     }
-  }, [handleGoogleCallback, handleTokenFromUrl]);
+  }, [handleTokenFromUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

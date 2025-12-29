@@ -11,6 +11,7 @@ interface CheckInRequest {
     address?: string;
   };
   method: 'manual' | 'auto';
+  biometricsProof?: string;
 }
 
 interface CheckOutRequest {
@@ -24,9 +25,10 @@ interface CheckOutRequest {
   };
   method: 'manual' | 'auto';
   departureReason?: string;
+  biometricsProof?: string;
 }
 
-interface AttendanceRecord {
+export interface AttendanceRecord {
   id: string;
   userId: string;
   companyId: string;
@@ -40,6 +42,8 @@ interface AttendanceRecord {
   checkInMethod: string;
   checkOutMethod?: string;
   status: string;
+  isWithinGeofence?: boolean;
+  clockInDistanceMeters?: number;
 }
 
 class EnhancedAttendanceService {
@@ -48,13 +52,14 @@ class EnhancedAttendanceService {
    */
   async checkIn(request: CheckInRequest): Promise<AttendanceRecord> {
     try {
-      const { userId, companyId, location, method } = request;
+      const { userId, companyId, location, method, biometricsProof } = request;
 
       // Get company settings
       const companyResult = await query(
         `SELECT auto_clockin_enabled, require_geofence_for_clockin, 
                 office_latitude, office_longitude, geofence_radius_meters,
-                timezone, work_start_time, grace_period_minutes
+                timezone, work_start_time, grace_period_minutes,
+                biometrics_required
          FROM companies WHERE id = $1`,
         [companyId]
       );
@@ -64,6 +69,16 @@ class EnhancedAttendanceService {
       }
 
       const company = companyResult.rows[0];
+
+      // Check biometrics if required
+      if (company.biometrics_required && method === 'manual') {
+        if (!biometricsProof) {
+          throw new Error('Biometric verification required');
+        }
+        // In a real implementation, we would verify the proof here
+        // For now, presence is enough to indicate flow compliance
+      }
+
       let isWithinGeofence = true;
       let distanceMeters: number | null = null;
 
@@ -147,7 +162,7 @@ class EnhancedAttendanceService {
    */
   async checkOut(request: CheckOutRequest): Promise<AttendanceRecord> {
     try {
-      const { userId, companyId, attendanceId, location, method, departureReason } = request;
+      const { userId, companyId, attendanceId, location, method, departureReason, biometricsProof } = request;
 
       // Get attendance record
       const attendanceResult = await query(
@@ -168,12 +183,21 @@ class EnhancedAttendanceService {
       // Get company settings
       const companyResult = await query(
         `SELECT notify_early_departure, early_departure_threshold_minutes,
-                office_latitude, office_longitude, timezone
+                office_latitude, office_longitude, timezone,
+                biometrics_required
          FROM companies WHERE id = $1`,
         [companyId]
       );
 
       const company = companyResult.rows[0];
+
+      // Check biometrics if required
+      if (company.biometrics_required && method === 'manual') {
+        if (!biometricsProof) {
+          throw new Error('Biometric verification required');
+        }
+      }
+
       let distanceMeters: number | null = null;
 
       // Check geofence if location provided
@@ -238,15 +262,16 @@ class EnhancedAttendanceService {
   /**
    * Get current attendance status for user
    */
-  async getCurrentAttendance(userId: string): Promise<AttendanceRecord | null> {
+  async getCurrentAttendance(userId: string, companyId: string): Promise<AttendanceRecord | null> {
     try {
       const result = await query(
         `SELECT * FROM attendance_records 
          WHERE user_id = $1 
+           AND company_id = $2
            AND clock_in_time::DATE = CURRENT_DATE 
          ORDER BY clock_in_time DESC 
          LIMIT 1`,
-        [userId]
+        [userId, companyId]
       );
 
       if (result.rows.length === 0) {
@@ -369,8 +394,8 @@ class EnhancedAttendanceService {
     try {
       // Get employee details
       const userResult = await query(
-        'SELECT first_name, last_name, email FROM users WHERE id = $1',
-        [userId]
+        'SELECT first_name, last_name, email FROM users WHERE id = $1 AND company_id = $2',
+        [userId, companyId]
       );
 
       if (userResult.rows.length === 0) return;
@@ -445,8 +470,8 @@ class EnhancedAttendanceService {
     try {
       // Get employee details
       const userResult = await query(
-        'SELECT first_name, last_name, email FROM users WHERE id = $1',
-        [userId]
+        'SELECT first_name, last_name, email FROM users WHERE id = $1 AND company_id = $2',
+        [userId, companyId]
       );
 
       if (userResult.rows.length === 0) return;
@@ -529,8 +554,106 @@ class EnhancedAttendanceService {
       departureReason: row.departure_reason,
       checkInMethod: row.check_in_method || 'manual',
       checkOutMethod: row.check_out_method,
-      status: row.status
+      status: row.status,
+      isWithinGeofence: row.is_within_geofence,
+      clockInDistanceMeters: row.clock_in_distance_meters
     };
+  }
+
+  /**
+   * Get company attendance with filtering and pagination
+   */
+  async getCompanyAttendance(
+    companyId: string,
+    filters: {
+      startDate?: Date;
+      endDate?: Date;
+      department?: string;
+      search?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<{ data: any[]; total: number }> {
+    try {
+      const conditions: string[] = ['ar.company_id = $1'];
+      const params: any[] = [companyId];
+      let paramCount = 1;
+
+      if (filters.startDate) {
+        paramCount++;
+        conditions.push(`ar.clock_in_time >= $${paramCount}`);
+        params.push(filters.startDate);
+      }
+
+      if (filters.endDate) {
+        paramCount++;
+        conditions.push(`ar.clock_in_time <= $${paramCount}`);
+        params.push(filters.endDate);
+      }
+
+      if (filters.department) {
+        paramCount++;
+        conditions.push(`u.department = $${paramCount}`);
+        params.push(filters.department);
+      }
+
+      if (filters.status) {
+        paramCount++;
+        conditions.push(`ar.status = $${paramCount}`);
+        params.push(filters.status);
+      }
+
+      if (filters.search) {
+        paramCount++;
+        conditions.push(`(u.first_name ILIKE $${paramCount} OR u.last_name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`);
+        params.push(`%${filters.search}%`);
+      }
+
+      const whereClause = conditions.join(' AND ');
+
+      // Get total count
+      const countResult = await query(
+        `SELECT COUNT(*) 
+         FROM attendance_records ar
+         JOIN users u ON ar.user_id = u.id
+         WHERE ${whereClause}`,
+        params
+      );
+
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get data
+      let queryStr = `
+        SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position
+        FROM attendance_records ar
+        JOIN users u ON ar.user_id = u.id
+        WHERE ${whereClause}
+        ORDER BY ar.clock_in_time DESC
+      `;
+
+      if (filters.limit) {
+        paramCount++;
+        queryStr += ` LIMIT $${paramCount}`;
+        params.push(filters.limit);
+      }
+
+      if (filters.offset !== undefined) {
+        paramCount++;
+        queryStr += ` OFFSET $${paramCount}`;
+        params.push(filters.offset);
+      }
+
+      const result = await query(queryStr, params);
+
+      return {
+        data: result.rows,
+        total
+      };
+    } catch (error: any) {
+      logger.error({ error, companyId }, 'Failed to get company attendance');
+      throw error;
+    }
   }
 }
 

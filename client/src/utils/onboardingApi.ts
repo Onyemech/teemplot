@@ -1,6 +1,5 @@
 import { requestDeduplicator } from './requestDeduplication';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { apiClient } from '../lib/api';
 
 // Helper to extract filename from various formats
 export const getFileDisplayName = (file: any): string => {
@@ -24,7 +23,7 @@ export const getFileDisplayName = (file: any): string => {
   return 'Uploaded file'
 }
 
-// All API calls now use httpOnly cookies - no manual token management needed!
+// All API calls now use apiClient which handles token refresh automatically!
 
 // Company Setup API
 export const submitCompanySetup = async (data: {
@@ -39,18 +38,10 @@ export const submitCompanySetup = async (data: {
   return requestDeduplicator.deduplicate(
     `company-setup-${data.companyId}`,
     async () => {
-      const response = await fetch(`${API_URL}/api/onboarding/company-setup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Send cookies automatically
-        body: JSON.stringify(data),
-      })
+      const response = await apiClient.post('/api/onboarding/company-setup', data);
+      const result = response.data;
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.message || 'Failed to save company setup')
       }
 
@@ -72,18 +63,10 @@ export const submitOwnerDetails = async (data: {
   return requestDeduplicator.deduplicate(
     `owner-details-${data.companyId}`,
     async () => {
-      const response = await fetch(`${API_URL}/api/onboarding/owner-details`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(data),
-      })
+      const response = await apiClient.post('/api/onboarding/owner-details', data);
+      const result = response.data;
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.message || 'Failed to save owner details')
       }
 
@@ -116,25 +99,10 @@ export const submitBusinessInfo = async (data: {
   return requestDeduplicator.deduplicate(
     `business-info-${data.companyId}`,
     async () => {
-      // Get token as fallback for cross-domain cookie issues
-      const token = localStorage.getItem('auth_token')
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-      
-      const response = await fetch(`${API_URL}/api/onboarding/business-info`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify(data),
-      })
+      const response = await apiClient.post('/api/onboarding/business-info', data);
+      const result = response.data;
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.message || 'Failed to save business information')
       }
 
@@ -148,15 +116,15 @@ export const uploadLogo = async (_companyId: string, file: File) => {
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await fetch(`${API_URL}/api/onboarding/upload-logo`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  })
+  const response = await apiClient.post('/api/onboarding/upload-logo', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 
-  const result = await response.json()
+  const result = response.data;
 
-  if (!response.ok) {
+  if (!result.success) {
     throw new Error(result.message || 'Failed to upload logo')
   }
 
@@ -176,23 +144,16 @@ export const uploadDocument = async (
   const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   
   // Step 2: Check if file already exists
-  const checkResponse = await fetch(`${API_URL}/api/files/check`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({
-      hash,
-      filename: file.name,
-      size: file.size,
-      mimeType: file.type
-    })
-  })
+  const checkResponse = await apiClient.post('/api/files/check', {
+    hash,
+    filename: file.name,
+    size: file.size,
+    mimeType: file.type
+  });
   
-  const checkResult = await checkResponse.json()
+  const checkResult = checkResponse.data;
   
-  if (!checkResponse.ok) {
+  if (!checkResult.success) {
     throw new Error(checkResult.message || 'Failed to check file existence')
   }
   
@@ -206,17 +167,17 @@ export const uploadDocument = async (
     formData.append('document', file)
     formData.append('hash', hash)
     
-    const uploadResponse = await fetch(`${API_URL}/api/files/upload`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData
-    })
+    const uploadResponse = await apiClient.post('/api/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     
-    const uploadResult = await uploadResponse.json()
+    const uploadResult = uploadResponse.data;
     
-    if (!uploadResponse.ok) {
-      console.error('❌ Upload failed:', uploadResponse.status, uploadResult)
-      throw new Error(uploadResult.message || `Failed to upload file (${uploadResponse.status})`)
+    if (!uploadResult.success) {
+      console.error('❌ Upload failed:', uploadResult)
+      throw new Error(uploadResult.message || 'Failed to upload file')
     }
     
     console.log('✅ File uploaded:', uploadResult.data.file.id)
@@ -230,28 +191,21 @@ export const uploadDocument = async (
   
   // Step 4: Attach file to company
   console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
-  const attachResponse = await fetch(`${API_URL}/api/files/attach-to-company`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({
-      fileId,
-      companyId,
-      documentType,
-      purpose: `Company ${documentType} document`,
-      metadata: {
-        originalFilename: file.name,
-        uploadedAt: new Date().toISOString()
-      }
-    })
-  })
+  const attachResponse = await apiClient.post('/api/files/attach-to-company', {
+    fileId,
+    companyId,
+    documentType,
+    purpose: `Company ${documentType} document`,
+    metadata: {
+      originalFilename: file.name,
+      uploadedAt: new Date().toISOString()
+    }
+  });
   
-  const attachResult = await attachResponse.json()
+  const attachResult = attachResponse.data;
   
-  if (!attachResponse.ok) {
-    console.error('❌ Attach failed:', attachResponse.status, attachResult)
+  if (!attachResult.success) {
+    console.error('❌ Attach failed:', attachResult)
     throw new Error(attachResult.message || 'Failed to attach document to company')
   }
   
@@ -315,18 +269,10 @@ export const submitPlanSelection = async (data: {
   plan: 'silver_monthly' | 'silver_yearly' | 'gold_monthly' | 'gold_yearly' | 'free'
   companySize: number
 }) => {
-  const response = await fetch(`${API_URL}/api/onboarding/select-plan`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  })
+  const response = await apiClient.post('/api/onboarding/select-plan', data);
+  const result = response.data;
 
-  const result = await response.json()
-
-  if (!response.ok) {
+  if (!result.success) {
     throw new Error(result.message || 'Failed to select plan')
   }
 
@@ -338,18 +284,10 @@ export const completeOnboarding = async (data: {
   companyId: string
   userId: string
 }) => {
-  const response = await fetch(`${API_URL}/api/onboarding/complete`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  })
+  const response = await apiClient.post('/api/onboarding/complete', data);
+  const result = response.data;
 
-  const result = await response.json()
-
-  if (!response.ok) {
+  if (!result.success) {
     throw new Error(result.message || 'Failed to complete onboarding')
   }
 

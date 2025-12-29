@@ -3,19 +3,18 @@ import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 export class DashboardService {
   private db = DatabaseFactory.getPrimaryDatabase();
 
-  async getDashboardStats(userId: string) {
+  async getDashboardStats(userId: string, companyId: string) {
     try {
-      // First get user's company and role
-      const userQuery = await this.db.query(
-        'SELECT company_id, role FROM users WHERE id = $1',
-        [userId]
-      );
+      const userQuery = await this.db.query('SELECT role FROM users WHERE id = $1 AND company_id = $2', [
+        userId,
+        companyId,
+      ]);
       
       if (!userQuery.rows[0]) {
         throw new Error('User not found');
       }
       
-      const { company_id: companyId, role } = userQuery.rows[0];
+      const { role } = userQuery.rows[0];
 
       // Get company details including limits
       const companyQuery = await this.db.query(
@@ -118,8 +117,17 @@ export class DashboardService {
     }
   }
 
-  async getRecentOrders(userId: string, limit: number = 5) {
+  async getRecentOrders(userId: string, companyId: string, limit: number = 5) {
     try {
+      const userCheck = await this.db.query('SELECT id FROM users WHERE id = $1 AND company_id = $2', [
+        userId,
+        companyId,
+      ]);
+
+      if (!userCheck.rows[0]) {
+        throw new Error('User not found');
+      }
+
       const query = `
         SELECT 
           o.id,
@@ -155,8 +163,17 @@ export class DashboardService {
     }
   }
 
-  async getRecentLeads(userId: string, limit: number = 6) {
+  async getRecentLeads(userId: string, companyId: string, limit: number = 6) {
     try {
+      const userCheck = await this.db.query('SELECT id FROM users WHERE id = $1 AND company_id = $2', [
+        userId,
+        companyId,
+      ]);
+
+      if (!userCheck.rows[0]) {
+        throw new Error('User not found');
+      }
+
       // Combine real estate and event leads using UNION
       const query = `
         (

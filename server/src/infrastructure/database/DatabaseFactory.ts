@@ -3,7 +3,9 @@ import { PostgresDatabase } from './PostgresDatabase';
 import { ConvexDatabase } from './ConvexDatabase';
 import { logger } from '../../utils/logger';
 
-export type DatabaseType = 'postgres' | 'convex';
+import { SQLiteDatabase } from './SQLiteDatabase';
+
+export type DatabaseType = 'postgres' | 'convex' | 'sqlite';
 
 export class DatabaseFactory {
   private static instance: IDatabase | null = null;
@@ -29,8 +31,11 @@ export class DatabaseFactory {
       case 'convex':
         this.instance = new ConvexDatabase();
         break;
+      case 'sqlite':
+        this.instance = new SQLiteDatabase();
+        break;
       default:
-        throw new Error(`Unsupported database type: ${dbType}. Only 'postgres' and 'convex' are supported.`);
+        throw new Error(`Unsupported database type: ${dbType}. Only 'postgres', 'convex', and 'sqlite' are supported.`);
     }
 
     return this.instance;
@@ -66,6 +71,12 @@ export class DatabaseFactory {
     if (forceDb) {
       logger.info(`Database type forced to: ${forceDb}`);
       return forceDb;
+    }
+
+    // Use SQLite for tests by default
+    if (process.env.NODE_ENV === 'test' && !forceDb) {
+      logger.info('Using SQLite for testing environment');
+      return 'sqlite';
     }
 
     // ALWAYS use Postgres (Supabase) for all environments

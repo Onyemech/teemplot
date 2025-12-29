@@ -1,9 +1,9 @@
 import { HelpCircle, Phone, MessageCircle, ChevronLeft } from 'lucide-react'
-import { useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { useUser } from '@/contexts/UserContext'
+import { apiClient } from '@/lib/api'
 
 interface OnboardingNavbarProps {
   currentStep?: number
@@ -12,6 +12,7 @@ interface OnboardingNavbarProps {
   onSave?: () => Promise<void>
   onBack?: () => void
   showBackButton?: boolean
+  disabled?: boolean
 }
 
 export default function OnboardingNavbar({
@@ -20,11 +21,13 @@ export default function OnboardingNavbar({
   showSteps = true,
   onSave,
   onBack,
-  showBackButton = true
+  showBackButton = true,
+  disabled = false
 }: OnboardingNavbarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
+  const { clearUser } = useUser()
   const [saving, setSaving] = useState(false)
   
   // Determine if we should show the back button
@@ -67,45 +70,37 @@ export default function OnboardingNavbar({
         await onSave()
       }
 
-      // CRITICAL: Clear all session data to prevent data leakage
-      // Clear localStorage
-      localStorage.removeItem('user')
+      // Explicitly LOG OUT the user to ensure clean state
+      try {
+        await apiClient.post('/api/auth/logout')
+      } catch (e) {
+        console.log('Logout call failed (might already be logged out):', e)
+      }
+
+      // Clear local session data
+      clearUser()
+      sessionStorage.clear()
       localStorage.removeItem('auth_token')
       localStorage.removeItem('onboarding_progress')
       
-      // Clear sessionStorage
-      sessionStorage.removeItem('onboarding_auth')
-      sessionStorage.clear()
-      
-      // Clear cookies by calling logout endpoint
-      try {
-        await fetch(`${API_URL}/api/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-        })
-      } catch (e) {
-        // Ignore logout errors - we're clearing client-side anyway
-      }
+      toast.success('Progress saved! You have been logged out.')
 
-      toast.success('Progress saved! You can log in later to continue.')
-
-      // Wait a moment for toast to show, then navigate
+      // Navigate to landing page
       setTimeout(() => {
-        // Force reload to clear any in-memory state
-        window.location.href = '/'
+        navigate('/')
       }, 1000)
     } catch (error: any) {
       if (import.meta.env.MODE === 'development') {
         console.error('Save and exit error:', error)
       }
       
-      // Even if there's an error, STILL clear session data (security critical)
-      localStorage.clear()
+      // Force logout and redirect even on error
+      clearUser()
       sessionStorage.clear()
       
       toast.info('Redirecting to home...')
       setTimeout(() => {
-        window.location.href = '/'
+        navigate('/')
       }, 1000)
     } finally {
       setSaving(false)
@@ -226,7 +221,8 @@ export default function OnboardingNavbar({
             <button
               className="px-3 md:px-4 py-2 text-xs md:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               onClick={handleSaveAndExit}
-              disabled={saving}
+              disabled={saving || disabled}
+              title={disabled ? 'Please complete email verification to enable saving' : saving ? 'Saving progress...' : 'Save progress and exit'}
             >
               {saving ? 'Saving...' : 'Save & exit'}
             </button>

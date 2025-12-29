@@ -1,7 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { registrationService } from '../services/RegistrationService';
 import { passwordResetService } from '../services/PasswordResetService';
-import { googleAuthService } from '../services/GoogleAuthService';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
@@ -105,13 +104,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Generate JWT tokens and set cookies immediately after registration
       const accessTokenPayload = createAccessTokenPayload({
-        id: result.user.id,
-        companyId: result.user.companyId,
-        email: result.user.email,
-        role: result.user.role,
+        id: result.userId,
+        companyId: result.companyId,
+        email: result.email,
+        role: 'admin', // New registrations are admin users
       });
       const accessToken = fastify.jwt.sign(accessTokenPayload, { expiresIn: '15m' });
-      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.user.id), { expiresIn: '7d' });
+      const refreshToken = fastify.jwt.sign(createRefreshTokenPayload(result.userId), { expiresIn: '7d' });
 
       // Set httpOnly cookies
       const isProduction = process.env.NODE_ENV === 'production';
@@ -214,7 +213,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Login
+  // Login endpoint with rate limit
   fastify.post('/login', {
     config: {
       rateLimit: {
@@ -321,6 +320,7 @@ export async function authRoutes(fastify: FastifyInstance) {
             lastName: user.last_name,
             role: user.role,
             companyId: user.company_id,
+            companyName: company?.name,
             onboardingCompleted,
           },
         },
@@ -552,17 +552,27 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Initiate Google OAuth
   fastify.get('/google', async (_request, reply) => {
-    const authUrl = customGoogleAuthService.getAuthUrl();
-    return reply.redirect(authUrl);
+    try {
+      const authUrl = customGoogleAuthService.getAuthUrl();
+      logger.info({ authUrl }, 'Generated Google OAuth URL');
+      return reply.redirect(authUrl);
+    } catch (error: any) {
+      logger.error({ err: error }, 'Failed to generate Google OAuth URL');
+      return reply.code(500).send({ success: false, message: 'Failed to initiate Google OAuth' });
+    }
   });
 
   // Google OAuth callback
   fastify.get('/google/callback', async (request, reply) => {
     try {
+      logger.info({ query: request.query }, 'Google OAuth callback received');
+      
       const { code } = z.object({
         code: z.string(),
       }).parse(request.query);
 
+      logger.info({ code }, 'Processing Google OAuth code');
+      
       // Handle OAuth callback
       const result = await customGoogleAuthService.handleCallback(code);
 
@@ -593,18 +603,16 @@ export async function authRoutes(fastify: FastifyInstance) {
         }
       });
 
-      // Redirect to frontend (cookies work with subdomain)
+      // Redirect to frontend Google callback page
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       
-      // New users or users who haven't completed onboarding should go to onboarding
-      // Only redirect to dashboard if onboarding is completed
-      const redirectUrl = result.requiresOnboarding
-        ? `${frontendUrl}/onboarding/company-setup?isNewUser=${result.isNewUser}`
-        : `${frontendUrl}/dashboard`;
-
+      // Redirect to Google callback page which will handle the token and navigation
+      const redirectUrl = `${frontendUrl}/auth/callback?token=${accessToken}&isNewUser=${result.isNewUser}&requiresOnboarding=${result.requiresOnboarding}`;
+      
+      logger.info({ redirectUrl, userId: result.user.id }, 'Redirecting to Google callback page');
       return reply.redirect(redirectUrl);
     } catch (error: any) {
-      logger.error({ err: error }, 'Google OAuth callback failed');
+      logger.error({ err: error, query: request.query }, 'Google OAuth callback failed');
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       return reply.redirect(`${frontendUrl}/login?error=google_auth_failed`);
     }
@@ -634,38 +642,13 @@ export async function authRoutes(fastify: FastifyInstance) {
       const isProduction = process.env.NODE_ENV === 'production';
       setAuthCookies(reply, accessToken, refreshToken, isProduction);
 
-      // Log successful login
-      await logSecurityEvent({
-        type: 'login',
-        userId: result.user.id,
-        ip: request.ip,
-        userAgent: request.headers['user-agent'] || '',
-        details: {
-          email: result.user.email,
-          provider: 'google',
-          isNewUser: result.isNewUser
-        }
-      });
-
       return reply.code(200).send({
         success: true,
-        data: {
-          user: {
-            id: result.user.id,
-            email: result.user.email,
-            firstName: result.user.first_name,
-            lastName: result.user.last_name,
-            role: result.user.role,
-            companyId: result.user.company_id,
-            avatarUrl: result.user.avatar_url,
-          },
-          isNewUser: result.isNewUser,
-          requiresOnboarding: result.requiresOnboarding,
-        },
+        data: result,
       });
     } catch (error: any) {
       logger.error({ err: error }, 'Google OAuth verification failed');
-      return reply.code(500).send({
+      return reply.code(400).send({
         success: false,
         message: error.message || 'Google authentication failed',
       });

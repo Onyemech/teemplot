@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useUser } from '@/contexts/UserContext'
 
 const NAV_LINKS = [
   { label: 'Features', href: '#features' },
@@ -50,6 +51,7 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false)
   const [showInstall, setShowInstall] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const { user } = useUser()
 
   useEffect(() => {
     setMounted(true)
@@ -146,18 +148,29 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Link 
-              to="/login"
-              className="text-gray-900 hover:text-[#FF5722] px-4 py-2 transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link 
-              to="/onboarding/register"
-              className="bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <Link 
+                to={user.onboardingCompleted ? "/dashboard" : "/onboarding/company-setup"}
+                className="bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105"
+              >
+                {user.onboardingCompleted ? "Go to Dashboard" : "Resume Onboarding"}
+              </Link>
+            ) : (
+              <>
+                <Link 
+                  to="/login"
+                  className="text-gray-900 hover:text-[#FF5722] px-4 py-2 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  to="/onboarding/register"
+                  className="bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           <div className="md:hidden flex items-center gap-2">
@@ -195,20 +208,32 @@ export default function Navbar() {
                 </button>
               ))}
               <div className="flex flex-col space-y-2 px-4 pt-4 border-t border-gray-300">
-                <Link 
-                  to="/login"
-                  className="w-full text-center border-2 border-gray-300 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link 
-                  to="/onboarding/register"
-                  className="w-full text-center bg-[#0F5D5D] text-white px-4 py-3 rounded-lg hover:bg-[#093737] font-semibold"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Get Started
-                </Link>
+                {user ? (
+                  <Link 
+                    to={user.onboardingCompleted ? "/dashboard" : "/onboarding/company-setup"}
+                    className="w-full text-center bg-[#0F5D5D] text-white px-4 py-3 rounded-lg hover:bg-[#093737] font-semibold"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {user.onboardingCompleted ? "Go to Dashboard" : "Resume Onboarding"}
+                  </Link>
+                ) : (
+                  <>
+                    <Link 
+                      to="/login"
+                      className="w-full text-center border-2 border-gray-300 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link 
+                      to="/onboarding/register"
+                      className="w-full text-center bg-[#0F5D5D] text-white px-4 py-3 rounded-lg hover:bg-[#093737] font-semibold"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>

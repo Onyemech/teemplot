@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, Check, Loader2, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Check, Loader2, AlertCircle, Fingerprint } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
+import { isBiometricAvailable } from '@/utils/pwa'
 
 
 interface InvitationData {
@@ -15,6 +16,8 @@ interface InvitationData {
   position: string
   companyName: string
   companyLogo: string | null
+  biometricsEnabled?: boolean
+  biometricsMandatory?: boolean
 }
 
 // Password validation helper
@@ -71,6 +74,15 @@ export default function AcceptInvitationPage() {
       special: false,
     }
   })
+  const [biometricSupported, setBiometricSupported] = useState(false)
+  const [biometricCaptured, setBiometricCaptured] = useState<null | {
+    type: 'webauthn'
+    credentialId: string
+    attestationObject?: string
+    clientDataJSON?: string
+    signCount?: number
+  }>(null)
+  const [biometricError, setBiometricError] = useState('')
 
   // Validate password on change
   useEffect(() => {
@@ -96,6 +108,12 @@ export default function AcceptInvitationPage() {
         }
 
         setInvitation(data.data)
+        try {
+          const supported = await isBiometricAvailable()
+          setBiometricSupported(supported)
+        } catch {
+          setBiometricSupported(false)
+        }
         setFormData(prev => ({
           ...prev,
           firstName: data.data.firstName || '',
@@ -111,6 +129,60 @@ export default function AcceptInvitationPage() {
 
     fetchInvitation()
   }, [token, toast])
+
+  const toBase64 = (buffer: ArrayBuffer | undefined) => {
+    if (!buffer) return undefined
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return btoa(binary)
+  }
+
+  const captureBiometrics = async () => {
+    setBiometricError('')
+    try {
+      if (!biometricSupported) {
+        setBiometricError('Biometrics not supported on this device')
+        return
+      }
+
+      const challenge = new Uint8Array(32)
+      window.crypto.getRandomValues(challenge)
+
+      const publicKey: PublicKeyCredentialCreationOptions = {
+        challenge,
+        rp: { name: 'Teemplot' },
+        user: {
+          id: new Uint8Array(16),
+          name: (invitation?.email || 'user').toLowerCase(),
+          displayName: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Employee'
+        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+        },
+        timeout: 60000,
+      }
+
+      const credential = (await navigator.credentials.create({ publicKey })) as PublicKeyCredential
+      const response = credential.response as AuthenticatorAttestationResponse
+
+      setBiometricCaptured({
+        type: 'webauthn',
+        credentialId: toBase64(credential.rawId) || '',
+        attestationObject: toBase64(response.attestationObject || undefined),
+        clientDataJSON: toBase64(response.clientDataJSON || undefined),
+      })
+      toast.success('Biometrics captured')
+    } catch (err: any) {
+      console.error('Biometric capture error:', err)
+      setBiometricError(err?.message || 'Failed to capture biometrics')
+      toast.error(err?.message || 'Failed to capture biometrics')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,6 +202,13 @@ export default function AcceptInvitationPage() {
       return
     }
 
+    if (invitation?.biometricsEnabled && invitation?.biometricsMandatory && !biometricCaptured) {
+      const errorMsg = 'Biometrics are required. Please capture biometrics to continue.'
+      setError(errorMsg)
+      toast.error(errorMsg)
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -138,6 +217,7 @@ export default function AcceptInvitationPage() {
         password: formData.password,
         phoneNumber: '', // Optional
         dateOfBirth: '', // Optional
+        biometric: biometricCaptured || undefined,
       })
 
       const data = response.data
@@ -331,6 +411,45 @@ export default function AcceptInvitationPage() {
               </button>
             </div>
 
+            {invitation?.biometricsEnabled && (
+              <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Fingerprint className="w-5 h-5 text-[#0F5D5D]" />
+                  <h3 className="text-sm font-semibold text-gray-900">Biometrics</h3>
+                  {invitation?.biometricsMandatory && (
+                    <span className="ml-2 text-xs text-red-600">Required</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 mb-3">
+                  Capture a device-backed biometric credential to secure your account on this device.
+                </p>
+                {biometricCaptured ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-green-700">Biometrics captured</span>
+                    <button
+                      type="button"
+                      onClick={captureBiometrics}
+                      className="text-xs text-[#0F5D5D] underline"
+                    >
+                      Re-capture
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={captureBiometrics}
+                    disabled={!biometricSupported}
+                  >
+                    {biometricSupported ? 'Capture Biometrics' : 'Device Not Supported'}
+                  </Button>
+                )}
+                {biometricError && (
+                  <p className="mt-2 text-xs text-red-600">{biometricError}</p>
+                )}
+              </div>
+            )}
+
             <Button 
               type="submit" 
               variant="primary" 
@@ -338,7 +457,11 @@ export default function AcceptInvitationPage() {
               fullWidth
               loading={submitting}
               loadingText="Creating Account..."
-              disabled={!passwordValidation.isValid || formData.password !== formData.confirmPassword}
+              disabled={
+                !passwordValidation.isValid || 
+                formData.password !== formData.confirmPassword ||
+                (invitation?.biometricsEnabled && invitation?.biometricsMandatory && !biometricCaptured)
+              }
             >
               Accept Invitation & Create Account
             </Button>

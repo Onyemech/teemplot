@@ -3,6 +3,7 @@ import { Check } from 'lucide-react'
 import { submitPlanSelection, completeOnboarding } from '@/utils/onboardingApi'
 import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
+import { apiClient } from '@/lib/api'
 
 interface PaymentStepProps {
   companySize: string

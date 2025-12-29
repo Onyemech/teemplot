@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/contexts/ToastContext';
-import { useUser } from '@/contexts/UserContext';
+// import { useUser } from '@/contexts/UserContext';
 
 export function useGoogleAuth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
-  const { refetch: refetchUser } = useUser();
+  // const { refetch: refetchUser } = useUser();
 
   /**
    * Initiate Google OAuth flow
@@ -24,8 +24,9 @@ export function useGoogleAuth() {
       }, 10000); // 10 second timeout
       
       // Redirect to our backend Google OAuth endpoint
+      // IMPORTANT: Use /api prefix for all backend routes
       const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      window.location.href = `${backendUrl}/auth/google`;
+      window.location.href = `${backendUrl}/api/auth/google`;
       
       // Clear timeout if redirect happens (though this code won't run after redirect)
       clearTimeout(timeout);
@@ -45,86 +46,19 @@ export function useGoogleAuth() {
     try {
       setLoading(true);
 
-      // Send code to backend for verification with timeout
+      // Redirect to backend OAuth callback with code
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      // Redirect to backend callback which will handle the OAuth flow
+      window.location.href = `${apiUrl}/api/auth/google/callback?code=${encodeURIComponent(code)}`;
       
-      const response = await fetch(`${apiUrl}/api/auth/google/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Google authentication failed');
-      }
-
-      // Backend sets httpOnly cookies automatically - NO localStorage storage
-      const { user, requiresOnboarding } = result.data;
-
-      // Refetch user data to populate context
-      await refetchUser();
-
-      toast.success('Successfully signed in with Google!');
-
-      // Handle onboarding resumption
-      if (requiresOnboarding) {
-        // Check if there's saved progress in database
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        try {
-          const progressResponse = await fetch(`${apiUrl}/api/onboarding/progress/${user.id}`);
-          if (progressResponse.ok) {
-            const progressData = await progressResponse.json();
-            if (progressData.data) {
-              // Resume from saved progress
-              const completedSteps = progressData.data.completedSteps || [];
-              const lastStep = Math.max(0, ...completedSteps);
-              
-              if (lastStep >= 5) navigate('/onboarding/subscription');
-              else if (lastStep >= 4) navigate('/onboarding/documents');
-              else if (lastStep >= 3) navigate('/onboarding/business-info');
-              else if (lastStep >= 2) navigate('/onboarding/owner-details');
-              else navigate('/onboarding/company-setup');
-              
-              return result.data;
-            }
-          }
-        } catch (error) {
-          console.error('Failed to get onboarding progress:', error);
-        }
-        
-        // Default: start from company setup
-        navigate('/onboarding/company-setup');
-      } else {
-        navigate('/dashboard');
-      }
-
-      return result.data;
     } catch (error: any) {
-      console.error('Google callback error:', error);
-      
-      if (error.name === 'AbortError') {
-        toast.error('Google authentication timed out. Please try again.');
-      } else {
-        toast.error(error.message || 'Failed to complete Google authentication');
-      }
-      
-      navigate('/login?error=google_auth_failed');
-      throw error;
-    } finally {
       setLoading(false);
+      console.error('Google OAuth callback error:', error);
+      toast.error('Google authentication failed. Please try again.');
+      navigate('/login?error=google_auth_failed');
     }
   };
-
 
   const handleTokenFromUrl = () => {
     try {

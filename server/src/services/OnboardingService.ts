@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { emailService } from './EmailService';
 import { superAdminNotificationService } from './SuperAdminNotificationService';
 import { randomUUID } from 'crypto';
+import { onboardingProgressService } from './OnboardingProgressService';
 
 export interface DocumentUploadData {
   companyId: string;
@@ -318,9 +319,8 @@ export class OnboardingService {
     const { companyId, userId } = data;
 
     // Mark onboarding as complete
-    await this.db.update('companies', {
-      onboarding_completed: true,
-    }, { id: companyId });
+    await onboardingProgressService.markStepCompleted(userId, companyId, 6);
+    await onboardingProgressService.deleteProgress(userId);
 
     // Get user and company details for welcome email
     const user = await this.db.findOne('users', { id: userId });
@@ -351,8 +351,16 @@ export class OnboardingService {
       throw new Error('Company not found');
     }
 
+    const users = await this.db.find('users', { company_id: companyId, role: 'admin' });
+    const user = users[0];
+    let completed = false;
+    if (user) {
+      const progress = await onboardingProgressService.getProgress(user.id);
+      const requiredSteps = [1,2,3,4,5,6];
+      completed = progress ? requiredSteps.every(s => progress.completedSteps.includes(s)) : false;
+    }
     return {
-      completed: company.onboarding_completed || false,
+      completed,
       hasDocuments: !!(company.cac_document_url && company.proof_of_address_url && company.company_policy_url),
       hasPlan: !!company.subscription_plan && company.subscription_plan !== 'trial',
     };

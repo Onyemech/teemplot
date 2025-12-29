@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 
 const getDatabaseUrl = (): string => {
   if (isDevelopment && process.env.DEV_DATABASE_URL) {
@@ -16,18 +17,47 @@ const getDatabaseUrl = (): string => {
   return process.env.DATABASE_URL;
 };
 
+const connectionString = getDatabaseUrl();
+
+const getSslConfig = (): PoolConfig['ssl'] => {
+  if (isProduction) return { rejectUnauthorized: false };
+  try {
+    const url = new URL(connectionString);
+    const hostname = url.hostname.toLowerCase();
+    const isRemote = hostname !== 'localhost' && hostname !== '127.0.0.1';
+    const isSupabase = hostname.endsWith('supabase.co') || hostname.endsWith('supabase.com');
+    if (isRemote || isSupabase) return { rejectUnauthorized: false };
+  } catch {
+    return undefined;
+  }
+  return undefined;
+};
+
 const poolConfig: PoolConfig = {
-  connectionString: getDatabaseUrl(),
+  connectionString,
   max: isProduction ? 20 : 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+  ssl: getSslConfig(),
 };
 
 export const pool = new Pool(poolConfig);
 
 pool.on('connect', () => {
   logger.info(`Database connected: ${isDevelopment ? 'Development' : 'Production'} mode`);
+});
+
+pool.on('connect', (client) => {
+  if (!isTest) return;
+
+  (async () => {
+    try {
+      await client.query("SET app.current_tenant_id = '00000000-0000-0000-0000-000000000000'");
+      await client.query("SET app.current_user_id = '00000000-0000-0000-0000-000000000000'");
+    } catch (error) {
+      logger.warn({ error }, 'Failed to set test session variables');
+    }
+  })();
 });
 
 pool.on('error', (err) => {

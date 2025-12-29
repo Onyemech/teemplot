@@ -10,6 +10,7 @@ interface User {
   companyId: string;
   companyName?: string;
   companyLogo?: string;
+  avatarUrl?: string;
   subscriptionPlan?: string;
   subscriptionStatus?: string;
   trialDaysLeft?: number | null;
@@ -22,6 +23,8 @@ interface UserContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  clearUser: () => void;
+  hasRole: (roles: string | string[]) => boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -33,22 +36,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const response = await apiClient.get('/auth/me');
+      // IMPORTANT: Use /api prefix for all backend routes
+      console.log('🔍 Fetching user data from /api/auth/me...');
+      const response = await apiClient.get('/api/auth/me');
 
       if (response.data.success) {
+        console.log('✅ User data fetched successfully:', response.data.data);
         setUser(response.data.data);
         setError(null);
       } else {
+        console.log('❌ Failed to fetch user:', response.data.message);
         setError(response.data.message || 'Failed to fetch user');
         setUser(null);
       }
     } catch (err: any) {
       // 401 is okay - just means not authenticated
       if (err.response?.status === 401) {
+        console.log('ℹ️ User not authenticated (401)');
         setUser(null);
         setError(null);
       } else {
-        console.error('Failed to fetch user:', err);
+        console.error('❌ Error fetching user:', err);
         setError(err.message || 'Failed to fetch user');
         setUser(null);
       }
@@ -62,12 +70,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refetch = async () => {
+    console.log('🔄 Refetching user data...');
     setLoading(true);
     await fetchUser();
   };
 
+  const clearUser = () => {
+    console.log('🧹 Clearing user data...');
+    setUser(null);
+    setError(null);
+    setLoading(false);
+  };
+
+  const hasRole = (roles: string | string[]): boolean => {
+    if (!user) return false;
+    
+    if (Array.isArray(roles)) {
+      return roles.includes(user.role);
+    }
+    
+    return user.role === roles;
+  };
+
   return (
-    <UserContext.Provider value={{ user, loading, error, refetch }}>
+    <UserContext.Provider value={{ user, loading, error, refetch, clearUser, hasRole }}>
       {children}
     </UserContext.Provider>
   );

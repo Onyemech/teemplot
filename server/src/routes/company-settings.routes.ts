@@ -8,13 +8,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      // Check role
-      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
-        return reply.code(403).send({
-          success: false,
-          message: 'Only owners and admins can view company settings'
-        });
-      }
+      // Allow all authenticated users to view company settings
       const result = await query(
         `SELECT 
           work_start_time,
@@ -31,6 +25,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           notify_early_departure,
           grace_period_minutes,
           require_geofence_for_clockin,
+          biometrics_required,
           time_format,
           date_format,
           currency,
@@ -309,6 +304,55 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         message: 'Failed to update notification settings'
+      });
+    }
+  });
+
+  // Update biometrics settings
+  fastify.patch('/biometrics', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update biometrics settings'
+        });
+      }
+      const { biometricsRequired } = request.body as { biometricsRequired: boolean };
+
+      if (typeof biometricsRequired !== 'boolean') {
+        return reply.code(400).send({
+          success: false,
+          message: 'biometricsRequired must be a boolean'
+        });
+      }
+
+      const result = await query(
+        `UPDATE companies 
+         SET biometrics_required = $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING biometrics_required`,
+        [biometricsRequired, request.user.companyId]
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        biometricsRequired
+      }, 'Biometrics settings updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Biometrics settings updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update biometrics settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update biometrics settings'
       });
     }
   });

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // Commented out as it's not currently used
 import { CheckCircle } from 'lucide-react';
 
 export default function CompletionPage() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Commented out as it's not currently used
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
@@ -25,8 +25,9 @@ export default function CompletionPage() {
     setTimeout(clearOnboardingData, 2000);
   }, []);
 
-  const handleGoToDashboard = () => {
-    navigate('/dashboard');
+  const handleGoToDashboard = async () => {
+    // Use full page reload to ensure fresh user state and avoid race conditions
+    window.location.href = '/dashboard';
   };
 
   return (

@@ -1,16 +1,19 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { DashboardService } from '../services/DashboardService';
+import { requireOnboarding } from '../middleware/onboarding.middleware';
 
 const dashboardService = new DashboardService();
 
 export default async function dashboardRoutes(fastify: FastifyInstance) {
   // Get dashboard statistics
   fastify.get('/stats', {
-    onRequest: [fastify.authenticate]
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const userId = (request.user as any).userId;
-      const stats = await dashboardService.getDashboardStats(userId);
+      const companyId = (request.user as any).companyId;
+      const stats = await dashboardService.getDashboardStats(userId, companyId);
       return reply.send(stats);
     } catch (error: any) {
       fastify.log.error('Error fetching dashboard stats:', error);
@@ -23,11 +26,13 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
 
   // Get recent orders
   fastify.get('/recent-orders', {
-    onRequest: [fastify.authenticate]
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const userId = (request.user as any).userId;
-      const orders = await dashboardService.getRecentOrders(userId);
+      const companyId = (request.user as any).companyId;
+      const orders = await dashboardService.getRecentOrders(userId, companyId);
       return reply.send(orders);
     } catch (error: any) {
       fastify.log.error('Error fetching recent orders:', error);
@@ -40,11 +45,13 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
 
   // Get recent leads
   fastify.get('/recent-leads', {
-    onRequest: [fastify.authenticate]
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const userId = (request.user as any).userId;
-      const leads = await dashboardService.getRecentLeads(userId);
+      const companyId = (request.user as any).companyId;
+      const leads = await dashboardService.getRecentLeads(userId, companyId);
       return reply.send(leads);
     } catch (error: any) {
       fastify.log.error('Error fetching recent leads:', error);
@@ -57,7 +64,8 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
 
   // Get subscription info
   fastify.get('/subscription', {
-    onRequest: [fastify.authenticate]
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const companyId = (request.user as any).companyId;

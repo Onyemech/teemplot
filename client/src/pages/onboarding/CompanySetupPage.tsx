@@ -20,7 +20,7 @@ type Step = 'details' | 'owner' | 'documents' | 'review' | 'payment'
 export default function CompanySetupPage() {
   const navigate = useNavigate()
   const { saveProgress, getProgress } = useOnboardingProgress()
-  const { user: currentUser } = useUser()
+  const { user: currentUser, loading: userLoading } = useUser()
   const toast = useToast()
   const [currentStep, setCurrentStep] = useState<Step>('details')
   const [loading, setLoading] = useState(false)
@@ -115,6 +115,12 @@ export default function CompanySetupPage() {
   // Load saved progress and handle URL token
   useEffect(() => {
     const loadProgress = async () => {
+      // Wait for user to be loaded
+      if (userLoading) {
+        console.log('⏳ Waiting for user to load...')
+        return
+      }
+      
       // FIRST: Check if token is in URL and save it (fallback for cross-domain cookie issues)
       const urlParams = new URLSearchParams(window.location.search)
       const urlToken = urlParams.get('token')
@@ -140,7 +146,21 @@ export default function CompanySetupPage() {
       }
       
       // Get user ID from secure context
-      const userId = currentUser?.id
+      let userId = currentUser?.id
+      
+      // Fallback: try to get from localStorage if UserContext is not ready yet
+      if (!userId) {
+        const fallbackUser = localStorage.getItem('user')
+        if (fallbackUser) {
+          try {
+            const parsedUser = JSON.parse(fallbackUser)
+            userId = parsedUser.id
+            console.log('📥 Using fallback user data from localStorage for progress fetch:', { userId })
+          } catch (e) {
+            console.error('Failed to parse fallback user data:', e)
+          }
+        }
+      }
       
       console.log('👤 Current user from context:', currentUser)
       console.log('🆔 User ID for progress fetch:', userId)
@@ -202,7 +222,7 @@ export default function CompanySetupPage() {
       }
     }
     loadProgress()
-  }, [currentUser, getProgress])
+  }, [currentUser, getProgress, userLoading])
 
   // Validation helper for each step
   const isStepValid = (step: Step): boolean => {
@@ -260,15 +280,34 @@ export default function CompanySetupPage() {
       }
 
       // Get user data from secure context (httpOnly cookies)
-      if (!currentUser) {
-        throw new Error('Not authenticated. Please log in again.')
+      let userId = currentUser?.id
+      let companyId = currentUser?.companyId
+      
+      // Fallback: try to get from localStorage if UserContext is not ready yet
+      if (!userId) {
+        const fallbackUser = localStorage.getItem('user')
+        if (fallbackUser) {
+          try {
+            const parsedUser = JSON.parse(fallbackUser)
+            userId = parsedUser.id
+            companyId = parsedUser.companyId
+            console.log('📥 Using fallback user data from localStorage for next step:', { userId, companyId })
+          } catch (e) {
+            console.error('Failed to parse fallback user data:', e)
+          }
+        }
+      }
+      
+      if (!userId) {
+        console.error('Not authenticated during onboarding submission')
+        toast.error('Please complete email verification before continuing')
+        return
       }
 
-      const userId = currentUser.id
-      const companyId = currentUser.companyId
-      
       if (!companyId) {
-        throw new Error('Company ID not found. Please try logging in again.')
+        console.error('Company ID not found during onboarding submission')
+        toast.error('Please complete company setup before continuing')
+        return
       }
 
       // Submit data to backend based on current step
@@ -1284,14 +1323,31 @@ export default function CompanySetupPage() {
   const handleSaveProgress = async () => {
     try {
       // Get user data from secure context (httpOnly cookies)
-      if (!currentUser) {
-        console.warn('No user data available to save progress')
-        toast.error('Please log in to save progress')
+      let userId = currentUser?.id
+      let companyId = currentUser?.companyId
+      
+      // Fallback: try to get from localStorage if UserContext is not ready yet
+      if (!userId) {
+        const fallbackUser = localStorage.getItem('user')
+        if (fallbackUser) {
+          try {
+            const parsedUser = JSON.parse(fallbackUser)
+            userId = parsedUser.id
+            companyId = parsedUser.companyId
+            console.log('📥 Using fallback user data from localStorage:', { userId, companyId })
+          } catch (e) {
+            console.error('Failed to parse fallback user data:', e)
+          }
+        }
+      }
+      
+      if (!userId) {
+        console.warn('No user data available to save progress - user might not be authenticated yet')
+        // Don't show error toast during onboarding - this is expected for initial steps
         return
       }
       
-      const userId = currentUser.id
-      const companyId = currentUser.companyId
+      console.log('💾 Saving progress with userId:', userId, 'companyId:', companyId)
       
       // Only userId is required - companyId is optional during initial onboarding
       if (userId) {
@@ -1403,6 +1459,7 @@ export default function CompanySetupPage() {
         totalSteps={steps.length}
         onSave={handleSaveProgress}
         onBack={handleBack}
+        disabled={!currentUser || userLoading}
       />
 
       {/* Loading Progress Banner */}
@@ -1412,6 +1469,18 @@ export default function CompanySetupPage() {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
               <span>{progressMessage}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Authentication Loading Banner */}
+      {userLoading && !currentUser && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-2">
+            <div className="flex items-center gap-2 text-sm text-blue-700">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
+              <span>Loading authentication...</span>
             </div>
           </div>
         </div>

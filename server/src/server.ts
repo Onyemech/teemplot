@@ -12,6 +12,7 @@ import { userRoutes } from './presentation/routes/userRoutes';
 import { companyRoutes } from './presentation/routes/companyRoutes';
 import { attendanceRoutes } from './presentation/routes/attendanceRoutes';
 import { taskRoutes } from './presentation/routes/taskRoutes';
+import { healthRoutes } from './routes/health.routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -60,6 +61,11 @@ export async function buildServer(): Promise<FastifyInstance> {
     sign: {
       expiresIn: config_env.jwt.accessExpiresIn,
     },
+    // Configure JWT to read from cookies
+    cookie: {
+      cookieName: 'accessToken',
+      signed: false,
+    },
   });
 
   await server.register(cookie, {
@@ -77,7 +83,11 @@ export async function buildServer(): Promise<FastifyInstance> {
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.code(401).send({ error: 'Unauthorized' });
+      reply.code(401).send({ 
+        success: false,
+        message: 'Authentication required. Please log in.',
+        error: 'UNAUTHORIZED'
+      });
     }
   });
 
@@ -96,6 +106,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(companyRoutes, { prefix: '/api/companies' });
   await server.register(attendanceRoutes, { prefix: '/api/attendance' });
   await server.register(taskRoutes, { prefix: '/api/tasks' });
+  await server.register(healthRoutes); // Health check routes don't need prefix
 
   server.setErrorHandler((error: any, request, reply) => {
     request.log.error(error);

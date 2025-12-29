@@ -110,12 +110,26 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Stage 3: Company Setup
-  fastify.post('/company-setup', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  fastify.post('/company-setup', async (request, reply) => {
     try {
       const rawData = CompanySetupSchema.parse(request.body);
       const data = sanitizeInput(rawData);
+      
+      // If user is authenticated, verify they're saving their own data
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.userId && request.user.userId !== data.userId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot save company setup for another user',
+          });
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
+      
       await onboardingService.saveCompanySetup(data);
 
       return reply.code(200).send({
@@ -131,12 +145,26 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Stage 4: Owner Details (conditional)
-  fastify.post('/owner-details', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  fastify.post('/owner-details', async (request, reply) => {
     try {
       const rawData = OwnerDetailsSchema.parse(request.body);
       const data = sanitizeInput(rawData);
+      
+      // If user is authenticated, verify they're saving their own data
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.userId && request.user.userId !== data.registrantUserId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot save owner details for another user',
+          });
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
+      
       await onboardingService.saveOwnerDetails(data);
 
       return reply.code(200).send({
@@ -152,12 +180,25 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Stage 5: Business Information
-  fastify.post('/business-info', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  fastify.post('/business-info', async (request, reply) => {
     try {
       const rawData = BusinessInfoSchema.parse(request.body);
       const data = sanitizeInput(rawData);
+
+      // If user is authenticated, verify they're saving their own data
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.companyId && request.user.companyId !== data.companyId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot save business info for another company',
+          });
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
 
       // Validate address if coordinates are provided
       if (data.officeLatitude && data.officeLongitude) {
@@ -237,24 +278,51 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Stage 6: Upload Logo
-  fastify.post('/upload-logo', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  fastify.post('/upload-logo', async (request, reply) => {
     try {
-      const data = await request.file();
-      
-      if (!data) {
+      const parts = request.parts();
+      let fileBuffer: Buffer | null = null;
+      let filename: string = '';
+      let mimetype: string = '';
+      let companyId: string | null = null;
+      let userId: string | null = null;
+
+      // Process all parts (fields and file)
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          filename = part.filename;
+          mimetype = part.mimetype;
+          fileBuffer = await part.toBuffer();
+        } else {
+          // It's a field
+          if (part.fieldname === 'companyId') {
+            companyId = part.value as string;
+          }
+          if (part.fieldname === 'userId') {
+            userId = part.value as string;
+          }
+        }
+      }
+
+      if (!fileBuffer) {
         return reply.code(400).send({
           success: false,
           message: 'No file uploaded',
         });
       }
 
+      if (!companyId) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
       // Basic validation using security middleware
       const basicValidation = validateFileUpload({
-        filename: data.filename,
-        mimetype: data.mimetype,
-        size: data.file.bytesRead || 0
+        filename,
+        mimetype,
+        size: fileBuffer.length
       });
 
       if (!basicValidation.valid) {
@@ -264,24 +332,39 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get file buffer
-      const buffer = await data.toBuffer();
-      const companyId = request.user.companyId;
+      // If user is authenticated, verify they're uploading for their own company
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.companyId && request.user.companyId !== companyId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot upload logo for another company',
+          });
+        }
+        // Use authenticated user ID if available
+        if (request.user.userId) {
+          userId = request.user.userId;
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
 
       // Extract file extension
-      const extension = data.filename.includes('.') 
-        ? `.${data.filename.split('.').pop()?.toLowerCase()}` 
+      const extension = filename.includes('.') 
+        ? `.${filename.split('.').pop()?.toLowerCase()}` 
         : '';
 
       // Prepare metadata for enhanced validation
       const metadata = {
-        filename: data.filename,
-        mimeType: data.mimetype,
-        uploadedBy: request.user.userId
+        filename,
+        mimeType: mimetype,
+        uploadedBy: userId || 'anonymous'
       };
 
       // Upload with comprehensive validation
-      const result = await fileUploadService.uploadLogo(buffer, companyId, metadata);
+      const result = await fileUploadService.uploadLogo(fileBuffer, companyId, metadata);
       
       // Save to database
       await onboardingService.uploadLogo(companyId, result.secureUrl);
@@ -303,9 +386,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   });
 
   // Stage 7: Upload Documents
-  fastify.post('/upload-document', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  fastify.post('/upload-document', async (request, reply) => {
     try {
       const parts = request.parts();
       let fileBuffer: Buffer | null = null;
@@ -313,7 +394,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       let filename: string = '';
       let mimetype: string = '';
       let fileSize: number = 0;
-      const companyId = request.user.companyId;
+      let companyId: string | null = null;
+      let userId: string | null = null;
 
       // Process all parts (fields and file)
       for await (const part of parts) {
@@ -326,6 +408,12 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
           // It's a field
           if (part.fieldname === 'documentType') {
             documentType = part.value as string;
+          }
+          if (part.fieldname === 'companyId') {
+            companyId = part.value as string;
+          }
+          if (part.fieldname === 'userId') {
+            userId = part.value as string;
           }
         }
       }
@@ -344,6 +432,13 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
+      if (!companyId) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
       // Basic validation using security middleware
       const basicValidation = validateFileUpload({
         filename,
@@ -358,6 +453,25 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // If user is authenticated, verify they're uploading for their own company
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.companyId && request.user.companyId !== companyId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot upload documents for another company',
+          });
+        }
+        // Use authenticated user ID if available
+        if (request.user.userId) {
+          userId = request.user.userId;
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
+
       // Extract file extension
       const extension = filename.includes('.') 
         ? `.${filename.split('.').pop()?.toLowerCase()}` 
@@ -367,7 +481,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       const metadata = {
         filename,
         mimeType: mimetype,
-        uploadedBy: request.user.userId
+        uploadedBy: userId || 'anonymous'
       };
 
       // Upload with comprehensive validation
@@ -464,10 +578,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Save onboarding progress
-  fastify.post('/save-progress', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  // Save onboarding progress - accessible without auth for initial steps
+  fastify.post('/save-progress', async (request, reply) => {
     try {
       const { userId, companyId, currentStep, completedSteps, formData } = request.body as any;
 
@@ -477,6 +589,21 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
           success: false,
           message: 'Missing required fields: userId, currentStep',
         });
+      }
+
+      // If user is authenticated, verify they're saving their own progress
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.userId && request.user.userId !== userId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot save progress for another user',
+          });
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
       }
 
       const { onboardingProgressService } = await import('../services/OnboardingProgressService');
@@ -501,12 +628,25 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get onboarding progress
-  fastify.get('/progress/:userId', {
-    preHandler: [fastify.authenticate],
-  }, async (request, reply) => {
+  // Get onboarding progress - accessible without auth for initial steps
+  fastify.get('/progress/:userId', async (request, reply) => {
     try {
       const { userId } = request.params as any;
+
+      // If user is authenticated, verify they're accessing their own progress
+      try {
+        await request.jwtVerify();
+        // If we get here, user is authenticated
+        if (request.user.userId && request.user.userId !== userId) {
+          return reply.code(403).send({
+            success: false,
+            message: 'Cannot access progress for another user',
+          });
+        }
+      } catch (authError) {
+        // User is not authenticated, but that's okay for initial onboarding
+        // Just continue without authentication check
+      }
 
       const { onboardingProgressService } = await import('../services/OnboardingProgressService');
       const progress = await onboardingProgressService.getProgress(userId);

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { useUser } from '@/contexts/UserContext';
+import { apiClient } from '@/lib/api';
 
 export interface OnboardingProgressData {
   userId: string;
@@ -11,96 +11,69 @@ export interface OnboardingProgressData {
 }
 
 export function useOnboardingProgress() {
+  const { user } = useUser(); // Use UserContext for authenticated users
+  
   const saveProgress = useCallback(async (data: OnboardingProgressData) => {
     try {
+      // Use authenticated user if available, otherwise use provided data
+      const userId = user?.id || data.userId;
+      const companyId = user?.companyId || data.companyId;
+      
+      if (!userId) {
+        throw new Error('No user ID available - user must be authenticated');
+      }
+      
       // Development logging only
       if (import.meta.env.MODE === 'development') {
         console.log('💾 Saving progress:', {
-          userId: data.userId ? '✅' : '❌',
-          companyId: data.companyId ? '✅' : '❌',
+          userId: userId ? '✅' : '❌',
+          companyId: companyId ? '✅' : '❌',
           currentStep: data.currentStep,
+          source: user ? 'authenticated' : 'provided',
         });
       }
       
-      const response = await fetch(`${API_URL}/api/onboarding/save-progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Use httpOnly cookies for auth
-        body: JSON.stringify(data),
+      const response = await apiClient.post('/api/onboarding/save-progress', {
+        ...data,
+        userId,
+        companyId,
       });
+      const result = response.data;
 
-      const result = await response.json();
-
-      if (!response.ok) {
+      if (!response.data.success) {
         console.error('❌ Save progress failed:', result);
         throw new Error(result.message || 'Failed to save progress');
       }
 
       console.log('✅ Progress saved successfully to backend');
-      
-      // Also save to localStorage as backup
-      try {
-        const progressKey = `onboarding_progress_${data.userId}`;
-        localStorage.setItem(progressKey, JSON.stringify({
-          ...data,
-          savedAt: new Date().toISOString()
-        }));
-        console.log('✅ Progress also saved to localStorage backup');
-      } catch (e) {
-        console.warn('⚠️ Could not save to localStorage backup:', e);
-      }
-
       return result;
     } catch (error: any) {
       console.error('❌ Error saving progress:', error.message);
       throw error;
     }
-  }, []);
+  }, [user]);
 
   const getProgress = useCallback(async (userId: string) => {
     try {
       console.log('🔍 Fetching progress from server for user:', userId);
       
-      const response = await fetch(`${API_URL}/api/onboarding/progress/${userId}`, {
-        credentials: 'include', // Use httpOnly cookies for auth
-      });
+      const response = await apiClient.get(`/api/onboarding/progress/${userId}`);
+      const result = response.data;
 
-      console.log('📡 Server response status:', response.status);
-
-      if (response.status === 404) {
-        console.log('ℹ️ No saved progress found on server');
-        return null;
-      }
-
-      if (response.status === 401) {
-        console.error('❌ Not authenticated - cannot fetch progress from server');
-        return null;
-      }
-
-      const result = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         console.error('❌ Failed to get progress from server:', result);
         return null;
       }
 
       console.log('✅ Progress loaded from server:', result.data);
-      
-      // Save to localStorage as backup ONLY after successful server fetch
-      try {
-        const progressKey = `onboarding_progress_${userId}`;
-        localStorage.setItem(progressKey, JSON.stringify({
-          ...result.data,
-          savedAt: new Date().toISOString()
-        }));
-      } catch (e) {
-        console.warn('⚠️ Could not save to localStorage backup:', e);
-      }
-      
       return result.data;
     } catch (error: any) {
+      // Handle 404 - no progress found (this is normal for new users)
+      if (error.response?.status === 404) {
+        console.log('ℹ️ No progress found on server (404) - this is normal for new users');
+        return null;
+      }
+      
       console.error('❌ Network error getting progress from server:', error.message);
       return null;
     }
@@ -108,7 +81,16 @@ export function useOnboardingProgress() {
 
   const getAuthData = useCallback(() => {
     try {
-      // Try sessionStorage first (onboarding flow)
+      // Use UserContext first (authenticated users)
+      if (user) {
+        return {
+          userId: user.id,
+          companyId: user.companyId || null,
+          email: user.email,
+        };
+      }
+
+      // Fallback to sessionStorage (onboarding flow for non-authenticated users)
       const authData = sessionStorage.getItem('onboarding_auth');
       if (authData) {
         const parsed = JSON.parse(authData);
@@ -118,45 +100,12 @@ export function useOnboardingProgress() {
         }
       }
 
-      // Fallback to localStorage (logged in user resuming onboarding)
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        // userId is required, companyId is optional during onboarding
-        if (user.id) {
-          return {
-            userId: user.id,
-            companyId: user.companyId || null,
-            email: user.email,
-            // Preserve any other fields that might be needed
-          };
-        }
-      }
-
-      // Last resort: try to get from token
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          // Decode JWT to get user info (basic decode, not verification)
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload.userId) {
-            return {
-              userId: payload.userId,
-              companyId: payload.companyId || null,
-              email: payload.email,
-            };
-          }
-        } catch {
-          // Token decode failed, continue
-        }
-      }
-
       return null;
     } catch (error) {
       console.error('Error getting auth data:', error);
       return null;
     }
-  }, []);
+  }, [user]);
 
   const resumeOnboarding = useCallback(async (userId: string) => {
     try {

@@ -63,15 +63,17 @@ export class OnboardingProgressService {
   /**
    * Get user's onboarding progress with file URLs from database
    */
-  async getProgress(userId: string): Promise<OnboardingProgress | null> {
+  async getProgress(userId: string, companyId?: string): Promise<OnboardingProgress | null> {
     try {
-      logger.info(`Fetching onboarding progress for user: ${userId}`);
+      logger.info(`Fetching onboarding progress for user: ${userId}${companyId ? `, company: ${companyId}` : ''}`);
       
       const { query } = await import('../config/database');
-      const result = await query(
-        'SELECT * FROM onboarding_progress WHERE user_id = $1 LIMIT 1',
-        [userId]
-      );
+      const queryStr = companyId 
+        ? 'SELECT * FROM onboarding_progress WHERE user_id = $1 AND company_id = $2 LIMIT 1'
+        : 'SELECT * FROM onboarding_progress WHERE user_id = $1 LIMIT 1';
+      const params = companyId ? [userId, companyId] : [userId];
+      
+      const result = await query(queryStr, params);
       
       const progress = result.rows[0];
 
@@ -91,17 +93,17 @@ export class OnboardingProgressService {
         formData = {};
       }
       
-      const companyId = progress.company_id;
+      const progressCompanyId = progress.company_id;
 
-      if (companyId && companyId !== 'pending') {
+      if (progressCompanyId && progressCompanyId !== 'pending') {
         try {
-          const company = await this.db.findOne('companies', { id: companyId });
+          const company = await this.db.findOne('companies', { id: progressCompanyId });
           if (company && company.logo_url) {
             formData.companyLogo = company.logo_url;
           }
 
           const companyFiles = await this.db.find('company_files', { 
-            company_id: companyId,
+            company_id: progressCompanyId,
             is_active: true 
           });
 
@@ -162,9 +164,9 @@ export class OnboardingProgressService {
     }
   }
 
-  async markStepCompleted(userId: string, step: number): Promise<void> {
+  async markStepCompleted(userId: string, companyId: string, step: number): Promise<void> {
     try {
-      const progress = await this.getProgress(userId);
+      const progress = await this.getProgress(userId, companyId);
       
       if (!progress) {
         logger.warn(`No progress found for user ${userId}`);
@@ -180,7 +182,7 @@ export class OnboardingProgressService {
       await this.db.update(
         'onboarding_progress',
         { completed_steps: JSON.stringify(completedSteps) },
-        { user_id: userId }
+        { user_id: userId, company_id: companyId }
       );
 
       logger.info(`Step ${step} marked as completed for user ${userId}`);

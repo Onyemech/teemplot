@@ -1,27 +1,171 @@
 import { FastifyInstance } from 'fastify';
 import { enhancedAttendanceService } from '../services/EnhancedAttendanceService';
+import { userService } from '../services/UserService';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
 export default async function attendanceRoutes(fastify: FastifyInstance) {
+  // Admin: Get company attendance (filtered list)
+  fastify.get('/', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin' && request.user.role !== 'department_head') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Insufficient permissions'
+        });
+      }
+
+      const { 
+        startDate, 
+        endDate, 
+        department, 
+        search, 
+        status, 
+        page = 1, 
+        limit = 10 
+      } = request.query as any;
+
+      const offset = (page - 1) * limit;
+
+      const result = await enhancedAttendanceService.getCompanyAttendance(
+        request.user.companyId,
+        {
+          startDate: startDate ? new Date(startDate) : undefined,
+          endDate: endDate ? new Date(endDate) : undefined,
+          department,
+          search,
+          status,
+          limit,
+          offset
+        }
+      );
+
+      return reply.code(200).send({
+        success: true,
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(result.total / Number(limit))
+        },
+        message: 'Attendance records retrieved successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to get company attendance');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve attendance records'
+      });
+    }
+  });
+
+  // Admin: Export attendance (CSV)
+  fastify.get('/export', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin' && request.user.role !== 'department_head') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Insufficient permissions'
+        });
+      }
+
+      const { 
+        startDate, 
+        endDate, 
+        department, 
+        search, 
+        status
+      } = request.query as any;
+
+      // Get all matching records (no limit)
+      const result = await enhancedAttendanceService.getCompanyAttendance(
+        request.user.companyId,
+        {
+          startDate: startDate ? new Date(startDate) : undefined,
+          endDate: endDate ? new Date(endDate) : undefined,
+          department,
+          search,
+          status
+          // No limit for export
+        }
+      );
+
+      // Generate CSV
+      const headers = ['Employee Name', 'Email', 'Department', 'Date', 'Clock In', 'Clock Out', 'Status', 'Location'];
+      const rows = result.data.map(record => {
+        const date = new Date(record.clock_in_time).toLocaleDateString();
+        const clockIn = new Date(record.clock_in_time).toLocaleTimeString();
+        const clockOut = record.clock_out_time ? new Date(record.clock_out_time).toLocaleTimeString() : '--:--';
+        const location = record.clock_in_location ? 'Onsite' : 'Remote'; // Simplified logic
+        
+        return [
+          `"${record.first_name} ${record.last_name}"`,
+          `"${record.email}"`,
+          `"${record.department || ''}"`,
+          `"${date}"`,
+          `"${clockIn}"`,
+          `"${clockOut}"`,
+          `"${record.status}"`,
+          `"${location}"`
+        ].join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\n');
+
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', `attachment; filename="attendance_export_${new Date().toISOString().split('T')[0]}.csv"`);
+      return reply.send(csvContent);
+
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to export attendance');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to export attendance records'
+      });
+    }
+  });
+
   // Check in
   fastify.post('/check-in', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const { location } = request.body as {
+      const { location, biometricsProof } = request.body as {
         location?: {
           latitude: number;
           longitude: number;
           address?: string;
         };
+        biometricsProof?: string;
       };
+
+      // Check if location verification is required
+      const requiresVerification = await userService.isLocationVerificationRequired(request.user.userId, request.user.companyId);
+      if (requiresVerification && !location) {
+         return reply.code(400).send({
+            success: false,
+            message: 'Location verification required. Please provide current location.',
+            requiresLocationVerification: true
+         });
+      }
+
+      if (requiresVerification && location) {
+          await userService.updateLocationVerification(request.user.userId);
+      }
 
       const attendance = await enhancedAttendanceService.checkIn({
         userId: request.user.userId,
         companyId: request.user.companyId,
         location,
-        method: 'manual'
+        method: 'manual',
+        biometricsProof
       });
 
       return reply.code(200).send({
@@ -40,12 +184,48 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Verify Location
+  fastify.post('/verify-location', {
+      preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+      try {
+          const { location } = request.body as {
+              location: {
+                  latitude: number;
+                  longitude: number;
+              }
+          };
+
+          if (!location) {
+              return reply.code(400).send({
+                  success: false,
+                  message: 'Location is required'
+              });
+          }
+
+          // Here you might want to validate if the location is "reasonable" or matches expected patterns
+          // For now, we just trust the user provided location and update the timestamp
+          await userService.updateLocationVerification(request.user.userId);
+
+          return reply.code(200).send({
+              success: true,
+              message: 'Location verified successfully'
+          });
+      } catch (error: any) {
+          logger.error({ error, userId: request.user.userId }, 'Location verification failed');
+          return reply.code(500).send({
+              success: false,
+              message: 'Failed to verify location'
+          });
+      }
+  });
+
   // Check out
   fastify.post('/check-out', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const { attendanceId, location, departureReason } = request.body as {
+      const { attendanceId, location, departureReason, biometricsProof } = request.body as {
         attendanceId: string;
         location?: {
           latitude: number;
@@ -53,6 +233,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
           address?: string;
         };
         departureReason?: string;
+        biometricsProof?: string;
       };
 
       if (!attendanceId) {
@@ -68,7 +249,8 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         attendanceId,
         location,
         method: 'manual',
-        departureReason
+        departureReason,
+        biometricsProof
       });
 
       return reply.code(200).send({
@@ -87,13 +269,50 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get attendance status (matches frontend expectation)
+  fastify.get('/status', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const attendance = await enhancedAttendanceService.getCurrentAttendance(
+        request.user.userId,
+        request.user.companyId
+      );
+
+      const requiresLocationVerification = await userService.isLocationVerificationRequired(request.user.userId, request.user.companyId);
+
+      const data = {
+          isClockedIn: !!attendance && !attendance.clockOutTime,
+          clockInTime: attendance?.clockInTime || null,
+          clockOutTime: attendance?.clockOutTime || null,
+          totalHoursToday: 0, // Calculate if needed or fetch from DB
+          isWithinGeofence: attendance?.isWithinGeofence || false, // This is historical, might want current
+          distanceFromOffice: attendance?.clockInDistanceMeters || 0,
+          requiresLocationVerification
+      };
+
+      return reply.code(200).send({
+        success: true,
+        data: data,
+        message: 'Attendance status retrieved'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Failed to get attendance status');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve attendance status'
+      });
+    }
+  });
+
   // Get current attendance status
   fastify.get('/current', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
       const attendance = await enhancedAttendanceService.getCurrentAttendance(
-        request.user.userId
+        request.user.userId,
+        request.user.companyId
       );
 
       return reply.code(200).send({

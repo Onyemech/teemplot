@@ -6,7 +6,6 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Check } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
-import { formatErrorForToast } from '@/utils/errorHandler'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 
 export default function RegisterPage() {
@@ -65,8 +64,31 @@ export default function RegisterPage() {
       // Navigate to verification page
       navigate(`/onboarding/verify?email=${encodeURIComponent(formData.email)}`)
     } catch (err: any) {
-      console.error('Registration error:', err)
-      const errorMessage = formatErrorForToast(err)
+      console.error('Registration error object:', err)
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response,
+        request: err.request,
+        config: err.config
+      })
+      
+      let errorMessage = 'Registration failed. Please try again.'
+      
+      // Check for specific error types
+      if (!err.response && err.request) {
+        errorMessage = 'Unable to connect to server. Please check if the backend server is running on port 5000.'
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err.message) {
+        errorMessage = err.message
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid registration data. Please check your input.'
+      } else if (err.response?.status === 409) {
+        errorMessage = 'An account with this email already exists.'
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.'
+      }
+
       setError(errorMessage)
       toast.error(errorMessage)
       setLoading(false)

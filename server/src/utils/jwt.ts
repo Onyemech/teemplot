@@ -22,7 +22,7 @@ export function setAuthCookies(
   const cookieOptions = {
     httpOnly: true, 
     secure: isProduction, 
-    sameSite: 'lax' as const, 
+    sameSite: isProduction ? 'strict' as const : 'lax' as const, 
     domain: isProduction ? '.teemplot.com' : undefined, 
     path: '/',
   };
@@ -37,13 +37,13 @@ export function setAuthCookies(
 
   reply.cookie('accessToken', accessToken, {
     ...cookieOptions,
-    maxAge: 15 * 60 
+    maxAge: 15 * 60 * 1000 // 15 minutes in milliseconds
   });
 
   reply.cookie('refreshToken', refreshToken, {
     ...cookieOptions,
     path: '/', 
-    maxAge: 7 * 24 * 60 * 60 
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { UserRoles, UserRole } from '@/constants/roles'
 
-export type UserRole = 'owner' | 'admin' | 'staff'
+export type { UserRole }
 export type SubscriptionPlan = 'trial' | 'silver' | 'gold'
 
 export interface User {
@@ -49,15 +50,20 @@ export function useAuth() {
     }
   }
 
-  const isOwner = user?.role === 'owner'
-  const isAdmin = user?.role === 'admin'
-  const isStaff = user?.role === 'staff'
+  const isOwner = user?.role === UserRoles.OWNER
+  const isAdmin = user?.role === UserRoles.ADMIN
+  const isDepartmentHead = user?.role === UserRoles.DEPARTMENT_HEAD
+  const isEmployee = user?.role === UserRoles.EMPLOYEE
   
+  // Backward compatibility alias (deprecated)
+  const isStaff = isEmployee
+
   // Role-based permissions
-  const canManageEmployees = isOwner || isAdmin
+  const canManageEmployees = isOwner || isAdmin || isDepartmentHead
   const canManageOwner = false // No one can manage owner
   const canManageAdmin = isOwner // Only owner can manage admin
-  const canManageStaff = isOwner || isAdmin
+  const canManageDepartmentHead = isOwner || isAdmin
+  const canManageStaff = isOwner || isAdmin || isDepartmentHead
   const canModifySubscription = isOwner
   const canDeleteCompany = isOwner
 
@@ -66,10 +72,13 @@ export function useAuth() {
     loading,
     isOwner,
     isAdmin,
+    isDepartmentHead,
+    isEmployee,
     isStaff,
     canManageEmployees,
     canManageOwner,
     canManageAdmin,
+    canManageDepartmentHead,
     canManageStaff,
     canModifySubscription,
     canDeleteCompany,

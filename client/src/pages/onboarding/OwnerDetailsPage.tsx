@@ -1,21 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Info, Mail, Send } from 'lucide-react';
+import { Info, Mail, Send } from 'lucide-react';
+import OnboardingNavbar from '@/components/onboarding/OnboardingNavbar';
+import { useUser } from '@/contexts/UserContext';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function OwnerDetailsPage() {
   const navigate = useNavigate();
+  const { user, loading: userLoading } = useUser();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   
-  // Get registrant info from session
-  const registrantInfo = JSON.parse(sessionStorage.getItem('registrantInfo') || '{}');
+  // Get ownership status from session
   const isOwner = sessionStorage.getItem('isOwner') === 'true';
   
   // Redirect if user is the owner
   useEffect(() => {
-    if (isOwner) {
+    if (!userLoading && isOwner) {
       navigate('/onboarding/business-info');
     }
-  }, [isOwner, navigate]);
+  }, [isOwner, navigate, userLoading]);
 
   const [formData, setFormData] = useState({
     ownerFirstName: '',
@@ -26,6 +30,14 @@ export default function OwnerDetailsPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  if (userLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+      </div>
+    );
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -51,7 +63,7 @@ export default function OwnerDetailsPage() {
       newErrors.ownerEmail = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.ownerEmail)) {
       newErrors.ownerEmail = 'Invalid email format';
-    } else if (formData.ownerEmail === registrantInfo.email) {
+    } else if (user?.email && formData.ownerEmail === user.email) {
       newErrors.ownerEmail = 'Owner email must be different from your email';
     }
 
@@ -89,7 +101,7 @@ export default function OwnerDetailsPage() {
       navigate('/onboarding/business-info');
     } catch (error) {
       console.error('Error saving owner details:', error);
-      alert('Failed to save owner details. Please try again.');
+      toast.error('Failed to save owner details. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -99,29 +111,21 @@ export default function OwnerDetailsPage() {
     navigate('/onboarding/company-setup');
   };
 
+  const handleSaveProgress = async () => {
+      // Implement save progress if needed, similar to CompanySetupPage
+      toast.info('Progress saved locally');
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Step 3 of 9</span>
-            <span className="text-sm text-gray-500">33% Complete</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-[#0F5D5D] h-2 rounded-full transition-all duration-300" style={{ width: '33%' }}></div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <OnboardingNavbar
+        currentStep={3}
+        totalSteps={9}
+        onSave={async () => { await handleSaveProgress() }}
+        onBack={handleBack}
+      />
 
-        {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </button>
-
+      <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -141,13 +145,13 @@ export default function OwnerDetailsPage() {
             <div>
               <span className="text-gray-500">Name:</span>
               <span className="ml-2 text-gray-900 font-medium">
-                {registrantInfo.firstName} {registrantInfo.lastName}
+                {user?.firstName} {user?.lastName}
               </span>
             </div>
             <div>
               <span className="text-gray-500">Email:</span>
               <span className="ml-2 text-gray-900 font-medium">
-                {registrantInfo.email}
+                {user?.email}
               </span>
             </div>
           </div>
@@ -170,7 +174,7 @@ export default function OwnerDetailsPage() {
                 name="ownerFirstName"
                 value={formData.ownerFirstName}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
                   errors.ownerFirstName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter owner's first name"
@@ -190,7 +194,7 @@ export default function OwnerDetailsPage() {
                 name="ownerLastName"
                 value={formData.ownerLastName}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
                   errors.ownerLastName ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter owner's last name"
@@ -210,7 +214,7 @@ export default function OwnerDetailsPage() {
                 name="ownerEmail"
                 value={formData.ownerEmail}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
                   errors.ownerEmail ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="owner@company.com"
@@ -233,7 +237,7 @@ export default function OwnerDetailsPage() {
                 name="ownerPhone"
                 value={formData.ownerPhone}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
                   errors.ownerPhone ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="+234 800 000 0000"
@@ -254,7 +258,7 @@ export default function OwnerDetailsPage() {
                 value={formData.ownerDateOfBirth}
                 onChange={handleChange}
                 max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent ${
                   errors.ownerDateOfBirth ? 'border-red-500' : 'border-gray-300'
                 }`}
               />

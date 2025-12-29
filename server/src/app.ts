@@ -14,6 +14,7 @@ import {
   detectSuspiciousActivity,
   logSecurityEvent
 } from './middleware/security.middleware';
+import { pathTraversalProtection } from './middleware/pathTraversal.middleware';
 import { config_env } from './config/environment';
 
 export async function buildApp() {
@@ -33,6 +34,7 @@ export async function buildApp() {
   // Register security middleware
   app.addHook('onRequest', securityHeaders);
   app.addHook('onRequest', requestLogger);
+  app.addHook('onRequest', pathTraversalProtection);
 
   // Add suspicious activity detection
   app.addHook('preHandler', async (request, reply) => {
@@ -190,6 +192,10 @@ export async function buildApp() {
   // Import and register company settings routes
   const companySettingsRoutes = await import('./routes/company-settings.routes');
   await app.register(companySettingsRoutes.default, { prefix: `${apiPrefix}/company-settings` });
+
+  // Import and register WebAuthn routes for biometric authentication
+  const webAuthnRoutes = await import('./routes/webauthn.routes');
+  await app.register(webAuthnRoutes.default, { prefix: `${apiPrefix}/webauthn` });
 
   // Import and register admin address audit routes
   const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');

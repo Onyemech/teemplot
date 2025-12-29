@@ -164,44 +164,63 @@ export async function authRoutes(server: FastifyInstance) {
   server.get('/me', {
     onRequest: [server.authenticate as any],
   }, async (request: any, reply: FastifyReply) => {
-    const { userId, superAdminId } = request.user;
+    try {
+      const { userId, superAdminId } = request.user;
 
-    if (userId) {
-      const user = await userRepo.findById(userId);
-      if (!user) {
-        return reply.code(404).send({ error: 'User not found' });
+      if (userId) {
+        const user = await userRepo.findById(userId);
+        if (!user) {
+          return reply.code(404).send({ 
+            success: false,
+            message: 'User not found'
+          });
+        }
+
+        return reply.send({
+          success: true,
+          data: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            companyId: user.companyId,
+            emailVerified: user.emailVerified,
+          },
+        });
       }
 
-      return reply.send({
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          companyId: user.companyId,
-          emailVerified: user.emailVerified,
-        },
-      });
-    }
+      if (superAdminId) {
+        const admin = await superAdminRepo.findById(superAdminId);
+        if (!admin) {
+          return reply.code(404).send({ 
+            success: false,
+            message: 'Admin not found'
+          });
+        }
 
-    if (superAdminId) {
-      const admin = await superAdminRepo.findById(superAdminId);
-      if (!admin) {
-        return reply.code(404).send({ error: 'Admin not found' });
+        return reply.send({
+          success: true,
+          data: {
+            id: admin.id,
+            email: admin.email,
+            firstName: admin.firstName,
+            lastName: admin.lastName,
+            role: 'superadmin',
+          },
+        });
       }
 
-      return reply.send({
-        admin: {
-          id: admin.id,
-          email: admin.email,
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          role: 'superadmin',
-        },
+      return reply.code(401).send({ 
+        success: false,
+        message: 'Unauthorized'
+      });
+    } catch (error) {
+      console.error('Error in /me endpoint:', error);
+      return reply.code(500).send({
+        success: false,
+        message: 'Internal server error'
       });
     }
-
-    return reply.code(401).send({ error: 'Unauthorized' });
   });
 }

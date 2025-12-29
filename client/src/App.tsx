@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import PWAUpdateNotification from './components/PWAUpdateNotification'
+import OnboardingGuard from './components/OnboardingGuard'
+import DashboardGuard from './components/DashboardGuard'
+import LandingGuard from './components/LandingGuard'
 import { UserProvider } from './contexts/UserContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
@@ -16,6 +19,8 @@ import DashboardLayout from './layouts/DashboardLayout'
 // Dashboard Sub-pages
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
+import InboxPage from './pages/mobile/InboxPage'
+import SettingsPage from './pages/dashboard/SettingsPage'
 
 // Debug utilities (available in console as window.debugAuth())
 import './utils/debugAuth'
@@ -48,7 +53,11 @@ function App() {
         <PWAUpdateNotification />
         <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={
+        <LandingGuard>
+          <LandingPage />
+        </LandingGuard>
+      } />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -65,22 +74,64 @@ function App() {
       {/* Onboarding Routes */}
       <Route path="/onboarding">
         <Route index element={<Navigate to="/onboarding/register" replace />} />
-        <Route path="register" element={<OnboardingRegisterPage />} />
-        <Route path="verify" element={<OnboardingVerifyPage />} />
-        <Route path="company-setup" element={<OnboardingCompanySetupPage />} />
-        <Route path="owner-details" element={<OnboardingOwnerDetailsPage />} />
-        <Route path="business-info" element={<OnboardingBusinessInfoPage />} />
-        <Route path="logo-upload" element={<OnboardingLogoUploadPage />} />
-        <Route path="documents" element={<OnboardingDocumentsPage />} />
-        <Route path="subscription" element={<OnboardingSubscriptionPage />} />
-        <Route path="complete" element={<OnboardingCompletePage />} />
+        <Route path="register" element={
+          <OnboardingGuard>
+            <OnboardingRegisterPage />
+          </OnboardingGuard>
+        } />
+        <Route path="verify" element={
+          <OnboardingGuard>
+            <OnboardingVerifyPage />
+          </OnboardingGuard>
+        } />
+        <Route path="company-setup" element={
+          <OnboardingGuard>
+            <OnboardingCompanySetupPage />
+          </OnboardingGuard>
+        } />
+        <Route path="owner-details" element={
+          <OnboardingGuard>
+            <OnboardingOwnerDetailsPage />
+          </OnboardingGuard>
+        } />
+        <Route path="business-info" element={
+          <OnboardingGuard>
+            <OnboardingBusinessInfoPage />
+          </OnboardingGuard>
+        } />
+        <Route path="logo-upload" element={
+          <OnboardingGuard>
+            <OnboardingLogoUploadPage />
+          </OnboardingGuard>
+        } />
+        <Route path="documents" element={
+          <OnboardingGuard>
+            <OnboardingDocumentsPage />
+          </OnboardingGuard>
+        } />
+        <Route path="subscription" element={
+          <OnboardingGuard>
+            <OnboardingSubscriptionPage />
+          </OnboardingGuard>
+        } />
+        <Route path="complete" element={
+          <OnboardingGuard>
+            <OnboardingCompletePage />
+          </OnboardingGuard>
+        } />
       </Route>
 
       {/* Protected Routes with Dashboard Layout */}
-      <Route path="/dashboard" element={<DashboardLayout />}>
+      <Route path="/dashboard" element={
+        <DashboardGuard>
+          <DashboardLayout />
+        </DashboardGuard>
+      }>
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="attendance" element={<AttendanceOverviewPage />} />
+        <Route path="inbox" element={<InboxPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       
       <Route path="/superadmin" element={<SuperAdminPage />} />

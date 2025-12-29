@@ -11,13 +11,21 @@ export const rateLimitConfig = {
     max: 5, 
     timeWindow: '15 minutes',
   },
-  passwordReset: {
-    max: 3, 
-    timeWindow: '15 minutes',
-  },
   registration: {
     max: 3, 
     timeWindow: '1 hour',
+  },
+  login: {
+    max: 5,
+    timeWindow: '15 minutes',
+  },
+  verifyEmail: {
+    max: 5,
+    timeWindow: '15 minutes',
+  },
+  passwordReset: {
+    max: 3, 
+    timeWindow: '15 minutes',
   },
 };
 
@@ -351,7 +359,7 @@ export function detectSuspiciousActivity(request: FastifyRequest): {
  * Audit log for security events
  */
 export async function logSecurityEvent(event: {
-  type: 'login' | 'logout' | 'failed_login' | 'password_reset' | 'suspicious_activity' | 'access_denied';
+  type: 'login' | 'logout' | 'failed_login' | 'password_reset' | 'suspicious_activity' | 'access_denied' | 'path_traversal_attempt' | 'invalid_file_path';
   userId?: string;
   ip: string;
   userAgent: string;
@@ -363,5 +371,22 @@ export async function logSecurityEvent(event: {
     severity: event.type.includes('suspicious') || event.type.includes('failed') ? 'high' : 'medium',
   });
   
-  // TODO: Store in audit_logs table
+  // Store in audit_logs table
+  try {
+    const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+    const db = DatabaseFactory.getPrimaryDatabase();
+    
+    await db.insert('audit_logs', {
+      user_id: event.userId || null,
+      action: event.type,
+      entity_type: 'security_event',
+      entity_id: event.userId || null,
+      changes: event.details ? JSON.stringify(event.details) : null,
+      ip_address: event.ip,
+      user_agent: event.userAgent,
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to store security event in audit_logs:');
+  }
 }

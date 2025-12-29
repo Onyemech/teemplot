@@ -137,49 +137,21 @@ export async function checkEmployeeLimit(request: FastifyRequest, reply: Fastify
       });
     }
 
-    const db = DatabaseFactory.getPrimaryDatabase();
-    const company = await db.findOne('companies', { id: user.companyId });
+    const { employeeInvitationService } = await import('../services/EmployeeInvitationService');
+    const limits = await employeeInvitationService.verifyPlanLimits(user.companyId);
 
-    if (!company) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Company not found'
-      });
-    }
-
-    const employees = await db.find('users', { company_id: user.companyId, is_active: 1 });
-    const currentCount = employees.length;
-
-    // Get declared employee limit from onboarding
-    const declaredLimit = parseInt(company.employee_count) || 1;
-
-    if (currentCount >= declaredLimit) {
-      // Get current plan pricing
-      const planPrices: Record<string, number> = {
-        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200'),
-        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000'),
-        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
-        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
-      };
-      
-      const currentPlanKey = company.subscription_plan || 'silver_monthly';
-      const pricePerEmployee = planPrices[currentPlanKey] || 1200;
-      
+    if (!limits.canAddMore) {
       return reply.code(403).send({
         success: false,
-        message: `You have reached your employee limit (${declaredLimit}). Upgrade to add more employees.`,
+        message: `You have reached your employee limit (${limits.declaredLimit}). Upgrade to add more employees.`,
         code: 'EMPLOYEE_LIMIT_REACHED',
-        currentCount,
-        limit: declaredLimit,
-        upgradeInfo: {
-          currentPlan: currentPlanKey,
-          pricePerEmployee,
-          currency: 'NGN'
-        }
+        currentCount: limits.currentCount,
+        limit: limits.declaredLimit,
+        upgradeInfo: limits.upgradeInfo
       });
     }
 
-    logger.info({ companyId: company.id, currentCount, limit: declaredLimit }, 'Employee limit check passed');
+    logger.info({ companyId: user.companyId, currentCount: limits.currentCount, limit: limits.declaredLimit }, 'Employee limit check passed');
   } catch (error: any) {
     logger.error({ err: error }, 'Employee limit check failed');
     return reply.code(500).send({

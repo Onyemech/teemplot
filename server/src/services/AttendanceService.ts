@@ -90,13 +90,13 @@ export class AttendanceService {
 
         if (!isWithinFence) {
           // Get user info for notification
-          const userQuery = `
-            SELECT first_name, last_name
-            FROM users
-            WHERE id = $1
-          `;
-          const userResult = await client.query(userQuery, [data.userId]);
-          const user = userResult.rows[0];
+        const userQuery = `
+          SELECT first_name, last_name
+          FROM users
+          WHERE id = $1 AND company_id = $2
+        `;
+        const userResult = await client.query(userQuery, [data.userId, data.companyId]);
+        const user = userResult.rows[0];
 
           // Notify admins about geofence violation
           await notificationService.notifyGeofenceViolation({
@@ -369,6 +369,27 @@ export class AttendanceService {
     query += ' ORDER BY ar.clock_in_time DESC';
 
     const result = await pool.query(query, params);
+    return result.rows;
+  }
+
+  /**
+   * Get company attendance for a specific date
+   */
+  async getCompanyAttendance(companyId: string, date: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        ar.*,
+        u.first_name,
+        u.last_name
+      FROM attendance_records ar
+      JOIN users u ON ar.user_id = u.id
+      JOIN companies c ON ar.company_id = c.id
+      WHERE ar.company_id = $1
+        AND DATE(ar.clock_in_time AT TIME ZONE c.timezone) = $2
+      ORDER BY ar.clock_in_time DESC
+    `;
+
+    const result = await pool.query(query, [companyId, date]);
     return result.rows;
   }
 
