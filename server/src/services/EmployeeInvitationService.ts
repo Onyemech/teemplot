@@ -6,7 +6,6 @@ import { generateInvitationToken } from '../utils/tokenGenerator';
 import { addDays } from 'date-fns';
 import { UserRoles, UserRole } from '../constants/roles';
 
-// Type definitions for employee invitations
 interface Invitation {
   id: string;
   company_id: string;
