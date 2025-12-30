@@ -137,92 +137,98 @@ export const uploadDocument = async (
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
-  // Step 1: Compute file hash (optimized with parallel processing)
-  const buffer = await file.arrayBuffer()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  
-  // Step 2: Check if file already exists
-  const checkResponse = await apiClient.post('/api/files/check', {
-    hash,
-    filename: file.name,
-    size: file.size,
-    mimeType: file.type
-  });
-  
-  const checkResult = checkResponse.data;
-  
-  if (!checkResult.success) {
-    throw new Error(checkResult.message || 'Failed to check file existence')
-  }
-  
-  let fileId: string
-  let fileUrl: string
-  
-  // Step 3: Upload file if it doesn't exist
-  if (!checkResult.data.exists) {
-    console.log('📤 Uploading new file:', file.name, 'hash:', hash.substring(0, 8))
-    const formData = new FormData()
-    formData.append('document', file)
-    formData.append('hash', hash)
+  try {
+    // Step 1: Compute file hash (optimized with parallel processing)
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     
-    const uploadResponse = await apiClient.post('/api/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    // Step 2: Check if file already exists
+    const checkResponse = await apiClient.post('/api/files/check', {
+      hash,
+      filename: file.name,
+      size: file.size,
+      mimeType: file.type
     });
     
-    const uploadResult = uploadResponse.data;
+    const checkResult = checkResponse.data;
     
-    if (!uploadResult.success) {
-      console.error('❌ Upload failed:', uploadResult)
-      throw new Error(uploadResult.message || 'Failed to upload file')
+    if (!checkResult.success) {
+      throw new Error(checkResult.message || 'Failed to check file existence')
     }
     
-    console.log('✅ File uploaded:', uploadResult.data.file.id)
-    fileId = uploadResult.data.file.id
-    fileUrl = uploadResult.data.file.secure_url || uploadResult.data.file.url
-  } else {
-    console.log('♻️ File already exists, reusing:', checkResult.data.file.id)
-    fileId = checkResult.data.file.id
-    fileUrl = checkResult.data.file.secure_url || checkResult.data.file.url
-  }
-  
-  // Step 4: Attach file to company
-  console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
-  const attachResponse = await apiClient.post('/api/files/attach-to-company', {
-    fileId,
-    companyId,
-    documentType,
-    purpose: `Company ${documentType} document`,
-    metadata: {
-      originalFilename: file.name,
-      uploadedAt: new Date().toISOString()
+    let fileId: string
+    let fileUrl: string
+    
+    // Step 3: Upload file if it doesn't exist
+    if (!checkResult.data.exists) {
+      console.log('📤 Uploading new file:', file.name, 'hash:', hash.substring(0, 8))
+      const formData = new FormData()
+      formData.append('document', file)
+      formData.append('hash', hash)
+      
+      const uploadResponse = await apiClient.post('/api/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      const uploadResult = uploadResponse.data;
+      
+      if (!uploadResult.success) {
+        console.error('❌ Upload failed:', uploadResult)
+        throw new Error(uploadResult.message || 'Failed to upload file')
+      }
+      
+      console.log('✅ File uploaded:', uploadResult.data.file.id)
+      fileId = uploadResult.data.file.id
+      fileUrl = uploadResult.data.file.secure_url || uploadResult.data.file.url
+    } else {
+      console.log('♻️ File already exists, reusing:', checkResult.data.file.id)
+      fileId = checkResult.data.file.id
+      fileUrl = checkResult.data.file.secure_url || checkResult.data.file.url
     }
-  });
-  
-  const attachResult = attachResponse.data;
-  
-  if (!attachResult.success) {
-    console.error('❌ Attach failed:', attachResult)
-    throw new Error(attachResult.message || 'Failed to attach document to company')
-  }
-  
-  console.log('✅ File attached to company successfully')
-  
-  // Return file details including the secure URL and filename
-  return {
-    success: true,
-    data: {
-      file: {
-        id: fileId,
-        secure_url: fileUrl,
-        url: fileUrl,
-        filename: file.name,
-        size: file.size
+    
+    // Step 4: Attach file to company
+    console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
+    const attachResponse = await apiClient.post('/api/files/attach-to-company', {
+      fileId,
+      companyId,
+      documentType,
+      purpose: `Company ${documentType} document`,
+      metadata: {
+        originalFilename: file.name,
+        uploadedAt: new Date().toISOString()
+      }
+    });
+    
+    const attachResult = attachResponse.data;
+    
+    if (!attachResult.success) {
+      console.error('❌ Attach failed:', attachResult)
+      throw new Error(attachResult.message || 'Failed to attach document to company')
+    }
+    
+    console.log('✅ File attached to company successfully')
+    
+    // Return file details including the secure URL and filename
+    return {
+      success: true,
+      data: {
+        file: {
+          id: fileId,
+          secure_url: fileUrl,
+          url: fileUrl,
+          filename: file.name,
+          size: file.size
+        }
       }
     }
+  } catch (error: any) {
+    console.error('Upload document error:', error);
+    const message = error.response?.data?.message || error.message || 'Failed to upload document';
+    throw new Error(message);
   }
 }
 

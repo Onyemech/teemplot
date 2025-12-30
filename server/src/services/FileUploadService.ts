@@ -513,7 +513,7 @@ class FileUploadService {
   }
 
   /**
-   * Upload company document
+   * Upload company document with retry logic
    */
   async uploadDocument(
     buffer: Buffer,
@@ -521,67 +521,123 @@ class FileUploadService {
     documentType: string,
     metadata: { filename: string; mimeType: string; uploadedBy: string }
   ): Promise<{ url: string; secureUrl: string; publicId: string; fileId: string }> {
-    try {
-      // Determine resource type
-      const resourceType = this.getResourceType(metadata.mimeType);
+    const maxRetries = 3;
+    let lastError: any;
 
-      // Upload to Cloudinary
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: `company-documents/${documentType}`,
-            resource_type: resourceType,
-            tags: ['company-document', documentType, companyId]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info({ 
+          companyId, 
+          documentType, 
+          attempt,
+          size: buffer.length 
+        }, 'Attempting to upload company document to Cloudinary');
+
+        // Determine resource type
+        const resourceType = this.getResourceType(metadata.mimeType);
+
+        // Upload to Cloudinary
+        const uploadResult = await new Promise<any>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: `company-documents/${documentType}`,
+              resource_type: resourceType,
+              tags: ['company-document', documentType, companyId],
+              timeout: 60000 // 60 second timeout
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+
+          uploadStream.end(buffer);
+        });
+
+        // Save to database
+        const result = await query(
+          `INSERT INTO files (
+            hash, public_id, url, secure_url, file_size, mime_type,
+            original_filename, resource_type, format, uploaded_by, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+          RETURNING id`,
+          [
+            uploadResult.public_id, // Using public_id as hash for now
+            uploadResult.public_id,
+            uploadResult.url,
+            uploadResult.secure_url,
+            buffer.length,
+            metadata.mimeType,
+            metadata.filename,
+            uploadResult.resource_type,
+            uploadResult.format,
+            metadata.uploadedBy
+          ]
         );
 
-        uploadStream.end(buffer);
-      });
+        const fileId = result.rows[0].id;
 
-      // Save to database
-      const result = await query(
-        `INSERT INTO files (
-          hash, public_id, url, secure_url, file_size, mime_type,
-          original_filename, resource_type, format, uploaded_by, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
-        RETURNING id`,
-        [
-          uploadResult.public_id, // Using public_id as hash for now
-          uploadResult.public_id,
-          uploadResult.url,
-          uploadResult.secure_url,
-          buffer.length,
-          metadata.mimeType,
-          metadata.filename,
-          uploadResult.resource_type,
-          uploadResult.format,
-          metadata.uploadedBy
-        ]
-      );
+        logger.info({
+          companyId,
+          documentType,
+          publicId: uploadResult.public_id,
+          fileId,
+          size: buffer.length,
+          attempt
+        }, 'Company document uploaded successfully');
 
-      const fileId = result.rows[0].id;
+        return {
+          url: uploadResult.url,
+          secureUrl: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          fileId
+        };
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a network/DNS error
+        const isNetworkError = error.code === 'EAI_AGAIN' || 
+                              error.code === 'ENOTFOUND' || 
+                              error.code === 'ETIMEDOUT' ||
+                              error.code === 'ECONNREFUSED';
 
-      logger.info({
-        companyId,
-        documentType,
-        publicId: uploadResult.public_id,
-        fileId,
-        size: buffer.length
-      }, 'Company document uploaded successfully');
+        logger.warn({ 
+          err: error, 
+          companyId, 
+          documentType,
+          attempt,
+          isNetworkError,
+          willRetry: attempt < maxRetries
+        }, `Document upload attempt ${attempt} failed`);
 
-      return {
-        url: uploadResult.url,
-        secureUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        fileId
-      };
-    } catch (error: any) {
-      logger.error({ err: error, companyId, documentType }, 'Error uploading company document');
-      throw new Error('Failed to upload company document');
+        // If it's a network error and we have retries left, wait and retry
+        if (isNetworkError && attempt < maxRetries) {
+          const delay = attempt * 2000; // 2s, 4s, 6s
+          logger.info({ delay, attempt }, 'Waiting before retry');
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // If not a network error or out of retries, break
+        break;
+      }
+    }
+
+    // All retries failed
+    logger.error({ 
+      err: lastError, 
+      companyId, 
+      documentType,
+      attempts: maxRetries 
+    }, 'Failed to upload company document after all retries');
+
+    // Provide user-friendly error message
+    if (lastError.code === 'EAI_AGAIN' || lastError.code === 'ENOTFOUND') {
+      throw new Error('Unable to connect to file storage service. Please check your internet connection and try again.');
+    } else if (lastError.code === 'ETIMEDOUT') {
+      throw new Error('File upload timed out. Please try again with a smaller file or check your internet connection.');
+    } else {
+      throw new Error('Failed to upload company document. Please try again.');
     }
   }
 
