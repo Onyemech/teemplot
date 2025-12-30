@@ -4,6 +4,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/contexts/ToastContext';
 import { startRegistration } from '@simplewebauthn/browser';
 import { Fingerprint, Loader2, CheckCircle, AlertCircle, Settings, Trash2 } from 'lucide-react';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface BiometricCredential {
   id: string;
@@ -45,7 +46,7 @@ export default function BiometricSetupPage() {
   const fetchUserCredentials = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/webauthn/credentials', {
+      const response = await fetch(buildApiUrl('/webauthn/credentials'), {
         credentials: 'include',
       });
       
@@ -74,7 +75,7 @@ export default function BiometricSetupPage() {
       setRegistering(true);
       
       // Step 1: Get registration options from server
-      const optionsResponse = await fetch('/api/webauthn/register/options', {
+      const optionsResponse = await fetch(buildApiUrl('/webauthn/register/options'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +97,7 @@ export default function BiometricSetupPage() {
       const attResp = await startRegistration(optionsData.data.options);
 
       // Step 3: Verify registration with server
-      const verifyResponse = await fetch('/api/webauthn/register/verify', {
+      const verifyResponse = await fetch(buildApiUrl('/webauthn/register/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

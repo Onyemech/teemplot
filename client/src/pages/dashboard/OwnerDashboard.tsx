@@ -36,6 +36,8 @@ interface RecentActivity {
   user: string;
 }
 
+import { buildApiUrl } from '@/utils/apiHelpers';
+
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -56,7 +58,7 @@ export default function OwnerDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch dashboard stats
-      const statsResponse = await fetch('/api/dashboard/stats', {
+      const statsResponse = await fetch(buildApiUrl('/dashboard/stats'), {
         credentials: 'include' // Use httpOnly cookies
       });
       const statsData = await statsResponse.json();
@@ -67,7 +69,7 @@ export default function OwnerDashboard() {
       }
 
       // Fetch recent activity
-      const activityResponse = await fetch('/api/dashboard/recent-activity', {
+      const activityResponse = await fetch(buildApiUrl('/dashboard/recent-activity'), {
         credentials: 'include' // Use httpOnly cookies
       });
       const activityData = await activityResponse.json();

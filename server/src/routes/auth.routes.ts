@@ -458,7 +458,8 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const rawData = z.object({ email: z.string().email() }).parse(request.body);
-      const { email } = sanitizeInput(rawData);
+      const sanitizedData = sanitizeInput(rawData);
+      const email = sanitizedData.email.toLowerCase();
 
       await passwordResetService.sendResetCode(email);
 
@@ -485,7 +486,10 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Verify reset code
   fastify.post('/verify-reset-code', async (request, reply) => {
     try {
-      const { email, code } = VerifyEmailSchema.parse(request.body);
+      const rawData = VerifyEmailSchema.parse(request.body);
+      const sanitizedData = sanitizeInput(rawData);
+      const email = sanitizedData.email.toLowerCase();
+      const code = sanitizedData.code;
 
       const isValid = await passwordResetService.verifyResetCode(email, code);
 
@@ -511,11 +515,28 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Reset password
   fastify.post('/reset-password', async (request, reply) => {
     try {
-      const { email, code, password } = z.object({
+      const rawData = z.object({
         email: z.string().email(),
         code: z.string().length(6),
         password: z.string().min(8, 'Password must be at least 8 characters'),
       }).parse(request.body);
+
+      // Sanitize input to ensure consistency with registration/login
+      // This trims whitespace and removes potentially dangerous characters
+      const sanitizedData = sanitizeInput(rawData);
+      
+      const email = sanitizedData.email.toLowerCase();
+      const code = sanitizedData.code;
+      const password = sanitizedData.password;
+
+      // Validate password strength again after sanitization
+      const passwordCheck = validatePasswordStrength(password);
+      if (!passwordCheck.valid) {
+        return reply.code(400).send({
+          success: false,
+          errors: passwordCheck.errors
+        });
+      }
 
       await passwordResetService.resetPassword(email, code, password);
 

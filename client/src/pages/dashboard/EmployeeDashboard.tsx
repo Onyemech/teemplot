@@ -14,6 +14,7 @@ import { useUser } from '@/contexts/UserContext';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -59,7 +60,7 @@ export default function EmployeeDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch attendance status
-      const attendanceResponse = await fetch('/api/attendance/status', {
+      const attendanceResponse = await fetch(buildApiUrl('/attendance/status'), {
         credentials: 'include' // Use httpOnly cookies
       });
       const attendanceData = await attendanceResponse.json();
@@ -72,7 +73,7 @@ export default function EmployeeDashboard() {
       }
 
       // Fetch employee stats
-      const statsResponse = await fetch('/api/dashboard/employee-stats', {
+      const statsResponse = await fetch(buildApiUrl('/dashboard/employee-stats'), {
         credentials: 'include'
       });
       const statsData = await statsResponse.json();

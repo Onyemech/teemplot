@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { Fingerprint, ScanFace, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface BiometricAuthProps {
   action: 'register' | 'authenticate';
@@ -68,7 +69,7 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
     try {
       // Step 1: Get registration options from server
-      const response = await fetch('/api/webauthn/register/options', {
+      const response = await fetch(buildApiUrl('/webauthn/register/options'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +91,7 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       const attResp = await startRegistration(data.data.options);
 
       // Step 3: Verify registration with server
-      const verifyResponse = await fetch('/api/webauthn/register/verify', {
+      const verifyResponse = await fetch(buildApiUrl('/webauthn/register/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,36 +99,24 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
         credentials: 'include',
         body: JSON.stringify({
           credentialId: attResp.id,
-          response: attResp,
-          challengeId: data.data.challengeId,
+          registrationResponse: attResp,
+          deviceType
         }),
       });
 
       const verifyData = await verifyResponse.json();
 
-      if (!verifyData.success) {
-        throw new Error(verifyData.message || 'Registration verification failed');
-      }
-
-      setSuccess(true);
-      toast.success('Biometric authentication registered successfully!');
-      
-      setTimeout(() => {
-        onSuccess();
-      }, 1500);
-
-    } catch (err: any) {
-      console.error('Biometric registration error:', err);
-      
-      if (err.name === 'NotAllowedError') {
-        setError('Biometric authentication was cancelled or denied');
-      } else if (err.name === 'InvalidStateError') {
-        setError('This device is already registered');
-      } else if (err.name === 'NotSupportedError') {
-        setError('Biometric authentication is not supported on this device');
+      if (verifyData.success) {
+        setSuccess(true);
+        setTimeout(() => {
+          onSuccess();
+        }, 1500);
       } else {
-        setError(err.message || 'Failed to register biometric authentication');
+        throw new Error(verifyData.message || 'Verification failed');
       }
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to register biometric authentication');
     } finally {
       setLoading(false);
     }
@@ -146,7 +135,7 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
     try {
       // Step 1: Get authentication options from server
-      const response = await fetch('/api/webauthn/authenticate/options', {
+      const response = await fetch(buildApiUrl('/webauthn/authenticate/options'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +156,7 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       const asseResp = await startAuthentication(data.data.options);
 
       // Step 3: Verify authentication with server
-      const verifyResponse = await fetch('/api/webauthn/authenticate/verify', {
+      const verifyResponse = await fetch(buildApiUrl('/webauthn/authenticate/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

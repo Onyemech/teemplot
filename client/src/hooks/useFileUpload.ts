@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { computeFileHash, validateFile, FileValidation } from '../utils/fileHash';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 export interface UploadProgress {
   stage: 'hashing' | 'checking' | 'uploading' | 'attaching' | 'complete' | 'error';
@@ -70,7 +71,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       // Step 3: Check if file already exists
       updateProgress('checking', 40, 'Checking if file exists...');
       
-      const checkResponse = await fetch('/api/files/check', {
+      const checkResponse = await fetch(buildApiUrl('/files/check'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       formData.append('document', file);
       formData.append('hash', hash);
 
-      const uploadResponse = await fetch('/api/files/upload', {
+      const uploadResponse = await fetch(buildApiUrl('/files/upload'), {
         method: 'POST',
         credentials: 'include', // Use httpOnly cookies
         body: formData
@@ -158,7 +159,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     try {
       updateProgress('attaching', 90, 'Attaching file to company...');
 
-      const response = await fetch('/api/files/attach-to-company', {
+      const response = await fetch(buildApiUrl('/files/attach-to-company'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
