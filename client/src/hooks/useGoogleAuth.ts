@@ -26,10 +26,16 @@ export function useGoogleAuth() {
       // Redirect to our backend Google OAuth endpoint
       // IMPORTANT: Use /api prefix for all backend routes
       const rawBackendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      // Remove trailing /api if present to avoid double prefix
-      const backendUrl = rawBackendUrl.replace(/\/api\/?$/, '');
       
-      window.location.href = `${backendUrl}/api/auth/google`;
+      // Ensure we don't double up the /api prefix
+      // If rawBackendUrl ends with /api (or /api/), use it as is
+      // Otherwise append /api
+      const baseUrl = rawBackendUrl.replace(/\/$/, ''); // Remove trailing slash
+      const authUrl = baseUrl.endsWith('/api') 
+        ? `${baseUrl}/auth/google` 
+        : `${baseUrl}/api/auth/google`;
+      
+      window.location.href = authUrl;
       
       // Clear timeout if redirect happens (though this code won't run after redirect)
       clearTimeout(timeout);
@@ -50,10 +56,15 @@ export function useGoogleAuth() {
       setLoading(true);
 
       // Redirect to backend OAuth callback with code
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      const baseUrl = rawApiUrl.replace(/\/$/, '');
+      const callbackUrl = baseUrl.endsWith('/api')
+        ? `${baseUrl}/auth/google/callback?code=${encodeURIComponent(code)}`
+        : `${baseUrl}/api/auth/google/callback?code=${encodeURIComponent(code)}`;
       
       // Redirect to backend callback which will handle the OAuth flow
-      window.location.href = `${apiUrl}/api/auth/google/callback?code=${encodeURIComponent(code)}`;
+      window.location.href = callbackUrl;
       
     } catch (error: any) {
       setLoading(false);
@@ -75,9 +86,12 @@ export function useGoogleAuth() {
 
         // Fetch user data
         const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const apiUrl = rawApiUrl.replace(/\/api\/?$/, '');
+        const baseUrl = rawApiUrl.replace(/\/$/, '');
+        const meUrl = baseUrl.endsWith('/api')
+          ? `${baseUrl}/auth/me`
+          : `${baseUrl}/api/auth/me`;
         
-        fetch(`${apiUrl}/api/auth/me`, {
+        fetch(meUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

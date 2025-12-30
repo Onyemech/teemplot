@@ -17,12 +17,27 @@ export const buildApiUrl = (endpoint: string): string => {
   // Ensure endpoint starts with /
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   
-  // Add /api prefix if not already present
-  const withApiPrefix = normalizedEndpoint.startsWith('/api') 
-    ? normalizedEndpoint 
-    : `/api${normalizedEndpoint}`;
+  // Get base URL and strip trailing slash
+  const baseUrl = API_URL.replace(/\/$/, '');
   
-  return `${API_URL}${withApiPrefix}`;
+  // If base URL already ends with /api, we should NOT add another /api prefix
+  if (baseUrl.endsWith('/api')) {
+    // If endpoint starts with /api, strip it to avoid duplication
+    // e.g. base=/api, endpoint=/api/auth -> /api/auth
+    if (normalizedEndpoint.startsWith('/api/')) {
+       return `${baseUrl}${normalizedEndpoint.substring(4)}`;
+    }
+    return `${baseUrl}${normalizedEndpoint}`;
+  }
+  
+  // If base URL does NOT end with /api
+  // If endpoint starts with /api, just append it
+  if (normalizedEndpoint.startsWith('/api/')) {
+    return `${baseUrl}${normalizedEndpoint}`;
+  }
+  
+  // Otherwise append /api prefix
+  return `${baseUrl}/api${normalizedEndpoint}`;
 };
 
 /**

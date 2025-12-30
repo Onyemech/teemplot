@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Mail, UserPlus, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface Employee {
   id: string;
@@ -42,7 +41,7 @@ export default function EmployeeManagementPage() {
   const fetchData = async () => {
     try {
       // Fetch employees
-      const empResponse = await fetch(`${API_URL}/api/employees`, {
+      const empResponse = await fetch(buildApiUrl('/employees'), {
         credentials: 'include',
       });
       const empData = await empResponse.json();
@@ -51,7 +50,7 @@ export default function EmployeeManagementPage() {
       }
 
       // Fetch invitations
-      const invResponse = await fetch(`${API_URL}/api/employee-invitations/list`, {
+      const invResponse = await fetch(buildApiUrl('/employee-invitations/list'), {
         credentials: 'include',
       });
       const invData = await invResponse.json();
@@ -70,7 +69,7 @@ export default function EmployeeManagementPage() {
     if (!confirm('Are you sure you want to cancel this invitation?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/employee-invitations/${invitationId}`, {
+      const response = await fetch(buildApiUrl(`/employee-invitations/${invitationId}`), {
         method: 'DELETE',
         credentials: 'include',
       });
