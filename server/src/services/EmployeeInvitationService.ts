@@ -4,7 +4,7 @@ import { emailService } from './EmailService';
 import { auditService } from './AuditService';
 import { generateInvitationToken } from '../utils/tokenGenerator';
 import { addDays } from 'date-fns';
-import { UserRoles, UserRole } from '../constants/roles';
+import {  UserRole } from '../constants/roles';
 
 interface Invitation {
   id: string;
