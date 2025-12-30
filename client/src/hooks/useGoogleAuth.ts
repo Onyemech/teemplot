@@ -25,7 +25,10 @@ export function useGoogleAuth() {
       
       // Redirect to our backend Google OAuth endpoint
       // IMPORTANT: Use /api prefix for all backend routes
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const rawBackendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      // Remove trailing /api if present to avoid double prefix
+      const backendUrl = rawBackendUrl.replace(/\/api\/?$/, '');
+      
       window.location.href = `${backendUrl}/api/auth/google`;
       
       // Clear timeout if redirect happens (though this code won't run after redirect)
@@ -71,7 +74,9 @@ export function useGoogleAuth() {
         localStorage.setItem('token', token);
 
         // Fetch user data
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const apiUrl = rawApiUrl.replace(/\/api\/?$/, '');
+        
         fetch(`${apiUrl}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,

@@ -205,6 +205,13 @@ export default function CompanySetupPage() {
             ...prev,
             ...cleanedFormData,
           }))
+
+          // Determine starting step based on completed steps
+          const completedSteps = progress.completedSteps || []
+          if (completedSteps.includes(5)) setCurrentStep('payment')
+          else if (completedSteps.includes(4)) setCurrentStep('review')
+          else if (completedSteps.includes(3)) setCurrentStep('documents')
+          else if (completedSteps.includes(2)) setCurrentStep('owner')
           
           console.log('✅ Progress loaded and form populated with file URLs')
           setProgressMessage('Data loaded successfully!')

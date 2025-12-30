@@ -1,0 +1,228 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Check, CreditCard, Shield, Star } from 'lucide-react';
+import OnboardingLayout from '@/layouts/OnboardingLayout';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import { useToast } from '@/contexts/ToastContext';
+import { submitPlanSelection } from '@/utils/onboardingApi';
+import { getUser } from '@/utils/auth';
+
+interface Plan {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  recommended?: boolean;
+  trial?: boolean;
+}
+
+export default function PaymentPage() {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [selectedPlan, setSelectedPlan] = useState<string>('gold');
+  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'transfer'>('card');
+
+  const plans: Plan[] = [
+    {
+      id: 'silver',
+      name: 'Silver',
+      price: '₦15,000',
+      period: 'per month',
+      features: [
+        'Advanced attendance tracking',
+        'Task management with priorities',
+        'Performance analytics',
+        'Priority email support',
+        'Mobile app access',
+      ],
+    },
+    {
+      id: 'gold',
+      name: 'Gold',
+      price: '₦35,000',
+      period: 'per month',
+      recommended: true,
+      trial: true,
+      features: [
+        'All Silver features',
+        'Advanced analytics & insights',
+        'Custom integrations',
+        '24/7 support',
+        'Dedicated account manager',
+        '30-day free trial',
+      ],
+    },
+  ];
+
+  const handleContinue = async () => {
+    setLoading(true);
+
+    try {
+      // Get user from httpOnly cookie
+      const user = await getUser();
+      
+      if (!user || !user.companyId) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      
+      // Get business info for company size
+      const businessInfo = sessionStorage.getItem('onboarding_business_info');
+      const companySize = businessInfo ? JSON.parse(businessInfo).employeeCount : 1;
+      
+      // Map plan to backend format
+      const planMap: Record<string, string> = {
+        'silver': 'silver_monthly',
+        'gold': 'gold_monthly',
+      };
+      
+      // Submit plan selection to backend
+      await submitPlanSelection({
+        companyId: user.companyId,
+        plan: planMap[selectedPlan] as any,
+        companySize: parseInt(companySize),
+      });
+      
+      // Store selected plan in session storage
+      sessionStorage.setItem('onboarding_subscription', JSON.stringify({
+        plan: selectedPlan,
+        paymentMethod: selectedPlan === 'gold' ? 'trial' : paymentMethod,
+        timestamp: new Date().toISOString(),
+      }));
+
+      toast.success('Plan selected successfully!');
+
+      // Navigate to completion
+      navigate('/onboarding/complete');
+    } catch (err: any) {
+      console.error('Error saving subscription:', err);
+      toast.error(err.message || 'Failed to process payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    navigate('/onboarding/documents');
+  };
+
+  return (
+    <OnboardingLayout 
+      currentStep={4} 
+      title="Payment Processing"
+      description="Choose the plan that fits your business needs"
+      onBack={handleBack}
+    >
+      <div className="space-y-6">
+        {/* Plans Grid */}
+        <div className="grid grid-cols-1 gap-4">
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              onClick={() => setSelectedPlan(plan.id)}
+              className={`
+                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200
+                ${selectedPlan === plan.id 
+                  ? 'border-[#0F5D5D] bg-teal-50/30' 
+                  : 'border-gray-200 hover:border-gray-300'
+                }
+              `}
+            >
+              {plan.recommended && (
+                <div className="absolute -top-3 left-4">
+                  <span className="bg-[#FF5722] text-white px-3 py-0.5 rounded-full text-xs font-semibold">
+                    Recommended
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="font-bold text-gray-900">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-bold text-[#0F5D5D]">{plan.price}</span>
+                    <span className="text-xs text-gray-500">/{plan.period}</span>
+                  </div>
+                </div>
+                <div className={`
+                  w-5 h-5 rounded-full border flex items-center justify-center
+                  ${selectedPlan === plan.id ? 'border-[#0F5D5D] bg-[#0F5D5D]' : 'border-gray-300'}
+                `}>
+                  {selectedPlan === plan.id && <Check className="w-3 h-3 text-white" />}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                {plan.features.slice(0, 3).map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                    <Check className="w-3 h-3 text-[#0F5D5D]" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+                {plan.features.length > 3 && (
+                  <div className="text-xs text-[#0F5D5D] font-medium pl-5">
+                    + {plan.features.length - 3} more features
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Payment Method Section (Only for non-trial plans) */}
+        {selectedPlan !== 'gold' && (
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Method</h3>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                <input 
+                  type="radio" 
+                  name="payment" 
+                  checked={paymentMethod === 'card'}
+                  onChange={() => setPaymentMethod('card')}
+                  className="text-[#0F5D5D] focus:ring-[#0F5D5D]"
+                />
+                <CreditCard className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-900">Credit / Debit Card</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                <input 
+                  type="radio" 
+                  name="payment" 
+                  checked={paymentMethod === 'transfer'}
+                  onChange={() => setPaymentMethod('transfer')}
+                  className="text-[#0F5D5D] focus:ring-[#0F5D5D]"
+                />
+                <Shield className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-900">Bank Transfer</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Trial Info (Only for trial plans) */}
+        {selectedPlan === 'gold' && (
+          <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 flex items-start gap-3">
+            <Star className="w-5 h-5 text-[#0F5D5D] flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-teal-900">
+              <p className="font-semibold mb-1">30-Day Free Trial</p>
+              <p className="opacity-90">You won't be charged today. Enjoy full access to all Gold features for 30 days.</p>
+            </div>
+          </div>
+        )}
+
+        <Button 
+          fullWidth 
+          variant="primary" 
+          onClick={handleContinue}
+          isLoading={loading}
+          className="bg-[#0F5D5D] hover:bg-[#0b4646] text-white py-3"
+        >
+          {selectedPlan === 'gold' ? 'Start Free Trial' : 'Proceed to Payment'}
+        </Button>
+      </div>
+    </OnboardingLayout>
+  );
+}

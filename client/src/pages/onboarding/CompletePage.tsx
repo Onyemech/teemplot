@@ -1,75 +1,75 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import Button from '@/components/ui/Button'
-import { LogoLoader } from '@/components/LogoLoader'
-import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark'
-import { completeOnboarding } from '@/utils/onboardingApi'
-import { getUser } from '@/utils/auth'
-import { useToast } from '@/contexts/ToastContext'
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Button from '@/components/ui/Button';
+import { LogoLoader } from '@/components/LogoLoader';
+import AnimatedCheckmark from '@/components/ui/AnimatedCheckmark';
+import { completeOnboarding } from '@/utils/onboardingApi';
+import { getUser } from '@/utils/auth';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function OnboardingCompletePage() {
-  const navigate = useNavigate()
-  const toast = useToast()
-  const [isCompleting, setIsCompleting] = useState(true)
-  const [showContent, setShowContent] = useState(false)
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [isCompleting, setIsCompleting] = useState(true);
+  const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     const completeOnboardingProcess = async () => {
       try {
         // Get user from httpOnly cookie
-        const user = await getUser()
+        const user = await getUser();
         
         if (!user || !user.companyId) {
-          throw new Error('Session expired. Please log in again.')
+          throw new Error('Session expired. Please log in again.');
         }
         
         // Call complete onboarding API
         await completeOnboarding({
           companyId: user.companyId,
           userId: user.id,
-        })
+        });
         
         // Mark onboarding as complete
-        sessionStorage.setItem('onboarding_completed', 'true')
+        sessionStorage.setItem('onboarding_completed', 'true');
         
-        setIsCompleting(false)
+        setIsCompleting(false);
         
         // Trigger success animation
-        setTimeout(() => setShowContent(true), 100)
+        setTimeout(() => setShowContent(true), 100);
       } catch (error: any) {
-        console.error('Failed to complete onboarding:', error)
-        toast.error(error.message || 'Failed to complete onboarding')
+        console.error('Failed to complete onboarding:', error);
+        toast.error(error.message || 'Failed to complete onboarding');
         // Still show success UI even if API fails (data is already saved)
-        setIsCompleting(false)
-        setTimeout(() => setShowContent(true), 100)
+        setIsCompleting(false);
+        setTimeout(() => setShowContent(true), 100);
       }
-    }
+    };
 
-    completeOnboardingProcess()
-  }, [])
+    completeOnboardingProcess();
+  }, []);
 
   const handleGoToDashboard = () => {
     // Clear onboarding data
-    sessionStorage.removeItem('onboarding_auth')
-    sessionStorage.removeItem('onboarding_company_setup')
-    sessionStorage.removeItem('onboarding_owner_details')
-    sessionStorage.removeItem('onboarding_business_info')
-    sessionStorage.removeItem('onboarding_documents')
-    sessionStorage.removeItem('onboarding_subscription')
+    sessionStorage.removeItem('onboarding_auth');
+    sessionStorage.removeItem('onboarding_company_setup');
+    sessionStorage.removeItem('onboarding_owner_details');
+    sessionStorage.removeItem('onboarding_business_info');
+    sessionStorage.removeItem('onboarding_documents');
+    sessionStorage.removeItem('onboarding_subscription');
     
     // Navigate to dashboard
-    navigate('/dashboard')
-  }
+    navigate('/dashboard');
+  };
 
   if (isCompleting) {
-    return <LogoLoader message="Completing your setup..." />
+    return <LogoLoader message="Completing your setup..." />;
   }
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6">
       <div className="text-center max-w-md w-full">
         {/* Success Checkmark Animation */}
-        <div className="mb-8">
+        <div className="mb-8 flex justify-center">
           {showContent && <AnimatedCheckmark size="lg" />}
         </div>
 
@@ -96,12 +96,12 @@ export default function OnboardingCompletePage() {
             size="lg"
             fullWidth
             onClick={handleGoToDashboard}
-            className="bg-[#0F5D5D] hover:bg-[#0a4545] text-white font-semibold py-3 sm:py-4 rounded-xl"
+            className="bg-[#0F5D5D] hover:bg-[#0a4545] text-white font-semibold py-3 sm:py-4 rounded-xl w-full"
           >
             Go to dashboard
           </Button>
         </div>
       </div>
     </div>
-  )
+  );
 }

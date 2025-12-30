@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Loader } from 'lucide-react';
+import { MapPin, Loader, Image as ImageIcon, Upload } from 'lucide-react';
+import OnboardingLayout from '@/layouts/OnboardingLayout';
+import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
+import { useUser } from '@/contexts/UserContext';
 
 export default function BusinessInfoPage() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
 
   const [formData, setFormData] = useState({
+    companyLogo: null as File | null,
+    companyLogoPreview: '',
     companyName: '',
     taxId: '',
     industry: '',
@@ -25,27 +32,43 @@ export default function BusinessInfoPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const industries = [
-    'Technology',
-    'Healthcare',
-    'Finance',
-    'Education',
-    'Manufacturing',
-    'Retail',
-    'Hospitality',
-    'Construction',
-    'Transportation',
-    'Agriculture',
-    'Real Estate',
-    'Media & Entertainment',
-    'Professional Services',
-    'Other'
+    { value: 'Technology', label: 'Technology' },
+    { value: 'Healthcare', label: 'Healthcare' },
+    { value: 'Finance', label: 'Finance' },
+    { value: 'Education', label: 'Education' },
+    { value: 'Manufacturing', label: 'Manufacturing' },
+    { value: 'Retail', label: 'Retail' },
+    { value: 'Hospitality', label: 'Hospitality' },
+    { value: 'Construction', label: 'Construction' },
+    { value: 'Transportation', label: 'Transportation' },
+    { value: 'Agriculture', label: 'Agriculture' },
+    { value: 'Real Estate', label: 'Real Estate' },
+    { value: 'Media & Entertainment', label: 'Media & Entertainment' },
+    { value: 'Professional Services', label: 'Professional Services' },
+    { value: 'Other', label: 'Other' }
   ];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, companyLogo: 'File size must be less than 2MB' }));
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        companyLogo: file,
+        companyLogoPreview: URL.createObjectURL(file)
+      }));
+      setErrors(prev => ({ ...prev, companyLogo: '' }));
     }
   };
 
@@ -99,26 +122,6 @@ export default function BusinessInfoPage() {
       newErrors.website = 'Please enter a valid URL (e.g., https://example.com)';
     }
 
-    if (!formData.address) {
-      newErrors.address = 'Business address is required';
-    }
-
-    if (!formData.city) {
-      newErrors.city = 'City is required';
-    }
-
-    if (!formData.state) {
-      newErrors.state = 'State/Province is required';
-    }
-
-    if (!formData.country) {
-      newErrors.country = 'Country is required';
-    }
-
-    if (!formData.postalCode) {
-      newErrors.postalCode = 'Postal code is required';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -131,11 +134,15 @@ export default function BusinessInfoPage() {
     setLoading(true);
 
     try {
-      // Save business info to session
-      sessionStorage.setItem('businessInfo', JSON.stringify(formData));
+      // Save business info to session (or API)
+      sessionStorage.setItem('businessInfo', JSON.stringify({
+        ...formData,
+        companyLogo: undefined, // Don't store file object in storage
+        companyLogoPreview: undefined
+      }));
       
       // Navigate to next stage
-      navigate('/onboarding/logo-upload');
+      navigate('/onboarding/owner-details');
     } catch (error) {
       console.error('Error saving business info:', error);
       alert('Failed to save business information. Please try again.');
@@ -144,60 +151,228 @@ export default function BusinessInfoPage() {
     }
   };
 
-  const handleBack = () => {
-    const isOwner = sessionStorage.getItem('isOwner') === 'true';
-    if (isOwner) {
-      navigate('/onboarding/company-setup');
-    } else {
-      navigate('/onboarding/owner-details');
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Step 4 of 9</span>
-            <span className="text-sm text-gray-500">44% Complete</span>
+    <OnboardingLayout currentStep={1} title="Business Information">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Tell us about your company
+        </h1>
+        <p className="text-gray-600 text-sm">
+          This information is collected to better understand and serve your company
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Company Logo */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Company logo
+          </label>
+          <div className="flex items-center gap-4">
+            <div className="h-20 w-20 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+              {formData.companyLogoPreview ? (
+                <img 
+                  src={formData.companyLogoPreview} 
+                  alt="Company Logo" 
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-2">
+                  <span className="text-[10px] text-[#0F5D5D] font-bold">Teemplot</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <input
+                type="file"
+                id="logo-upload"
+                className="hidden"
+                accept="image/png, image/jpeg"
+                onChange={handleLogoChange}
+              />
+              <label 
+                htmlFor="logo-upload"
+                className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+              >
+                Change logo
+              </label>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-[#0F5D5D] h-2 rounded-full transition-all duration-300" style={{ width: '44%' }}></div>
-          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            PNG, JPG files up to 2MB. Recommended size of 256 x 256px
+          </p>
+          {errors.companyLogo && <p className="mt-1 text-xs text-red-500">{errors.companyLogo}</p>}
         </div>
 
-        {/* Back Button */}
-        <button
-          onClick={handleBack}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </button>
-
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Business Information
-          </h1>
-          <p className="text-gray-600">
-            Tell us about your company
+        {/* Company Name */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Company name
+          </label>
+          <input
+            type="text"
+            name="companyName"
+            value={formData.companyName}
+            onChange={handleChange}
+            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3 ${
+              errors.companyName ? 'border-red-300' : ''
+            }`}
+            placeholder="Enter your company name"
+          />
+          {errors.companyName && <p className="mt-1 text-xs text-red-500">{errors.companyName}</p>}
+          <p className="mt-1 text-xs text-gray-500">
+            This is your company legal business name. Your company name will be used when generating payslips
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="space-y-6">
-            {/* Company Details Section */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Company Details</h2>
-              
-              <div className="space-y-4">
-                {/* Company Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Name <span className="text-red-500">*</span>
+        {/* Tax ID */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Tax identification number (TIN)
+          </label>
+          <input
+            type="text"
+            name="taxId"
+            value={formData.taxId}
+            onChange={handleChange}
+            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3 ${
+              errors.taxId ? 'border-red-300' : ''
+            }`}
+            placeholder="Enter tax identification number"
+          />
+          {errors.taxId && <p className="mt-1 text-xs text-red-500">{errors.taxId}</p>}
+          <p className="mt-1 text-xs text-gray-500">
+            This is required for tax monitoring purposes. Numbers only.
+          </p>
+        </div>
+
+        {/* Industry */}
+        <div>
+          <Select
+            label="Industry"
+            required
+            options={industries}
+            value={formData.industry}
+            onChange={(val) => {
+              setFormData(prev => ({ ...prev, industry: val }));
+              if (errors.industry) setErrors(prev => ({ ...prev, industry: '' }));
+            }}
+            error={errors.industry}
+            placeholder="Select an option from the dropdown"
+            fullWidth
+          />
+        </div>
+
+        {/* Employees */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Number of Employees <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="numberOfEmployees"
+            value={formData.numberOfEmployees}
+            onChange={handleChange}
+            min="1"
+            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3 ${
+              errors.numberOfEmployees ? 'border-red-300' : ''
+            }`}
+            placeholder="Enter number of employees"
+          />
+          {errors.numberOfEmployees && <p className="mt-1 text-xs text-red-500">{errors.numberOfEmployees}</p>}
+        </div>
+
+        {/* Website */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Company Website (Optional)
+          </label>
+          <input
+            type="url"
+            name="website"
+            value={formData.website}
+            onChange={handleChange}
+            className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3 ${
+              errors.website ? 'border-red-300' : ''
+            }`}
+            placeholder="https://www.example.com"
+          />
+          {errors.website && <p className="mt-1 text-xs text-red-500">{errors.website}</p>}
+        </div>
+
+        {/* Address */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">Business Address</h2>
+            <button
+              type="button"
+              onClick={handleGetLocation}
+              disabled={fetchingLocation}
+              className="inline-flex items-center text-sm text-[#0F5D5D] hover:text-[#0b4646]"
+            >
+              {fetchingLocation ? (
+                <Loader className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <MapPin className="w-4 h-4 mr-1" />
+              )}
+              Use current location
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+             <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3"
+              placeholder="Street Address"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3"
+                placeholder="City"
+              />
+              <input
+                type="text"
+                name="state"
+                value={formData.state}
+                onChange={handleChange}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3"
+                placeholder="State"
+              />
+            </div>
+             <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                name="country"
+                value={formData.country}
+                readOnly
+                className="block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-gray-500 sm:text-sm py-2.5 px-3"
+              />
+              <input
+                type="text"
+                name="postalCode"
+                value={formData.postalCode}
+                onChange={handleChange}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0F5D5D] focus:ring-[#0F5D5D] sm:text-sm py-2.5 px-3"
+                placeholder="Postal Code"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Button type="submit" className="w-full bg-[#0F5D5D] hover:bg-[#0b4646] text-white py-3" isLoading={loading}>
+          Continue
+        </Button>
+      </form>
+    </OnboardingLayout>
+  );
+}
                   </label>
                   <input
                     type="text"

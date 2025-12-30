@@ -127,11 +127,8 @@ export function useOnboardingProgress() {
       const lastCompletedStep = Math.max(0, ...completedSteps);
 
       if (lastCompletedStep >= 6) return '/dashboard';
-      if (lastCompletedStep >= 5) return '/onboarding/subscription';
-      if (lastCompletedStep >= 4) return '/onboarding/documents'; // Or review if implemented
-      if (lastCompletedStep >= 3) return '/onboarding/documents';
-      if (lastCompletedStep >= 2) return '/onboarding/owner-details';
-
+      
+      // All onboarding steps are now handled in the single company-setup page
       return '/onboarding/company-setup';
     } catch (error) {
       console.error('Error resuming onboarding:', error);

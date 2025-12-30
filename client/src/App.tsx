@@ -39,12 +39,7 @@ import TermsPage from './pages/TermsPage'
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
 import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
-import OnboardingOwnerDetailsPage from './pages/onboarding/OwnerDetailsPage'
-import OnboardingBusinessInfoPage from './pages/onboarding/BusinessInfoPage'
-import OnboardingLogoUploadPage from './pages/onboarding/LogoUploadPage'
-import OnboardingDocumentsPage from './pages/onboarding/DocumentsPage'
-import OnboardingSubscriptionPage from './pages/onboarding/SubscriptionPage'
-import OnboardingCompletePage from './pages/onboarding/CompletionPage'
+import OnboardingCompletePage from './pages/onboarding/CompletePage'
 
 function App() {
   return (
@@ -87,31 +82,6 @@ function App() {
         <Route path="company-setup" element={
           <OnboardingGuard>
             <OnboardingCompanySetupPage />
-          </OnboardingGuard>
-        } />
-        <Route path="owner-details" element={
-          <OnboardingGuard>
-            <OnboardingOwnerDetailsPage />
-          </OnboardingGuard>
-        } />
-        <Route path="business-info" element={
-          <OnboardingGuard>
-            <OnboardingBusinessInfoPage />
-          </OnboardingGuard>
-        } />
-        <Route path="logo-upload" element={
-          <OnboardingGuard>
-            <OnboardingLogoUploadPage />
-          </OnboardingGuard>
-        } />
-        <Route path="documents" element={
-          <OnboardingGuard>
-            <OnboardingDocumentsPage />
-          </OnboardingGuard>
-        } />
-        <Route path="subscription" element={
-          <OnboardingGuard>
-            <OnboardingSubscriptionPage />
           </OnboardingGuard>
         } />
         <Route path="complete" element={

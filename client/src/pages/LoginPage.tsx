@@ -32,7 +32,7 @@ export default function LoginPage() {
 
     try {
       const response = await apiClient.post('/api/auth/login', {
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         password: formData.password,
       })
 

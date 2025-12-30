@@ -81,6 +81,9 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Sanitize inputs
       const data = sanitizeInput(rawData);
+      
+      // Normalize email
+      data.email = data.email.toLowerCase();
 
       // Validate password strength
       const passwordCheck = validatePasswordStrength(data.password);
@@ -224,7 +227,11 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const rawData = LoginSchema.parse(request.body);
-      const { email, password } = sanitizeInput(rawData);
+      const sanitizedData = sanitizeInput(rawData);
+      
+      // Normalize email to lowercase for case-insensitive login
+      const email = sanitizedData.email.toLowerCase();
+      const password = sanitizedData.password;
 
       // Find user
       const user = await db.findOne('users', { email });
