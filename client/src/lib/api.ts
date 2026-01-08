@@ -19,6 +19,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (error.response?.status === 429) {
+      return Promise.reject(error);
+    }
     
     // Only handle 401 on PROTECTED routes
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -50,7 +53,6 @@ apiClient.interceptors.response.use(
       const isOnboarding = currentPath.startsWith('/onboarding');
       const isAuthCallback = currentPath.startsWith('/auth/');
       
-      // If we're on a public page or onboarding, DO NOT redirect or refresh token
       if (isPublicPath || isOnboarding || isAuthCallback) {
         return Promise.reject(error); // Just fail silently
       }
@@ -68,6 +70,10 @@ apiClient.interceptors.response.use(
       }
     }
     
-    return Promise.reject(error);
+    const normalized = {
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message || 'Request failed'
+    };
+    return Promise.reject({ ...error, normalized });
   }
 )

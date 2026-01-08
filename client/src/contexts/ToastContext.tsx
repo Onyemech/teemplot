@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import ToastContainer from '../components/ui/ToastContainer';
 import { ToastProps, ToastType } from '../components/ui/Toast';
 
@@ -17,16 +17,60 @@ interface ToastProviderProps {
   position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center' | 'bottom-center';
 }
 
+const MAX_MESSAGE_LENGTH = 200;
+const MAX_MESSAGES_PER_MINUTE = 3;
+
 export const ToastProvider: React.FC<ToastProviderProps> = ({ 
   children, 
   position = 'top-right' 
 }) => {
   const [toasts, setToasts] = useState<(ToastProps & { id: string })[]>([]);
+  const messageTimestamps = useRef<number[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration = 5000) => {
+  const sanitizeMessage = (message: string): string => {
+    // Remove potential sensitive data patterns (e.g., file paths, stack traces)
+    let sanitized = message
+      .replace(/(\/[a-zA-Z0-9_\-.]+)+/g, '[path_hidden]') // Hide paths
+      .replace(/at\s+.+:\d+:\d+/g, '[stack_trace_hidden]') // Hide stack traces
+      .replace(/Code:\s*\d+/g, '') // Remove internal error codes
+      .trim();
+
+    // Truncate to max length
+    if (sanitized.length > MAX_MESSAGE_LENGTH) {
+      sanitized = sanitized.substring(0, MAX_MESSAGE_LENGTH) + '...';
+    }
+
+    return sanitized;
+  };
+
+  const isRateLimited = (): boolean => {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60000;
+    
+    // Filter out old timestamps
+    messageTimestamps.current = messageTimestamps.current.filter(ts => ts > oneMinuteAgo);
+    
+    if (messageTimestamps.current.length >= MAX_MESSAGES_PER_MINUTE) {
+      return true;
+    }
+    
+    messageTimestamps.current.push(now);
+    return false;
+  };
+
+  const showToast = useCallback((rawMessage: string, type: ToastType = 'info', duration = 5000) => {
+    if (isRateLimited()) {
+      console.warn('Toast rate limit exceeded');
+      return;
+    }
+
+    const message = sanitizeMessage(rawMessage);
     const id = `toast-${Date.now()}-${Math.random()}`;
     const newToast = { id, message, type, duration, visible: true };
     
+    // Log toast for audit (excluding sensitive info)
+    console.log(`[Toast Audit] Type: ${type}, Time: ${new Date().toISOString()}, Message: ${message}`);
+
     setToasts((prev) => [...prev, newToast]);
   }, []);
 

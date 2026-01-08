@@ -16,15 +16,15 @@ export async function healthRoutes(fastify: FastifyInstance) {
       
       return reply.code(statusCode).send({
         success: true,
-        ...health
+        data: health
       });
     } catch (error) {
       logger.error({ error }, 'Health check failed:');
       
       return reply.code(503).send({
         success: false,
-        error: 'Health check failed',
-        timestamp: new Date().toISOString()
+        message: 'Health check failed',
+        data: { timestamp: new Date().toISOString() }
       });
     }
   });
@@ -42,11 +42,13 @@ export async function healthRoutes(fastify: FastifyInstance) {
       
       return reply.code(coreServicesHealthy ? 200 : 503).send({
         success: coreServicesHealthy,
-        status: coreServicesHealthy ? 'ready' : 'not_ready',
-        timestamp: new Date().toISOString(),
-        services: {
-          database: health.services.database.status,
-          email: health.services.email.status
+        data: {
+          status: coreServicesHealthy ? 'ready' : 'not_ready',
+          timestamp: new Date().toISOString(),
+          services: {
+            database: health.services.database.status,
+            email: health.services.email.status
+          }
         }
       });
     } catch (error) {
@@ -66,10 +68,12 @@ export async function healthRoutes(fastify: FastifyInstance) {
     // Simple liveness check - just verify the service is running
     return reply.code(200).send({
       success: true,
-      status: 'alive',
-      timestamp: new Date().toISOString(),
-      uptime: healthCheckService.getUptime(),
-      version: healthCheckService.getVersion()
+      data: {
+        status: 'alive',
+        timestamp: new Date().toISOString(),
+        uptime: healthCheckService.getUptime(),
+        version: healthCheckService.getVersion()
+      }
     });
   });
 
@@ -97,15 +101,15 @@ export async function healthRoutes(fastify: FastifyInstance) {
       
       return reply.code(statusCode).send({
         success: true,
-        ...detailedHealth
+        data: detailedHealth
       });
     } catch (error) {
       logger.error({ error }, 'Detailed health check failed:');
       
       return reply.code(503).send({
         success: false,
-        error: 'Detailed health check failed',
-        timestamp: new Date().toISOString()
+        message: 'Detailed health check failed',
+        data: { timestamp: new Date().toISOString() }
       });
     }
   });

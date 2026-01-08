@@ -21,37 +21,7 @@ async function initializeDatabase() {
 
     logger.info(`Database type: ${dbType}`);
 
-    if (dbType === 'sqlite') {
-      // SQLite initialization
-      const schemaPath = path.join(__dirname, '../../database/schema.sqlite.sql');
-      
-      if (fs.existsSync(schemaPath)) {
-        logger.info('Loading SQLite schema from file...');
-        const schema = fs.readFileSync(schemaPath, 'utf-8');
-        
-        // Split by semicolon and execute each statement
-        const statements = schema
-          .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && !s.startsWith('--'));
-
-        for (const statement of statements) {
-          try {
-            await db.query(statement);
-          } catch (error: any) {
-            // Ignore "table already exists" errors
-            if (!error.message.includes('already exists')) {
-              logger.error(`Failed to execute statement: ${error.message}`);
-            }
-          }
-        }
-
-        logger.info('✅ SQLite schema initialized successfully');
-      } else {
-        logger.error('❌ SQLite schema file not found');
-        process.exit(1);
-      }
-    } else if (dbType === 'postgres') {
+    if (dbType === 'postgres') {
       // PostgreSQL initialization
       const schemaPath = path.join(__dirname, '../../database/schema.sql');
       
@@ -65,6 +35,9 @@ async function initializeDatabase() {
         logger.error('❌ PostgreSQL schema file not found');
         process.exit(1);
       }
+    } else {
+      logger.error(`Unsupported database type for init: ${dbType}`);
+      process.exit(1);
     }
 
     // Verify tables exist

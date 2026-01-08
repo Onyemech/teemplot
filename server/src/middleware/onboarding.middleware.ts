@@ -16,7 +16,6 @@ export async function requireOnboarding(request: FastifyRequest, reply: FastifyR
 
     const db = DatabaseFactory.getPrimaryDatabase();
     
-    // Check company onboarding status
     const result = await db.query(
       'SELECT onboarding_completed FROM companies WHERE id = $1',
       [user.companyId]

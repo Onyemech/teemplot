@@ -13,29 +13,32 @@ import DashboardPage from './pages/DashboardPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
-// Dashboard Layout
 import DashboardLayout from './layouts/DashboardLayout'
 
-// Dashboard Sub-pages
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
 import InboxPage from './pages/mobile/InboxPage'
 import SettingsPage from './pages/dashboard/SettingsPage'
+import LeaveDashboardPage from './pages/leave/LeaveDashboardPage'
+import LeaveRequestsPage from './pages/leave/LeaveRequestsPage'
+import LeaveRequestDetailPage from './pages/leave/LeaveRequestDetailPage'
+import LeaveCalendarPage from './pages/leave/LeaveCalendarPage'
+import TaxDashboardPage from './pages/tax/TaxDashboardPage'
+import TaxAssignmentDetailPage from './pages/tax/TaxAssignmentDetailPage'
+import TaskAssignPage from './pages/tasks/TaskAssignPage'
+import TaskCompletePage from './pages/tasks/TaskCompletePage'
+import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
+import TaskStatusPage from './pages/tasks/TaskStatusPage'
 
-// Debug utilities (available in console as window.debugAuth())
 import './utils/debugAuth'
 
-// Auth Pages
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
 
-// Payment Pages
 import PaymentCallbackPage from './pages/PaymentCallbackPage'
 
-// Legal Pages
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 
-// Onboarding Pages
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
 import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
@@ -100,6 +103,16 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="attendance" element={<AttendanceOverviewPage />} />
+        <Route path="leave" element={<LeaveDashboardPage />} />
+        <Route path="leave/requests" element={<LeaveRequestsPage />} />
+        <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
+        <Route path="leave/calendar" element={<LeaveCalendarPage />} />
+        <Route path="tax" element={<TaxDashboardPage />} />
+        <Route path="tax/assignments/:id" element={<TaxAssignmentDetailPage />} />
+        <Route path="tasks/assign" element={<TaskAssignPage />} />
+        <Route path="tasks/complete" element={<TaskCompletePage />} />
+        <Route path="tasks/verify" element={<TaskVerifyPage />} />
+        <Route path="tasks/status" element={<TaskStatusPage />} />
         <Route path="inbox" element={<InboxPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

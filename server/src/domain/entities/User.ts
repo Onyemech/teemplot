@@ -19,6 +19,7 @@ export interface User {
   googleId?: string;
   lastLoginAt?: Date;
   settings?: Record<string, any>;
+  remoteWorkDays?: number[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;

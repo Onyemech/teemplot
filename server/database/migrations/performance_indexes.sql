@@ -105,6 +105,26 @@ ON tasks(company_id, status, priority, due_date)
 WHERE deleted_at IS NULL;
 
 -- ============================================
+-- LEAVE MANAGEMENT INDEXES (TENANCY-ALIGNED)
+-- ============================================
+
+-- Leave requests - optimize for company and review stage
+CREATE INDEX IF NOT EXISTS idx_leave_company_stage_status
+ON leave_requests(company_id, review_stage, status, user_id, created_at DESC);
+
+-- Leave requests - optimize for department manager visibility
+CREATE INDEX IF NOT EXISTS idx_leave_user_department_lookup
+ON users(id, company_id, department_id)
+WHERE is_active = true;
+
+-- ============================================
+-- TAX ASSIGNMENT INDEXES (TENANCY-ALIGNED)
+-- ============================================
+
+CREATE INDEX IF NOT EXISTS idx_tax_company_status
+ON tax_assignments(company_id, status, user_id, created_at DESC);
+
+-- ============================================
 -- NOTIFICATION INDEXES
 -- ============================================
 

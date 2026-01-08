@@ -67,10 +67,9 @@ export class EmployeeInvitationService {
         await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [companyId]);
         await client.query("SELECT set_config('app.current_user_id', $1, true)", [invitedBy]);
 
-        // Lock company record to prevent race conditions on plan limits
         await client.query('SELECT id FROM companies WHERE id = $1 FOR UPDATE', [companyId]);
 
-        // Step 1: Verify plan limits within transaction
+
         const limits = await this.verifyPlanLimits(companyId, client);
         if (!limits.canAddMore) {
           // Log attempt and notify admins when limit is reached

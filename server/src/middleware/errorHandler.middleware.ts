@@ -40,7 +40,7 @@ export async function errorHandler(
 
   reply.code(statusCode).send({
     success: false,
-    error: message,
+    message,
     ...(process.env.NODE_ENV === 'development' && {
       stack: error.stack,
       details: error,

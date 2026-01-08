@@ -86,6 +86,12 @@ export const navigationConfig: NavItemConfig[] = [
     href: '/dashboard/tasks',
     icon: ClipboardList,
     feature: 'tasks', // Gold only
+    submenu: [
+      { label: 'Assign', href: '/dashboard/tasks/assign', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Complete', href: '/dashboard/tasks/complete', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Verify', href: '/dashboard/tasks/verify', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Status', href: '/dashboard/tasks/status', icon: ClipboardList, feature: 'tasks' },
+    ],
   },
   {
     label: 'Performance',
@@ -202,6 +208,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/employees',
       '/dashboard/settings',
       '/dashboard/settings/billing',
+      '/dashboard/leave',
+      '/dashboard/leave/requests',
+      '/dashboard/leave/calendar',
+      '/dashboard/tax',
+      '/dashboard/tasks',
+      '/dashboard/tasks/assign',
+      '/dashboard/tasks/complete',
+      '/dashboard/tasks/verify',
+      '/dashboard/tasks/status',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 

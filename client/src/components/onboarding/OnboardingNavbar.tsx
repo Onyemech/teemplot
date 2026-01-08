@@ -17,7 +17,7 @@ interface OnboardingNavbarProps {
 
 export default function OnboardingNavbar({
   currentStep,
-  totalSteps = 9,
+  totalSteps = 5,
   showSteps = true,
   onSave,
   onBack,

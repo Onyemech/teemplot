@@ -14,12 +14,12 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       const userId = (request.user as any).userId;
       const companyId = (request.user as any).companyId;
       const stats = await dashboardService.getDashboardStats(userId, companyId);
-      return reply.send(stats);
+      return reply.code(200).send({ success: true, data: stats });
     } catch (error: any) {
       fastify.log.error('Error fetching dashboard stats:', error);
-      return reply.status(500).send({ 
+      return reply.code(500).send({ 
         success: false,
-        error: error.message || 'Failed to fetch dashboard stats' 
+        message: error.message || 'Failed to fetch dashboard stats' 
       });
     }
   });
@@ -33,12 +33,12 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       const userId = (request.user as any).userId;
       const companyId = (request.user as any).companyId;
       const orders = await dashboardService.getRecentOrders(userId, companyId);
-      return reply.send(orders);
+      return reply.code(200).send({ success: true, data: orders });
     } catch (error: any) {
       fastify.log.error('Error fetching recent orders:', error);
-      return reply.status(500).send({ 
+      return reply.code(500).send({ 
         success: false,
-        error: error.message || 'Failed to fetch recent orders' 
+        message: error.message || 'Failed to fetch recent orders' 
       });
     }
   });
@@ -52,12 +52,12 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       const userId = (request.user as any).userId;
       const companyId = (request.user as any).companyId;
       const leads = await dashboardService.getRecentLeads(userId, companyId);
-      return reply.send(leads);
+      return reply.code(200).send({ success: true, data: leads });
     } catch (error: any) {
       fastify.log.error('Error fetching recent leads:', error);
-      return reply.status(500).send({ 
+      return reply.code(500).send({ 
         success: false,
-        error: error.message || 'Failed to fetch recent leads' 
+        message: error.message || 'Failed to fetch recent leads' 
       });
     }
   });

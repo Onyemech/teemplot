@@ -2,7 +2,6 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { logger } from '../utils/logger';
 import { logSecurityEvent } from './security.middleware';
 
-// Allowlist of permitted directories for file operations
 const ALLOWED_DIRECTORIES = [
   'uploads',
   'temp',
@@ -10,42 +9,32 @@ const ALLOWED_DIRECTORIES = [
   'assets'
 ];
 
-// Blocklist of sensitive system paths and patterns
 const BLOCKED_PATTERNS = [
-  // System directories
   /^(?:\/|\\)*(?:etc|proc|sys|dev|boot|root|home|usr|var|tmp|private|Library|System|Windows|Program Files|ProgramData)(?:\/|\\)*/i,
   
-  // Configuration files
   /\.(?:env|config|ini|cfg|properties|xml|json|yaml|yml|key|pem|crt|pub|priv)$/i,
   
-  // Sensitive files
   /(?:passwd|shadow|hosts|ssh|id_rsa|id_dsa|known_hosts|history|bash_history|profile|bashrc)$/i,
   
-  // Environment variable patterns
   /\$\{[^}]+\}/,
   /%[^%]+%/,
   
-  // Double encoding attempts
-  /%25(?:2e|5c|2f|5e)/i, // %2e=., %5c=\\, %2f=/, %5e=^
+  /%25(?:2e|5c|2f|5e)/i,
 ];
 
-// Normalize and validate file paths
 function normalizeAndValidatePath(inputPath: string): { isValid: boolean; normalizedPath: string; reason?: string } {
   if (!inputPath || typeof inputPath !== 'string') {
     return { isValid: false, normalizedPath: '', reason: 'Invalid path type' };
   }
 
-  // Remove null bytes and control characters
   let path = inputPath.replace(/[\x00-\x1f\x80-\x9f]/g, '');
   
-  // Decode URL encoding (handle double encoding attempts)
   try {
     path = decodeURIComponent(path);
   } catch {
     return { isValid: false, normalizedPath: '', reason: 'Invalid URL encoding' };
   }
 
-  // Check for blocked patterns
   for (const pattern of BLOCKED_PATTERNS) {
     if (pattern.test(path)) {
       return { isValid: false, normalizedPath: '', reason: 'Blocked pattern detected' };
@@ -175,7 +164,8 @@ export function pathTraversalProtection(request: FastifyRequest, reply: FastifyR
   // Skip for health checks, static assets, and Google OAuth callback (which contains complex codes)
   if (request.url.startsWith('/health') || request.url.startsWith('/api/health') || 
       request.url.startsWith('/assets/') || request.url.startsWith('/public/') ||
-      request.url.startsWith('/api/auth/google/callback')) {
+      request.url.startsWith('/api/auth/google/callback') ||
+      request.url.startsWith('/api/employee-invitations/')) {
     return next();
   }
 

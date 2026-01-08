@@ -26,16 +26,18 @@ export class AttendanceService {
       // Get company configuration
       const companyQuery = `
         SELECT 
-          id,
-          office_latitude,
-          office_longitude,
-          geofence_radius_meters,
-          require_geofence_for_clockin,
-          timezone,
-          work_start_time,
-          grace_period_minutes
-        FROM companies
-        WHERE id = $1 AND deleted_at IS NULL
+          c.id,
+          c.office_latitude,
+          c.office_longitude,
+          c.geofence_radius_meters,
+          c.require_geofence_for_clockin,
+          c.timezone,
+          c.work_start_time,
+          c.grace_period_minutes,
+          cs.allow_remote_clockin
+        FROM companies c
+        LEFT JOIN company_settings cs ON c.id = cs.company_id
+        WHERE c.id = $1 AND c.deleted_at IS NULL
       `;
 
       const companyResult = await client.query(companyQuery, [data.companyId]);
@@ -66,11 +68,19 @@ export class AttendanceService {
         throw new Error('Already clocked in today');
       }
 
+      // Check remote work permissions
+      const userSettingsQuery = `SELECT remote_work_days FROM users WHERE id = $1`;
+      const userSettingsResult = await client.query(userSettingsQuery, [data.userId]);
+      const userRemoteDays = userSettingsResult.rows[0]?.remote_work_days || [];
+      const currentDay = new Date().getDay() || 7; // 1-7 (Mon-Sun)
+      const isRemoteAllowed = company.allow_remote_clockin && userRemoteDays.includes(currentDay);
+
       // Validate geofence if required
       let isWithinFence = true;
       let distance: number | null = null;
 
       if (
+        !isRemoteAllowed && // Skip geofence check if remote clock-in is allowed for today
         company.require_geofence_for_clockin &&
         company.office_latitude &&
         company.office_longitude &&

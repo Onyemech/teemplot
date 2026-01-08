@@ -38,6 +38,7 @@ const OwnerDetailsSchema = z.object({
 });
 
 const BusinessInfoSchema = z.object({
+  userId: z.string().uuid(),
   companyId: z.string().uuid(),
   companyName: z.string().min(2),
   taxId: z.string().min(1),
@@ -315,6 +316,20 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({
           success: false,
           message: 'Company ID is required',
+        });
+      }
+
+      if (!userId) {
+        return reply.code(400).send({
+          success: false,
+          message: 'User ID is required',
+        });
+      }
+
+      if (!userId) {
+        return reply.code(400).send({
+          success: false,
+          message: 'User ID is required',
         });
       }
 

@@ -4,6 +4,7 @@ import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 
 export default async function leaveRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
+  
   // Request leave
   fastify.post('/request', {
     preHandler: [fastify.authenticate],
@@ -57,14 +58,31 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Create leave request
+      // Determine initial review stage: manager if available in user's department, otherwise admin
+      const deptRes = await db.query('SELECT department_id FROM users WHERE id = $1', [userId]);
+      const departmentId = deptRes.rows[0]?.department_id || null;
+      let initialStage = 'admin';
+      if (departmentId) {
+        const mgrRes = await db.query(
+          `SELECT id FROM users 
+           WHERE company_id = $1 AND department_id = $2 
+             AND (role = 'manager' OR role = 'department_head') AND is_active = true
+           LIMIT 1`,
+          [companyId, departmentId]
+        );
+        if (mgrRes.rows.length > 0) {
+          initialStage = 'manager';
+        }
+      }
+
+      // Create leave request with hierarchical stage
       const result = await db.query(
         `INSERT INTO leave_requests (
           company_id, user_id, leave_type, start_date, end_date,
-          total_days, reason, half_day, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+          total_days, reason, half_day, status, review_stage
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
         RETURNING *`,
-        [companyId, userId, leaveType, startDate, endDate, totalDays, reason, halfDay || false]
+        [companyId, userId, leaveType, startDate, endDate, totalDays, reason, halfDay || false, initialStage]
       );
 
       const leaveRequest = result.rows[0];
@@ -99,7 +117,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const { companyId, userId, role } = request.user;
-      const { status, userId: filterUserId } = request.query as any;
+      const { status, userId: filterUserId, reviewStage } = request.query as any;
 
       let query = `
         SELECT 
@@ -118,6 +136,18 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
         query += ` AND lr.user_id = $${paramIndex}`;
         params.push(userId);
         paramIndex++;
+      } else if (role === 'manager' || role === 'department_head') {
+        // Managers/department heads can see their department users
+        const deptRes = await db.query('SELECT department_id FROM users WHERE id = $1', [userId]);
+        const departmentId = deptRes.rows[0]?.department_id || null;
+        if (departmentId) {
+          query += ` AND u.department_id = $${paramIndex}`;
+          params.push(departmentId);
+          paramIndex++;
+        } else {
+          // If no department, restrict to none
+          query += ` AND 1 = 0`;
+        }
       } else if (filterUserId) {
         // Admins/owners can filter by user
         query += ` AND lr.user_id = $${paramIndex}`;
@@ -129,6 +159,13 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
       if (status) {
         query += ` AND lr.status = $${paramIndex}`;
         params.push(status);
+        paramIndex++;
+      }
+      
+      // Filter by review stage
+      if (reviewStage) {
+        query += ` AND lr.review_stage = $${paramIndex}`;
+        params.push(reviewStage);
         paramIndex++;
       }
 
@@ -213,14 +250,6 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
       const { requestId } = request.params as any;
       const { approved, reviewNotes } = request.body as any;
 
-      // Only owners and admins can review
-      if (role !== 'owner' && role !== 'admin') {
-        return reply.code(403).send({
-          success: false,
-          message: 'Only owners and admins can review leave requests'
-        });
-      }
-
       // Get leave request
       const leaveResult = await db.query(
         'SELECT * FROM leave_requests WHERE id = $1 AND company_id = $2',
@@ -236,26 +265,88 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
 
       const leaveRequest = leaveResult.rows[0];
 
-      if (leaveRequest.status !== 'pending') {
-        return reply.code(400).send({
-          success: false,
-          message: 'Leave request has already been reviewed'
-        });
+      // Hierarchical review: manager -> admin -> owner
+      if (leaveRequest.status !== 'pending' && leaveRequest.status !== 'in_review') {
+        return reply.code(400).send({ success: false, message: 'Leave request is not in a reviewable state' });
+      }
+      
+      const stage = leaveRequest.review_stage || 'manager';
+      if (stage === 'manager') {
+        if (role !== 'manager' && role !== 'department_head' && role !== 'admin' && role !== 'owner') {
+          return reply.code(403).send({ success: false, message: 'Manager review required' });
+        }
+        const deptRes = await db.query('SELECT department_id FROM users WHERE id = $1', [leaveRequest.user_id]);
+        const employeeDept = deptRes.rows[0]?.department_id || null;
+        if ((role === 'manager' || role === 'department_head') && employeeDept) {
+          const mgrDeptRes = await db.query('SELECT department_id FROM users WHERE id = $1', [userId]);
+          if (mgrDeptRes.rows[0]?.department_id !== employeeDept) {
+            return reply.code(403).send({ success: false, message: 'Managers can only review their department' });
+          }
+        }
+        if (!approved) {
+          await db.query(
+            `UPDATE leave_requests SET status = 'rejected', review_stage = 'manager',
+             manager_notes = $1, reviewed_by_manager = $2, reviewed_at_manager = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request rejected by manager' });
+        } else {
+          await db.query(
+            `UPDATE leave_requests SET status = 'in_review', review_stage = 'admin',
+             manager_notes = $1, reviewed_by_manager = $2, reviewed_at_manager = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request escalated to admin' });
+        }
+      } else if (stage === 'admin') {
+        if (role !== 'admin' && role !== 'owner') {
+          return reply.code(403).send({ success: false, message: 'Admin review required' });
+        }
+        if (!approved) {
+          await db.query(
+            `UPDATE leave_requests SET status = 'rejected', review_stage = 'admin',
+             admin_notes = $1, reviewed_by_admin = $2, reviewed_at_admin = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request rejected by admin' });
+        } else {
+          await db.query(
+            `UPDATE leave_requests SET status = 'in_review', review_stage = 'owner',
+             admin_notes = $1, reviewed_by_admin = $2, reviewed_at_admin = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request escalated to owner' });
+        }
+      } else if (stage === 'owner') {
+        if (role !== 'owner') {
+          return reply.code(403).send({ success: false, message: 'Owner review required' });
+        }
+        if (!approved) {
+          await db.query(
+            `UPDATE leave_requests SET status = 'rejected', review_stage = 'owner',
+             owner_notes = $1, reviewed_by_owner = $2, reviewed_at_owner = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request rejected by owner' });
+        } else {
+          await db.query(
+            `UPDATE leave_requests SET status = 'approved',
+             owner_notes = $1, reviewed_by_owner = $2, reviewed_at_owner = NOW()
+             WHERE id = $3 AND company_id = $4`,
+            [reviewNotes || null, userId, requestId, companyId]
+          );
+          return reply.send({ success: true, message: 'Leave request approved' });
+        }
+      } else {
+        return reply.code(400).send({ success: false, message: 'Invalid review stage' });
       }
 
-      // Update leave request status
-      const newStatus = approved ? 'approved' : 'rejected';
-      await db.query(
-        `UPDATE leave_requests 
-         SET status = $1, reviewed_by = $2, reviewed_at = NOW(), review_notes = $3
-         WHERE id = $4`,
-        [newStatus, userId, reviewNotes, requestId]
-      );
-
-      return reply.send({
-        success: true,
-        message: `Leave request ${newStatus} successfully`
-      });
+      
     } catch (error: any) {
       return reply.code(500).send({
         success: false,

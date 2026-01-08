@@ -322,6 +322,7 @@ export default function CompanySetupPage() {
         
         // Submit business information with complete geocoding data
         await submitBusinessInfo({
+          userId,
           companyId,
           companyName: formData.companyName,
           taxId: formData.tin,
@@ -439,7 +440,17 @@ export default function CompanySetupPage() {
       console.error('Failed to proceed:', error)
       const errorMsg = error.message || 'Failed to save. Please try again.'
       setError(errorMsg)
-      toast.error(errorMsg)
+      
+      // Map error types to actionable messages
+      if (errorMsg.includes('validation') || errorMsg.includes('required')) {
+        toast.error('Please check all required fields and try again.')
+      } else if (errorMsg.includes('duplicate') || errorMsg.includes('already registered')) {
+        toast.warning('This information is already in use. Please verify your details.')
+      } else if (errorMsg.includes('network') || errorMsg.includes('connect')) {
+        toast.error('Connection error. Please check your internet connection.')
+      } else {
+        toast.error(errorMsg)
+      }
     } finally {
       setLoading(false)
     }

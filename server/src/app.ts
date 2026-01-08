@@ -212,6 +212,18 @@ export async function buildApp() {
   // Import and register subscription routes
   const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
+  
+  // Import and register leave management routes
+  const leaveRoutes = await import('./routes/leave.routes');
+  await app.register(leaveRoutes.default, { prefix: `${apiPrefix}/leave` });
+  
+  // Import and register tax routes
+  const taxRoutes = await import('./routes/tax.routes');
+  await app.register(taxRoutes.default, { prefix: `${apiPrefix}/tax` });
+  
+  // Import and register tasks routes
+  const tasksRoutes = await import('./routes/tasks.routes');
+  await app.register(tasksRoutes.default, { prefix: `${apiPrefix}/tasks` });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

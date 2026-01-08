@@ -35,12 +35,12 @@ export class RegistrationService {
     this.backupDb = DatabaseFactory.getBackupDatabase();
   }
 
-  /**
-   * Register new company and admin user
-   */
+
   async register(data: RegistrationData): Promise<RegistrationResult> {
+    const normalizedEmail = data.email.toLowerCase();
+
     // Validate email doesn't exist
-    await this.validateEmail(data.email);
+    await this.validateEmail(normalizedEmail);
 
     // Hash password (10 rounds = ~150ms, still secure)
     const bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS || '10');
@@ -59,7 +59,7 @@ export class RegistrationService {
           id: companyId,
           name: data.companyName,
           slug,
-          email: data.email,
+          email: normalizedEmail,
           phone_number: data.phoneNumber,
           address: data.address,
           industry: data.industry,
@@ -74,7 +74,7 @@ export class RegistrationService {
         const user = await db.insert('users', {
           id: userId,
           company_id: companyId,
-          email: data.email,
+          email: normalizedEmail,
           password_hash: passwordHash,
           first_name: data.firstName,
           last_name: data.lastName,
@@ -88,35 +88,41 @@ export class RegistrationService {
       });
 
       // Sync to backup database (non-blocking)
-      this.syncToBackup(companyId, userId, data).catch((error: any) => {
+      this.syncToBackup(companyId, userId, { ...data, email: normalizedEmail }).catch((error: any) => {
         logger.error(`Failed to sync registration to backup: ${error?.message || 'Unknown error'}`);
       });
 
       // Send verification email immediately (not in setImmediate to prevent timing issues)
       try {
-        const code = await emailService.generateVerificationCode(data.email);
-        await emailService.sendVerificationEmail(data.email, data.firstName, code);
-        logger.info({ email: data.email }, 'Verification email sent');
+        const code = await emailService.generateVerificationCode(normalizedEmail);
+        await emailService.sendVerificationEmail(normalizedEmail, data.firstName, code);
+        logger.info({ email: normalizedEmail }, 'Verification email sent');
       } catch (error: any) {
-        logger.error({ err: error, email: data.email }, 'Failed to send verification email');
+        logger.error({ err: error, email: normalizedEmail }, 'Failed to send verification email');
       }
 
       // Notify superadmins (non-blocking)
       setImmediate(() => {
-        superAdminNotificationService.notifyNewCompany(companyId, data.companyName, data.email)
+        superAdminNotificationService.notifyNewCompany(companyId, data.companyName, normalizedEmail)
           .catch(error => logger.error({ err: error }, 'Failed to notify superadmin'));
       });
 
-      logger.info({ userId, companyId, email: data.email }, 'Registration complete');
+      logger.info({ userId, companyId, email: normalizedEmail }, 'Registration complete');
 
       return {
         userId,
         companyId,
-        email: data.email,
+        email: normalizedEmail,
         verificationRequired: true,
       };
     } catch (error: any) {
       logger.error(`Registration failed: ${error?.message || 'Unknown error'}`);
+      
+      // Handle unique constraint violations explicitly
+      if (error?.message?.includes('users_lower_email_idx') || error?.message?.includes('unique constraint')) {
+        throw new Error('Email already registered');
+      }
+      
       throw new Error('Registration failed. Please try again.');
     }
   }

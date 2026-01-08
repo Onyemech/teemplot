@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger';
 
 export class PostgresDatabase implements IDatabase {
   private pool: Pool;
+  private columnCache: Map<string, boolean> = new Map();
 
   constructor() {
     const connectionString = process.env.DATABASE_URL;

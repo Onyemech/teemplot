@@ -40,20 +40,20 @@ export default function MobileAttendancePage() {
     setLoading(true)
     try {
       // Fetch company settings
-      const settingsRes = await apiClient.get('/company-settings')
+      const settingsRes = await apiClient.get('/api/company-settings')
       if (settingsRes.data.success) {
         setCompanySettings(settingsRes.data.data)
       }
 
       // Fetch today's status
-      const statusRes = await apiClient.get('/attendance/status')
+      const statusRes = await apiClient.get('/api/attendance/status')
       if (statusRes.data.success) {
         setTodayStatus(statusRes.data.data)
       }
 
       // Fetch history (mock for now or use actual endpoint if available)
       // The history endpoint exists: /attendance/history
-      const historyRes = await apiClient.get('/attendance/history')
+      const historyRes = await apiClient.get('/api/attendance/history')
       if (historyRes.data.success) {
          // Map backend history to frontend model
          const mappedHistory = historyRes.data.data.map((record: any) => ({
@@ -141,7 +141,7 @@ export default function MobileAttendancePage() {
         }
       }
 
-      const res = await apiClient.post('/attendance/check-in', {
+      const res = await apiClient.post('/api/attendance/check-in', {
         location,
         biometricsProof
       })
@@ -161,7 +161,7 @@ export default function MobileAttendancePage() {
     setProcessing(true)
     try {
         // We need the current attendance ID for check-out
-        const currentRes = await apiClient.get('/attendance/current')
+        const currentRes = await apiClient.get('/api/attendance/current')
         if (!currentRes.data.success || !currentRes.data.data) {
             toast.error('No active attendance found')
             setProcessing(false)
@@ -196,7 +196,7 @@ export default function MobileAttendancePage() {
             }
         }
 
-        const res = await apiClient.post('/attendance/check-out', {
+        const res = await apiClient.post('/api/attendance/check-out', {
             attendanceId,
             location,
             biometricsProof

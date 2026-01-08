@@ -1,5 +1,25 @@
 import { requestDeduplicator } from './requestDeduplication';
 import { apiClient } from '../lib/api';
+ 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+ 
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, baseDelayMs = 500): Promise<T> {
+  let attempt = 0;
+  let lastError: any;
+  while (attempt <= retries) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const status = err?.response?.status;
+      if (status && status < 500 && status !== 429) throw err;
+      const backoff = baseDelayMs * Math.pow(2, attempt);
+      await delay(backoff);
+      attempt += 1;
+    }
+  }
+  throw lastError;
+}
 
 // Helper to extract filename from various formats
 export const getFileDisplayName = (file: any): string => {
@@ -77,6 +97,7 @@ export const submitOwnerDetails = async (data: {
 
 // Business Info API with Geocoding
 export const submitBusinessInfo = async (data: {
+  userId: string
   companyId: string
   companyName: string
   taxId: string
@@ -112,15 +133,13 @@ export const submitBusinessInfo = async (data: {
 }
 
 // Upload Logo API
-export const uploadLogo = async (_companyId: string, file: File) => {
+export const uploadLogo = async (companyId: string, userId: string, file: File) => {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('companyId', companyId)
+  formData.append('userId', userId)
 
-  const response = await apiClient.post('/api/onboarding/upload-logo', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await apiClient.post('/api/onboarding/upload-logo', formData);
 
   const result = response.data;
 
@@ -131,13 +150,20 @@ export const uploadLogo = async (_companyId: string, file: File) => {
   return result
 }
 
-// Upload Document API with hash-based deduplication and parallel processing
+  // Upload Document API with hash-based deduplication and parallel processing
 export const uploadDocument = async (
   companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
   file: File
 ) => {
   try {
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Unsupported file type');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error('File too large');
+    }
     // Step 1: Compute file hash (optimized with parallel processing)
     const buffer = await file.arrayBuffer()
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
@@ -145,12 +171,12 @@ export const uploadDocument = async (
     const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     
     // Step 2: Check if file already exists
-    const checkResponse = await apiClient.post('/api/files/check', {
-      hash,
-      filename: file.name,
-      size: file.size,
-      mimeType: file.type
-    });
+    const checkResponse = await withRetry(() => apiClient.post('/api/files/check', {
+        hash,
+        filename: file.name,
+        size: file.size,
+        mimeType: file.type
+      }));
     
     const checkResult = checkResponse.data;
     
@@ -168,11 +194,7 @@ export const uploadDocument = async (
       formData.append('document', file)
       formData.append('hash', hash)
       
-      const uploadResponse = await apiClient.post('/api/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const uploadResponse = await withRetry(() => apiClient.post('/api/files/upload', formData));
       
       const uploadResult = uploadResponse.data;
       
@@ -192,16 +214,16 @@ export const uploadDocument = async (
     
     // Step 4: Attach file to company
     console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
-    const attachResponse = await apiClient.post('/api/files/attach-to-company', {
-      fileId,
-      companyId,
-      documentType,
-      purpose: `Company ${documentType} document`,
-      metadata: {
-        originalFilename: file.name,
-        uploadedAt: new Date().toISOString()
-      }
-    });
+    const attachResponse = await withRetry(() => apiClient.post('/api/files/attach-to-company', {
+        fileId,
+        companyId,
+        documentType,
+        purpose: `Company ${documentType} document`,
+        metadata: {
+          originalFilename: file.name,
+          uploadedAt: new Date().toISOString()
+        }
+      }));
     
     const attachResult = attachResponse.data;
     

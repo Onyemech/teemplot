@@ -44,7 +44,7 @@ export async function companyRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         success: true,
-        ...status
+        data: status
       });
     } catch (error: any) {
       fastify.log.error('Failed to fetch subscription status:', error);
