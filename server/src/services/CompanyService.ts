@@ -21,7 +21,7 @@ export class CompanyService {
 
       const companyQuery = await this.db.query(
         `SELECT id, name, logo_url, subscription_plan, subscription_status, 
-         subscription_end_date, employee_count 
+         subscription_end_date, employee_count, employee_limit 
          FROM companies WHERE id = $1`,
         [companyId]
       );
@@ -32,16 +32,20 @@ export class CompanyService {
 
       const company = companyQuery.rows[0];
 
-      const currentCountQuery = await this.db.query(
-        'SELECT COUNT(*) as count FROM users WHERE company_id = $1 AND deleted_at IS NULL',
+      const countsQuery = await this.db.query(
+        `SELECT 
+          (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as active_count,
+          (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending' AND expires_at > NOW()) as pending_count`,
         [company.id]
       );
 
-      const currentCount = parseInt(currentCountQuery.rows[0].count);
+      const currentCount = parseInt(countsQuery.rows[0].active_count);
+      const pendingCount = parseInt(countsQuery.rows[0].pending_count);
 
       return {
         ...company,
-        current_employee_count: currentCount
+        current_employee_count: currentCount,
+        pending_invitations_count: pendingCount
       };
     } catch (error: any) {
       logger.error({ error, userId, companyId }, 'Failed to get company info');

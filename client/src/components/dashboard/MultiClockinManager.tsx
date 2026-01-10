@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, MapPin, User, ArrowRight, ArrowLeft, Check, AlertCircle } from 'lucide-react';
+import { Search, MapPin, User, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -15,7 +15,7 @@ interface Employee {
 }
 
 export default function MultiClockinManager() {
-  const { toast } = useToast();
+  const { success, error: showError } = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +34,7 @@ export default function MultiClockinManager() {
       }
     } catch (error) {
       console.error('Failed to fetch employees:', error);
-      toast.error('Failed to load employees');
+      showError('Failed to load employees');
     } finally {
       setLoading(false);
     }
@@ -55,10 +55,10 @@ export default function MultiClockinManager() {
           : emp
       ));
 
-      toast.success(`Updated permission for ${employee.firstName}`);
+      success(`Updated permission for ${employee.firstName}`);
     } catch (error) {
       console.error('Failed to update permission:', error);
-      toast.error('Failed to update permission');
+      showError('Failed to update permission');
     } finally {
       setProcessingId(null);
     }

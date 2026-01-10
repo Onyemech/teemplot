@@ -37,7 +37,8 @@ export default function InviteEmployeeModal({
   onSuccess
 }: InviteEmployeeModalProps) {
   const toast = useToast()
-  const { declaredLimit, currentCount, remaining } = useEmployeeLimit()
+  // Destructure planType from the hook
+  const { declaredLimit, currentCount, remaining, planType } = useEmployeeLimit()
   const [loading, setLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -46,7 +47,7 @@ export default function InviteEmployeeModal({
     currentCount,
     declaredLimit,
     remaining,
-    planType: 'silver',
+    planType: planType || 'silver',
     isLoading: false
   })
   const [invitationError, setInvitationError] = useState<InvitationError | null>(null)
@@ -115,9 +116,10 @@ export default function InviteEmployeeModal({
       currentCount,
       declaredLimit,
       remaining,
+      planType: planType || prev.planType, // Update planType
       isLoading: false
     }))
-  }, [currentCount, declaredLimit, remaining])
+  }, [currentCount, declaredLimit, remaining, planType]) // Add planType dependency
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
