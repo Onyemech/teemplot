@@ -51,26 +51,28 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Company Settings</h1>
-        <p className="text-gray-500">Manage your company preferences and security settings.</p>
-      </div>
+    <div className="h-full bg-gray-50 p-3 md:p-6 pb-20 md:pb-6">
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Company Settings</h1>
+          <p className="text-gray-500">Manage your company preferences and security settings.</p>
+        </div>
 
-      <div className="grid gap-6">
-        {/* Biometric Settings Section */}
-        <section>
-          <BiometricSettings 
-            companyId={user?.companyId || ''} 
-            currentSettings={settings}
-            onSettingsChange={handleSettingsChange}
-          />
-        </section>
+        <div className="grid gap-6">
+          {/* Biometric Settings Section */}
+          <section>
+            <BiometricSettings 
+              companyId={user?.companyId || ''} 
+              currentSettings={settings}
+              onSettingsChange={handleSettingsChange}
+            />
+          </section>
 
-        {/* Placeholder for other settings sections */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 opacity-50">
-            <h3 className="text-lg font-semibold mb-4">General Settings</h3>
-            <p className="text-sm text-gray-500">More settings coming soon...</p>
+          {/* Placeholder for other settings sections */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 opacity-50">
+              <h3 className="text-lg font-semibold mb-4">General Settings</h3>
+              <p className="text-sm text-gray-500">More settings coming soon...</p>
+          </div>
         </div>
       </div>
     </div>

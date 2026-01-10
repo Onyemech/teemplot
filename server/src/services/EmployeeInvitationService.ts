@@ -69,6 +69,36 @@ export class EmployeeInvitationService {
 
         await client.query('SELECT id FROM companies WHERE id = $1 FOR UPDATE', [companyId]);
 
+        // Check if user already exists
+        const userCheck = await client.query(
+          'SELECT id FROM users WHERE email = $1',
+          [invitationData.email.toLowerCase()]
+        );
+
+        if (userCheck.rows.length > 0) {
+          throw new AppError(
+            'DUPLICATE_EMAIL',
+            'A user with this email already exists.',
+            400,
+            { email: invitationData.email }
+          );
+        }
+
+        // Check for pending invitation
+        const pendingCheck = await client.query(
+          `SELECT id FROM employee_invitations 
+           WHERE email = $1 AND status = 'pending' AND expires_at > NOW()`,
+          [invitationData.email.toLowerCase()]
+        );
+
+        if (pendingCheck.rows.length > 0) {
+          throw new AppError(
+            'DUPLICATE_INVITATION',
+            'An active invitation already exists for this email.',
+            400,
+            { email: invitationData.email }
+          );
+        }
 
         const limits = await this.verifyPlanLimits(companyId, client);
         if (!limits.canAddMore) {
@@ -143,9 +173,23 @@ export class EmployeeInvitationService {
    * Verify subscription plan limits with comprehensive checks
    */
   async verifyPlanLimits(companyId: string, client?: any): Promise<PlanLimitResult> {
-    try {
-      const queryExecutor = client || { query }; 
+    // If client is provided, use it (assuming context is already set by caller)
+    if (client) {
+      return this.verifyPlanLimitsInternal(companyId, client);
+    }
 
+    // If no client provided, use transaction to ensure RLS context is set
+    return await transaction(async (txClient) => {
+      await txClient.query("SELECT set_config('app.current_tenant_id', $1, true)", [companyId]);
+      return this.verifyPlanLimitsInternal(companyId, txClient);
+    });
+  }
+
+  /**
+   * Internal implementation of limit verification
+   */
+  private async verifyPlanLimitsInternal(companyId: string, queryExecutor: any): Promise<PlanLimitResult> {
+    try {
       // Get company subscription details
       const companyResult = await queryExecutor.query(
         `SELECT plan as subscription_plan, subscription_status, employee_limit 
@@ -270,9 +314,19 @@ export class EmployeeInvitationService {
    * Update company counters atomically
    */
   private async updateCompanyCounters(companyId: string, delta: number, client?: any): Promise<void> {
-    void companyId;
-    void delta;
-    void client;
+    const queryExecutor = client || { query };
+    
+    // We update the employee_count if it exists, otherwise this is a no-op 
+    // as the count is often derived dynamically.
+    // However, for performance caching, we might want to maintain it.
+    // Given the schema analysis showed 'employee_count' exists on 'companies'.
+    
+    await queryExecutor.query(
+      `UPDATE companies 
+       SET employee_count = COALESCE(employee_count, 0) + $1 
+       WHERE id = $2`,
+      [delta, companyId]
+    );
   }
 
   /**

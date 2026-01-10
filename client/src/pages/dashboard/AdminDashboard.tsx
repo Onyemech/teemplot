@@ -50,8 +50,8 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-6">
+    <div className="h-full bg-gray-50 p-3 md:p-6 pb-20 md:pb-6">
+      <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
             {/* Recent Activity or Notifications could go here */}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

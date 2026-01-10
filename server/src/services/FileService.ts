@@ -138,7 +138,7 @@ export class FileService {
 
       // Attach logic
       await this.db.query(
-        `INSERT INTO company_files (company_id, file_id, document_type, attached_at)
+        `INSERT INTO company_files (company_id, file_id, document_type, created_at)
          VALUES ($1, $2, $3, NOW())`,
         [companyId, params.fileId, params.documentType]
       );
@@ -152,7 +152,7 @@ export class FileService {
 
   async getCompanyFiles(companyId: string, documentType?: string): Promise<any[]> {
     try {
-      let queryStr = `SELECT f.id, f.filename, f.mime_type, f.size, cf.document_type, cf.attached_at
+      let queryStr = `SELECT f.id, f.filename, f.mime_type, f.size, cf.document_type, cf.created_at as attached_at
                       FROM files f
                       INNER JOIN company_files cf ON f.id = cf.file_id
                       WHERE cf.company_id = $1`;

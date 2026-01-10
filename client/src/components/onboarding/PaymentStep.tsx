@@ -4,6 +4,7 @@ import { submitPlanSelection, completeOnboarding } from '@/utils/onboardingApi'
 import { getUser } from '@/utils/auth'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
 
 interface PaymentStepProps {
   companySize: string
@@ -12,6 +13,7 @@ interface PaymentStepProps {
 
 export default function PaymentStep({ companySize, onComplete }: PaymentStepProps) {
   const toast = useToast()
+  const { refetch } = useUser()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<'silver' | 'gold'>('gold')
   const [loading, setLoading] = useState(false)
@@ -199,6 +201,10 @@ export default function PaymentStep({ companySize, onComplete }: PaymentStepProp
                   companyId: user.companyId,
                   userId: user.id,
                 })
+
+                // Refresh user context to update onboarding status before navigation
+                // This prevents the DashboardGuard from redirecting back to onboarding
+                await refetch()
 
                 toast.success('30-day free trial activated!')
                 onComplete()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useUser } from '@/contexts/UserContext'
 
 const NAV_LINKS = [
@@ -52,6 +52,7 @@ export default function Navbar() {
   const [showInstall, setShowInstall] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const { user } = useUser()
+  const location = useLocation()
 
   useEffect(() => {
     setMounted(true)
@@ -151,7 +152,10 @@ export default function Navbar() {
             {user ? (
               <Link 
                 to={user.onboardingCompleted ? "/dashboard" : "/onboarding/company-setup"}
-                className="bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105"
+                className={`bg-[#0F5D5D] text-white px-6 py-2 rounded-lg hover:bg-[#093737] hover:shadow-lg transition-all duration-300 hover:scale-105 ${
+                  // Hide if on onboarding pages to avoid redundancy/confusion
+                  location.pathname.includes('/onboarding') ? 'hidden' : ''
+                }`}
               >
                 {user.onboardingCompleted ? "Go to Dashboard" : "Resume Onboarding"}
               </Link>

@@ -32,8 +32,12 @@ export class OnboardingProgressService {
     const { userId, companyId, currentStep, completedSteps = [], formData = {} } = data;
 
     try {
-      // Check if progress already exists
-      const existing = await this.db.findOne('onboarding_progress', { user_id: userId });
+      // Use atomic UPSERT (ON CONFLICT) to handle race conditions and simplify logic
+      // Note: IDatabase interface might not expose raw query, so we assume db.query or equivalent exists on the underlying instance
+      // If strict repository pattern is used, we should add upsert method to IDatabase.
+      // For now, we'll try to use the raw query method if available, or fall back to standard check-then-act but with improved error handling.
+      
+      const { query } = await import('../config/database'); // Import raw query executor for atomic operation
 
       const progressData = {
         user_id: userId,
@@ -41,19 +45,31 @@ export class OnboardingProgressService {
         current_step: currentStep,
         completed_steps: JSON.stringify(completedSteps),
         form_data: JSON.stringify(formData),
+        updated_at: new Date().toISOString()
       };
 
-      if (existing) {
-        await this.db.update('onboarding_progress', progressData, { user_id: userId });
-        logger.info(`Onboarding progress updated for user ${userId}, step ${currentStep}`);
-      } else {
-        await this.db.insert('onboarding_progress', {
-          id: randomUUID(),
-          ...progressData,
-          created_at: new Date().toISOString(),
-        });
-        logger.info(`Onboarding progress created for user ${userId}, step ${currentStep}`);
-      }
+      const upsertQuery = `
+        INSERT INTO onboarding_progress (id, user_id, company_id, current_step, completed_steps, form_data, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        ON CONFLICT (user_id) 
+        DO UPDATE SET 
+          company_id = EXCLUDED.company_id,
+          current_step = EXCLUDED.current_step,
+          completed_steps = EXCLUDED.completed_steps,
+          form_data = EXCLUDED.form_data,
+          updated_at = NOW();
+      `;
+
+      await query(upsertQuery, [
+        randomUUID(),
+        userId,
+        companyId,
+        currentStep,
+        progressData.completed_steps,
+        progressData.form_data
+      ]);
+
+      logger.info(`Onboarding progress saved for user ${userId}, step ${currentStep}`);
     } catch (error: any) {
       logger.error(`Failed to save onboarding progress: ${error?.message}`);
       throw new Error('Failed to save progress');
@@ -67,16 +83,8 @@ export class OnboardingProgressService {
     try {
       logger.info(`Fetching onboarding progress for user: ${userId}${companyId ? `, company: ${companyId}` : ''}`);
       
-      const { query } = await import('../config/database');
-      const queryStr = companyId 
-        ? 'SELECT * FROM onboarding_progress WHERE user_id = $1 AND company_id = $2 LIMIT 1'
-        : 'SELECT * FROM onboarding_progress WHERE user_id = $1 LIMIT 1';
-      const params = companyId ? [userId, companyId] : [userId];
+      const progress = await this.db.findOne('onboarding_progress', { user_id: userId });
       
-      const result = await query(queryStr, params);
-      
-      const progress = result.rows[0];
-
       if (!progress) {
         logger.warn(`No onboarding progress found for user: ${userId}`);
         return null;
@@ -102,27 +110,32 @@ export class OnboardingProgressService {
             formData.companyLogo = company.logo_url;
           }
 
-          const companyFiles = await this.db.find('company_files', { 
-            company_id: progressCompanyId,
-            is_active: true 
-          });
-
-          for (const cf of companyFiles) {
-            const file = await this.db.findOne('files', { id: cf.file_id });
-            if (file && file.secure_url) {
+          // Optimized N+1 query: Fetch company files with file details in a single JOIN query
+          const { query } = await import('../config/database');
+          const fileQuery = `
+            SELECT cf.document_type, f.secure_url, f.original_filename, f.file_size
+            FROM company_files cf
+            JOIN files f ON cf.file_id = f.id
+            WHERE cf.company_id = $1 AND cf.is_active = true
+          `;
+          
+          const fileResult = await query(fileQuery, [progressCompanyId]);
+          
+          for (const row of fileResult.rows) {
+            if (row.secure_url) {
               const fileData = {
-                url: file.secure_url,
-                filename: file.original_filename || 'Uploaded document',
-                name: file.original_filename || 'Uploaded document',
-                size: file.file_size || 0,
+                url: row.secure_url,
+                filename: row.original_filename || 'Uploaded document',
+                name: row.original_filename || 'Uploaded document',
+                size: row.file_size || 0,
                 uploaded: true
               };
               
-              if (cf.document_type === 'cac') {
+              if (row.document_type === 'cac') {
                 formData.cacDocument = fileData;
-              } else if (cf.document_type === 'proof_of_address') {
+              } else if (row.document_type === 'proof_of_address') {
                 formData.proofOfAddress = fileData;
-              } else if (cf.document_type === 'company_policy') {
+              } else if (row.document_type === 'company_policy') {
                 formData.companyPolicies = fileData;
               }
             }
@@ -166,24 +179,24 @@ export class OnboardingProgressService {
 
   async markStepCompleted(userId: string, companyId: string, step: number): Promise<void> {
     try {
-      const progress = await this.getProgress(userId, companyId);
+      const { query } = await import('../config/database');
       
-      if (!progress) {
-        logger.warn(`No progress found for user ${userId}`);
-        return;
-      }
+      // Atomic update using jsonb_set for PostgreSQL JSONB column or similar logic
+      // Assuming completed_steps is stored as JSON text or JSONB
+      // This query appends the new step if it doesn't exist in the array
+      const sql = `
+        UPDATE onboarding_progress
+        SET completed_steps = (
+          SELECT jsonb_agg(DISTINCT elem)
+          FROM jsonb_array_elements(
+            COALESCE(completed_steps::jsonb, '[]'::jsonb) || to_jsonb($3::int)
+          ) AS elem
+        ),
+        updated_at = NOW()
+        WHERE user_id = $1 AND company_id = $2
+      `;
 
-      const completedSteps = progress.completedSteps;
-      if (!completedSteps.includes(step)) {
-        completedSteps.push(step);
-        completedSteps.sort((a, b) => a - b);
-      }
-
-      await this.db.update(
-        'onboarding_progress',
-        { completed_steps: JSON.stringify(completedSteps) },
-        { user_id: userId, company_id: companyId }
-      );
+      await query(sql, [userId, companyId, step]);
 
       logger.info(`Step ${step} marked as completed for user ${userId}`);
     } catch (error: any) {

@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import axios from 'axios';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
@@ -416,7 +417,7 @@ class FileUploadService {
   }
 
   /**
-   * Upload company logo with retry logic
+   * Upload company logo using Global Image Optimization Service
    */
   async uploadLogo(
     buffer: Buffer,
@@ -428,42 +429,38 @@ class FileUploadService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logger.info({ companyId, attempt }, 'Attempting to upload logo to Cloudinary');
+        logger.info({ companyId, attempt }, 'Attempting to upload logo to Image Service');
 
-        // Upload to Cloudinary
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            {
-              folder: 'company-logos',
-              resource_type: 'image',
-              transformation: [
-                { width: 500, height: 500, crop: 'limit' },
-                { quality: 'auto' },
-                { fetch_format: 'auto' }
-              ],
-              tags: ['company-logo', companyId],
-              timeout: 60000 // 60 second timeout
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-
-          uploadStream.end(buffer);
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: metadata.mimeType });
+        formData.append('image', blob, metadata.filename);
+        formData.append('client', 'teemplot');
+        formData.append('w', '500'); // Resize to 500px width
+        
+        // Use the global image optimization service
+        // Prefer environment variable, fallback to hardcoded URL
+        const serviceUrl = process.env.IMAGE_SERVICE_URL || 'https://image-compressor-f5lk.onrender.com/api/upload';
+        
+        const response = await axios.post(serviceUrl, formData, {
+          timeout: 120000 // Increased to 120s to handle Render cold starts
         });
+
+        const { url } = response.data;
+        // Extract hash from URL (e.g., .../teemplot/HASH.webp)
+        const publicId = url.split('/').pop()?.split('.')[0] || `logo-${Date.now()}`;
 
         logger.info({
           companyId,
-          publicId: uploadResult.public_id,
+          publicId,
+          url,
           size: buffer.length,
           attempt
-        }, 'Company logo uploaded successfully');
+        }, 'Company logo uploaded successfully via Image Service');
 
         return {
-          url: uploadResult.url,
-          secureUrl: uploadResult.secure_url,
-          publicId: uploadResult.public_id
+          url,
+          secureUrl: url,
+          publicId
         };
       } catch (error: any) {
         lastError = error;
@@ -472,10 +469,11 @@ class FileUploadService {
         const isNetworkError = error.code === 'EAI_AGAIN' || 
                               error.code === 'ENOTFOUND' || 
                               error.code === 'ETIMEDOUT' ||
-                              error.code === 'ECONNREFUSED';
+                              error.code === 'ECONNREFUSED' ||
+                              !error.response; // No response usually means network error
 
         logger.warn({ 
-          err: error, 
+          err: error.message, 
           companyId, 
           attempt,
           isNetworkError,
@@ -484,13 +482,12 @@ class FileUploadService {
 
         // If it's a network error and we have retries left, wait and retry
         if (isNetworkError && attempt < maxRetries) {
-          const delay = attempt * 2000; // 2s, 4s, 6s
+          const delay = attempt * 2000;
           logger.info({ delay, attempt }, 'Waiting before retry');
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
 
-        // If not a network error or out of retries, throw
         break;
       }
     }
@@ -502,14 +499,7 @@ class FileUploadService {
       attempts: maxRetries 
     }, 'Failed to upload company logo after all retries');
 
-    // Provide user-friendly error message
-    if (lastError.code === 'EAI_AGAIN' || lastError.code === 'ENOTFOUND') {
-      throw new Error('Unable to connect to file storage service. Please check your internet connection and try again.');
-    } else if (lastError.code === 'ETIMEDOUT') {
-      throw new Error('File upload timed out. Please try again with a smaller file or check your internet connection.');
-    } else {
-      throw new Error('Failed to upload company logo. Please try again.');
-    }
+    throw new Error('Failed to upload company logo. Please try again.');
   }
 
   /**

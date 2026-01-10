@@ -135,11 +135,17 @@ export const submitBusinessInfo = async (data: {
 // Upload Logo API
 export const uploadLogo = async (companyId: string, userId: string, file: File) => {
   const formData = new FormData()
-  formData.append('file', file)
+  // Append fields BEFORE file to ensure they are available when stream processing starts
   formData.append('companyId', companyId)
   formData.append('userId', userId)
+  formData.append('file', file)
 
-  const response = await apiClient.post('/api/onboarding/upload-logo', formData);
+  // Explicitly override Content-Type to allow browser to set boundary
+  const response = await apiClient.post('/api/onboarding/upload-logo', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    }
+  });
 
   const result = response.data;
 
@@ -187,13 +193,14 @@ export const uploadDocument = async (
     let fileId: string
     let fileUrl: string
     
-    // Step 3: Upload file if it doesn't exist
     if (!checkResult.data.exists) {
       console.log('📤 Uploading new file:', file.name, 'hash:', hash.substring(0, 8))
       const formData = new FormData()
-      formData.append('document', file)
       formData.append('hash', hash)
+      formData.append('document', file)
       
+      // Explicitly set Content-Type header to undefined to let browser set boundary
+      // or remove headers entirely as axios handles it with FormData
       const uploadResponse = await withRetry(() => apiClient.post('/api/files/upload', formData));
       
       const uploadResult = uploadResponse.data;

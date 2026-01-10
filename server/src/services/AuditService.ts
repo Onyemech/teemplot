@@ -20,7 +20,7 @@ export class AuditService {
       // Persist audit using provided transaction client if available
       if (client && typeof client.query === 'function') {
         await client.query(
-          `INSERT INTO audit_logs (actor_id, company_id, action, entity_type, entity_id, created_at)
+          `INSERT INTO audit_logs (user_id, company_id, action, entity_type, entity_id, created_at)
            VALUES ($1, $2, $3, $4, $5, NOW())`,
           [invitedBy, companyId, 'invitation_sent', 'invitation', invitationId]
         );

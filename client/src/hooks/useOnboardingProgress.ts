@@ -69,8 +69,9 @@ export function useOnboardingProgress() {
       return result.data;
     } catch (error: any) {
       // Handle 404 - no progress found (this is normal for new users)
+      // Only log if it's NOT a 404 to avoid noise in console for expected behavior
       if (error.response?.status === 404) {
-        console.log('ℹ️ No progress found on server (404) - this is normal for new users');
+        // Quietly return null for 404s
         return null;
       }
       
@@ -126,9 +127,11 @@ export function useOnboardingProgress() {
       const completedSteps = progress.completedSteps || [];
       const lastCompletedStep = Math.max(0, ...completedSteps);
 
+      // If user has completed step 6 (Payment), they are fully onboarded
       if (lastCompletedStep >= 6) return '/dashboard';
       
       // All onboarding steps are now handled in the single company-setup page
+      // The page itself will handle internal state to show the correct sub-step
       return '/onboarding/company-setup';
     } catch (error) {
       console.error('Error resuming onboarding:', error);

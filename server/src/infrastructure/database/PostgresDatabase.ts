@@ -7,7 +7,11 @@ export class PostgresDatabase implements IDatabase {
   private columnCache: Map<string, boolean> = new Map();
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL;
+    // Prefer DEV_DATABASE_URL in development mode if available
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const connectionString = (isDevelopment && process.env.DEV_DATABASE_URL) 
+      ? process.env.DEV_DATABASE_URL 
+      : process.env.DATABASE_URL;
 
     if (!connectionString) {
       throw new Error('DATABASE_URL not configured');
@@ -16,9 +20,9 @@ export class PostgresDatabase implements IDatabase {
     this.pool = new Pool({
       connectionString,
       max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-      ssl: process.env.NODE_ENV === 'development' ? { rejectUnauthorized: false } : undefined,
+      idleTimeoutMillis: 10000, 
+      connectionTimeoutMillis: 20000, // Increased to 20s for slow networks
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
 
     this.pool.on('error', (err: Error) => {
@@ -28,15 +32,34 @@ export class PostgresDatabase implements IDatabase {
     logger.info('PostgreSQL database initialized');
   }
 
-  async query<T = any>(sql: string, params: any[] = []): Promise<QueryResult<T>> {
+  async query<T = any>(sql: string, params: any[] = [], retries = 3): Promise<QueryResult<T>> {
     try {
+      const start = Date.now();
       const result = await this.pool.query(sql, params);
-      
+      const duration = Date.now() - start;
+
+      if (duration > 1000) {
+        logger.warn({ sql, duration, rows: result.rowCount }, 'Slow query detected');
+      }
+
       return {
         rows: result.rows as T[],
         rowCount: result.rowCount || 0,
       };
     } catch (error: any) {
+      // Retry on connection errors (reset, timeout, dns)
+      if (retries > 0 && (
+        error.code === 'ECONNRESET' || 
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ENOTFOUND' ||
+        error.message?.includes('ECONNRESET') || 
+        error.code === '57P01'
+      )) {
+        logger.warn(`Retrying query due to connection error (${error.code || error.message})... (${retries} attempts left)`);
+        await new Promise(res => setTimeout(res, 500)); // Increased delay for stability
+        return this.query(sql, params, retries - 1);
+      }
+      
       logger.error(`PostgreSQL query error: ${error?.message || 'Unknown error'} - SQL: ${sql}`);
       throw error;
     }

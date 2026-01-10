@@ -69,36 +69,87 @@ export class AttendanceService {
       }
 
       // Check remote work permissions
-      const userSettingsQuery = `SELECT remote_work_days FROM users WHERE id = $1`;
+      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin FROM users WHERE id = $1`;
       const userSettingsResult = await client.query(userSettingsQuery, [data.userId]);
-      const userRemoteDays = userSettingsResult.rows[0]?.remote_work_days || [];
+      const userSettings = userSettingsResult.rows[0];
+      const userRemoteDays = userSettings?.remote_work_days || [];
+      const allowMultiLocation = userSettings?.allow_multi_location_clockin || false;
+
       const currentDay = new Date().getDay() || 7; // 1-7 (Mon-Sun)
       const isRemoteAllowed = company.allow_remote_clockin && userRemoteDays.includes(currentDay);
 
       // Validate geofence if required
       let isWithinFence = true;
       let distance: number | null = null;
+      let locationName = 'Main Office';
 
       if (
         !isRemoteAllowed && // Skip geofence check if remote clock-in is allowed for today
         company.require_geofence_for_clockin &&
-        company.office_latitude &&
-        company.office_longitude &&
         data.location
       ) {
-        const officeLocation: Coordinates = {
-          latitude: parseFloat(company.office_latitude),
-          longitude: parseFloat(company.office_longitude),
-        };
+        const validLocations: { name: string; latitude: number; longitude: number; radius: number }[] = [];
 
-        distance = calculateDistance(data.location, officeLocation);
-        isWithinFence = isWithinGeofence(
-          data.location,
-          officeLocation,
-          company.geofence_radius_meters
-        );
+        // Add main office if defined
+        if (company.office_latitude && company.office_longitude) {
+          validLocations.push({
+            name: 'Main Office',
+            latitude: parseFloat(company.office_latitude),
+            longitude: parseFloat(company.office_longitude),
+            radius: company.geofence_radius_meters,
+          });
+        }
 
-        if (!isWithinFence) {
+        // Add additional locations if allowed
+        if (allowMultiLocation) {
+          const extraLocQuery = `
+            SELECT name, latitude, longitude, geofence_radius_meters 
+            FROM company_locations 
+            WHERE company_id = $1 AND is_active = true
+          `;
+          const extraLocResult = await client.query(extraLocQuery, [data.companyId]);
+          
+          extraLocResult.rows.forEach((loc: any) => {
+            validLocations.push({
+              name: loc.name,
+              latitude: parseFloat(loc.latitude),
+              longitude: parseFloat(loc.longitude),
+              radius: loc.geofence_radius_meters || company.geofence_radius_meters,
+            });
+          });
+        }
+
+        if (validLocations.length === 0) {
+           // Fallback to original logic if no locations found (though main office should exist if required)
+           // If main office is missing but required, logic below handles it
+        }
+
+        let matchedLocation = null;
+        let minDistance = Infinity;
+
+        for (const loc of validLocations) {
+          const officeLocation: Coordinates = {
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+          };
+
+          const d = calculateDistance(data.location, officeLocation);
+          if (d < minDistance) minDistance = d;
+
+          if (isWithinGeofence(data.location, officeLocation, loc.radius)) {
+            matchedLocation = loc;
+            distance = d;
+            locationName = loc.name;
+            break;
+          }
+        }
+
+        if (matchedLocation) {
+          isWithinFence = true;
+        } else {
+          isWithinFence = false;
+          distance = minDistance; // Closest distance for reporting
+
           // Get user info for notification
         const userQuery = `
           SELECT first_name, last_name
@@ -118,7 +169,7 @@ export class AttendanceService {
           });
 
           throw new Error(
-            `You must be within ${company.geofence_radius_meters}m of the office to clock in. You are ${Math.round(distance)}m away.`
+            `You must be within allowed office locations to clock in. You are ${Math.round(distance)}m away from the nearest point.`
           );
         }
       }

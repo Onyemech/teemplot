@@ -30,14 +30,18 @@ interface Invitation {
   expires_at: string
 }
 
-export default function EmployeesPage() {
+export default function EmployeesPage({ initialTab = 'employees' }: { initialTab?: 'employees' | 'invitations' }) {
   const navigate = useNavigate()
   const { hasAccess } = useFeatureAccess()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   // const [loading, setLoading] = useState(true)
   const [showInviteModal, setShowInviteModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'employees' | 'invitations'>('employees')
+  const [activeTab, setActiveTab] = useState<'employees' | 'invitations'>(initialTab)
+
+  useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
 
   useEffect(() => {
     if (!hasAccess('employees')) {

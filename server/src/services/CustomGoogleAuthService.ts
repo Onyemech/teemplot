@@ -288,12 +288,24 @@ export class CustomGoogleAuthService {
 
         user = await db.findOne('users', { id: userId });
 
+        // Create initial onboarding progress for new Google user
+        await db.insert('onboarding_progress', {
+          id: uuidv4(),
+          user_id: userId,
+          company_id: companyId,
+          current_step: 1,
+          completed_steps: JSON.stringify([]),
+          form_data: JSON.stringify({}),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
         logger.info({
           userId,
           companyId,
           email,
           provider: 'google'
-        }, 'New user created via Google OAuth');
+        }, 'New user created via Google OAuth with initial progress');
       }
 
       // Check if onboarding is completed

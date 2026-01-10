@@ -95,11 +95,20 @@ export async function buildApp() {
     max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
     errorResponseBuilder: (request, context) => {
-      const retryAfter = Math.ceil(Number(context.after) / 1000 / 60);
+      // Check if context.after is already a string (e.g. "15 minutes")
+      // If it's a number (milliseconds), convert to minutes
+      let retryMsg;
+      if (typeof context.after === 'string') {
+        retryMsg = context.after;
+      } else {
+        const minutes = Math.ceil(Number(context.after) / 1000 / 60);
+        retryMsg = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+      }
+
       return {
         statusCode: 429,
         error: 'Too Many Requests',
-        message: `Too many attempts. Please try again in ${retryAfter} minute${retryAfter > 1 ? 's' : ''}.`,
+        message: `Too many attempts. Please try again in ${retryMsg}.`,
         retryAfter: context.after,
         success: false
       };
@@ -208,6 +217,10 @@ export async function buildApp() {
   // Import and register company routes
   const { companyRoutes } = await import('./routes/company.routes');
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
+
+  // Import and register company locations routes
+  const { companyLocationsRoutes } = await import('./routes/company-locations.routes');
+  await app.register(companyLocationsRoutes, { prefix: `${apiPrefix}/company-locations` });
 
   // Import and register subscription routes
   const { subscriptionRoutes } = await import('./routes/subscription.routes');

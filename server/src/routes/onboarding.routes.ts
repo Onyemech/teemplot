@@ -4,6 +4,7 @@ import { fileUploadService } from '../services/FileUploadService';
 import { z } from 'zod';
 import multipart from '@fastify/multipart';
 import { validateFileUpload, sanitizeInput } from '../middleware/security.middleware';
+import axios from 'axios';
 
 const UploadDocumentSchema = z.object({
   companyId: z.string().uuid(),
@@ -205,45 +206,51 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       if (data.officeLatitude && data.officeLongitude) {
         const { addressValidationService } = await import('../services/AddressValidationService');
         
-        const validationResult = await addressValidationService.validateAddress({
-          streetAddress: data.address,
-          city: data.city || '',
-          state: data.stateProvince || '',
-          country: data.country || 'Nigeria',
-          postalCode: data.postalCode,
-          latitude: data.officeLatitude,
-          longitude: data.officeLongitude,
-          placeId: data.placeId || '',
-          formattedAddress: data.formattedAddress || data.address
-        });
-
-        // If validation fails, return detailed errors
-        if (!validationResult.isValid) {
-          return reply.code(400).send({
-            success: false,
-            message: 'Address validation failed',
-            errors: validationResult.issues,
-            warnings: validationResult.warnings
+        try {
+          const validationResult = await addressValidationService.validateAddress({
+            streetAddress: data.address,
+            city: data.city || '',
+            state: data.stateProvince || '',
+            country: data.country || 'Nigeria',
+            postalCode: data.postalCode,
+            latitude: data.officeLatitude,
+            longitude: data.officeLongitude,
+            placeId: data.placeId || '',
+            formattedAddress: data.formattedAddress || data.address
           });
-        }
 
-        // If validation has warnings but is valid, log them
-        if (validationResult.warnings.length > 0) {
-          fastify.log.warn({
-            companyId: data.companyId,
-            warnings: validationResult.warnings,
-            confidence: validationResult.confidence
-          }, 'Address validation completed with warnings');
-        }
+          // If validation fails, return detailed errors
+          if (!validationResult.isValid) {
+            return reply.code(400).send({
+              success: false,
+              message: 'Address validation failed',
+              errors: validationResult.issues,
+              warnings: validationResult.warnings
+            });
+          }
 
-        // Use normalized address
-        data.address = validationResult.normalizedAddress.streetAddress;
-        data.city = validationResult.normalizedAddress.city;
-        data.stateProvince = validationResult.normalizedAddress.state;
-        data.country = validationResult.normalizedAddress.country;
-        data.postalCode = validationResult.normalizedAddress.postalCode;
-        data.formattedAddress = validationResult.normalizedAddress.formattedAddress;
-        data.geocodingAccuracy = validationResult.metadata.coordinateAccuracy;
+          // If validation has warnings but is valid, log them
+          if (validationResult.warnings.length > 0) {
+            fastify.log.warn({
+              companyId: data.companyId,
+              warnings: validationResult.warnings,
+              confidence: validationResult.confidence
+            }, 'Address validation completed with warnings');
+          }
+
+          // Use normalized address
+          data.address = validationResult.normalizedAddress.streetAddress;
+          data.city = validationResult.normalizedAddress.city;
+          data.stateProvince = validationResult.normalizedAddress.state;
+          data.country = validationResult.normalizedAddress.country;
+          data.postalCode = validationResult.normalizedAddress.postalCode;
+          data.formattedAddress = validationResult.normalizedAddress.formattedAddress;
+          data.geocodingAccuracy = validationResult.metadata.coordinateAccuracy;
+        } catch (validationError) {
+          // If address validation fails (e.g. external service down), log it but allow proceeding with user-provided data
+          fastify.log.error({ error: validationError }, 'Address validation service failed');
+          // Fallback: Continue with provided data
+        }
       }
 
       await onboardingService.saveBusinessInfo(data);
@@ -289,11 +296,19 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       let userId: string | null = null;
 
       // Process all parts (fields and file)
+      // Note: We use a loop to handle fields and files in any order
+      // Ideally, fields should come before file for performance, but this robustly handles both.
       for await (const part of parts) {
         if (part.type === 'file') {
           filename = part.filename;
           mimetype = part.mimetype;
-          fileBuffer = await part.toBuffer();
+          // Only buffer if it's the logo file we expect
+          if (part.fieldname === 'file') {
+             fileBuffer = await part.toBuffer();
+          } else {
+             // Consume unknown files to avoid hanging
+             await part.toBuffer(); 
+          }
         } else {
           // It's a field
           if (part.fieldname === 'companyId') {
@@ -306,13 +321,30 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       }
 
       if (!fileBuffer) {
+        request.log.warn('Upload logo failed: No file buffer received');
         return reply.code(400).send({
           success: false,
           message: 'No file uploaded',
         });
       }
 
+      // Try to get IDs from authenticated user if missing in body
+      if (!companyId || !userId) {
+        try {
+          await request.jwtVerify();
+          if (!companyId && request.user.companyId) {
+            companyId = request.user.companyId;
+          }
+          if (!userId && request.user.userId) {
+            userId = request.user.userId;
+          }
+        } catch (e) {
+          // Ignore auth error here, we'll check required fields next
+        }
+      }
+
       if (!companyId) {
+        request.log.warn('Upload logo failed: Missing Company ID');
         return reply.code(400).send({
           success: false,
           message: 'Company ID is required',
@@ -320,16 +352,19 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       }
 
       if (!userId) {
+        request.log.warn('Upload logo failed: Missing User ID');
         return reply.code(400).send({
           success: false,
           message: 'User ID is required',
         });
       }
 
-      if (!userId) {
+      // Validate file size (max 5MB)
+      if (fileBuffer.length > 5 * 1024 * 1024) {
+        request.log.warn({ size: fileBuffer.length }, 'Upload logo failed: File too large');
         return reply.code(400).send({
           success: false,
-          message: 'User ID is required',
+          message: 'File size exceeds 5MB limit'
         });
       }
 
@@ -341,6 +376,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       });
 
       if (!basicValidation.valid) {
+        request.log.warn({ validation: basicValidation }, 'Upload logo failed: Security validation');
         return reply.code(400).send({
           success: false,
           message: basicValidation.error
@@ -379,6 +415,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       };
 
       // Upload with comprehensive validation
+      // NOTE: We rely on the external image service's own error handling (e.g. timeout)
+      // If axios throws, it will be caught by the outer catch block
       const result = await fileUploadService.uploadLogo(fileBuffer, companyId, metadata);
       
       // Save to database
@@ -393,6 +431,20 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Logo uploaded successfully',
       });
     } catch (error: any) {
+      // Check if it's an axios error from the image service
+      if (axios.isAxiosError(error)) {
+        fastify.log.error({
+           err: error.message,
+           status: error.response?.status,
+           data: error.response?.data
+        }, 'Image Service Error');
+        
+        return reply.code(error.response?.status || 500).send({
+          success: false,
+          message: 'Image service failed: ' + (error.response?.data?.error || error.message)
+        });
+      }
+
       return reply.code(400).send({
         success: false,
         message: error.message || 'Failed to upload logo',

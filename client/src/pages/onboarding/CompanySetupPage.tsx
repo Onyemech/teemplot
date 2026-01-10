@@ -154,6 +154,8 @@ export default function CompanySetupPage() {
         if (fallbackUser) {
           try {
             const parsedUser = JSON.parse(fallbackUser)
+            // CHECK: Validate if this user is actually the one currently authenticated
+            // If the token is invalid/expired, using this ID might cause 404s
             userId = parsedUser.id
             console.log('📥 Using fallback user data from localStorage for progress fetch:', { userId })
           } catch (e) {
@@ -164,6 +166,13 @@ export default function CompanySetupPage() {
       
       console.log('👤 Current user from context:', currentUser)
       console.log('🆔 User ID for progress fetch:', userId)
+
+      // Skip fetching if onboarding is already completed
+      if (currentUser?.onboardingCompleted) {
+        console.log('✅ User already completed onboarding, skipping progress fetch');
+        setLoadingProgress(false);
+        return;
+      }
 
       if (userId) {
         // Show loading state
@@ -208,12 +217,21 @@ export default function CompanySetupPage() {
 
           // Determine starting step based on completed steps
           const completedSteps = progress.completedSteps || []
-          if (completedSteps.includes(5)) setCurrentStep('payment')
-          else if (completedSteps.includes(4)) setCurrentStep('review')
-          else if (completedSteps.includes(3)) setCurrentStep('documents')
-          else if (completedSteps.includes(2)) setCurrentStep('owner')
           
-          console.log('✅ Progress loaded and form populated with file URLs')
+          // Logic to resume at the correct step (First incomplete step)
+          if (completedSteps.includes(4)) {
+             setCurrentStep('payment')
+          } else if (completedSteps.includes(3)) {
+             setCurrentStep('review') // Review is step 4 conceptually (after docs)
+          } else if (completedSteps.includes(2)) {
+             setCurrentStep('documents')
+          } else if (completedSteps.includes(1)) {
+             setCurrentStep('owner')
+          } else {
+             setCurrentStep('details')
+          }
+          
+          console.log('✅ Progress loaded and form populated. Resuming at:', currentStep)
           setProgressMessage('Data loaded successfully!')
           setTimeout(() => {
             setLoadingProgress(false)
@@ -354,10 +372,23 @@ export default function CompanySetupPage() {
         // Upload logo if provided (only if it's a new File, not a URL string)
         if (formData.companyLogo && isFile(formData.companyLogo)) {
           console.log('📤 Uploading company logo...')
-          const logoResult = await uploadLogo(companyId, formData.companyLogo)
+          const logoResult = await uploadLogo(companyId, userId, formData.companyLogo)
           // Update formData with the uploaded URL so it can be saved to progress
           setFormData(prev => ({ ...prev, companyLogo: logoResult.data.logoUrl }))
           console.log('✅ Logo uploaded:', logoResult.data.logoUrl)
+          
+          // CRITICAL FIX: Save progress immediately with the NEW logo URL and correct companyId
+          // This ensures if the user leaves/refreshes, the logo is persisted
+          await saveProgress({
+            userId,
+            companyId: companyId, 
+            currentStep: 2, // Completed step 1 (details)
+            completedSteps: [1],
+            formData: {
+              ...formData,
+              companyLogo: logoResult.data.logoUrl // Ensure we save the string URL, not the File object
+            }
+          })
         }
       } else if (currentStep === 'owner') {
         // Submit owner details if not the owner
@@ -1380,11 +1411,18 @@ export default function CompanySetupPage() {
 
         if (hasData) {
           // Determine current step based on what data exists
-          let currentStepNum = 1
-          if (formData.companyName) currentStepNum = 2
-          if (formData.ownerFirstName) currentStepNum = 3
-          if (formData.cacDocument) currentStepNum = 4
-
+          let currentStepNum = 1 // Registration (implicit)
+          
+          // Determine completed steps based on current UI step being saved
+          // If we are saving 'details', then step 1 (Reg) is done. 
+          // If we are saving 'owner', then step 2 (Details) is done.
+          // Note: The backend expects the step number that was JUST COMPLETED.
+          
+          if (currentStep === 'details') currentStepNum = 2 // Completed Details
+          if (currentStep === 'owner') currentStepNum = 3   // Completed Owner
+          if (currentStep === 'documents') currentStepNum = 4 // Completed Documents
+          if (currentStep === 'review') currentStepNum = 5    // Completed Review
+          
           // Prepare formData for saving
           // Save uploaded file metadata (objects with url/filename) or URL strings
           // Don't save File objects (they need to be uploaded first)

@@ -175,7 +175,7 @@ export default function InviteEmployeeModal({
         setInvitationError({
           code: 'PLAN_VERIFICATION_FAILED',
           message: 'Plan verification failed. Please check your subscription status.',
-          details: errorData.details,
+          details: typeof errorData.details === 'string' ? errorData.details : errorData.details?.troubleshooting || 'Please check your internet connection and subscription status.',
           troubleshooting: [
             'Check your subscription status in Settings',
             'Contact support if your plan is active but verification fails',

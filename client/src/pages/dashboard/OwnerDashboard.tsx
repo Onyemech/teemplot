@@ -87,10 +87,10 @@ export default function OwnerDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
+    <div className="h-full bg-gray-50 p-3 md:p-6 pb-20 md:pb-6">
       {/* Header - Removed duplicate mobile header since DashboardLayout now handles it */}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+      <div className="space-y-6">
         {/* Trial Banner */}
         {trialDaysLeft !== null && trialDaysLeft > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -310,7 +310,7 @@ export default function OwnerDashboard() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -318,9 +318,12 @@ export class OnboardingService {
   async completeOnboarding(data: CompleteOnboardingData): Promise<void> {
     const { companyId, userId } = data;
 
-    // Mark onboarding as complete
-    await onboardingProgressService.markStepCompleted(userId, companyId, 6);
+    // Mark onboarding as complete by deleting temporary progress
+    // Note: We skip markStepCompleted because the entire record is deleted immediately after
     await onboardingProgressService.deleteProgress(userId);
+
+    // Update company status
+    await this.db.update('companies', { onboarding_completed: true }, { id: companyId });
 
     // Get user and company details for welcome email
     const user = await this.db.findOne('users', { id: userId });
