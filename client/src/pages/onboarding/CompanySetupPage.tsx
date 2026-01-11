@@ -222,7 +222,18 @@ export default function CompanySetupPage() {
           if (completedSteps.includes(4)) {
              setCurrentStep('payment')
           } else if (completedSteps.includes(3)) {
-             setCurrentStep('review') // Review is step 4 conceptually (after docs)
+             // Robust check: Ensure all documents are actually present before allowing review
+             // This prevents users from skipping to review if they saved with partial uploads
+             const hasAllDocs = cleanedFormData.cacDocument && 
+                                cleanedFormData.proofOfAddress && 
+                                cleanedFormData.companyPolicies;
+             
+             if (hasAllDocs) {
+                setCurrentStep('review')
+             } else {
+                console.log('⚠️ Documents step marked complete but docs missing. Resuming at Documents.')
+                setCurrentStep('documents')
+             }
           } else if (completedSteps.includes(2)) {
              setCurrentStep('documents')
           } else if (completedSteps.includes(1)) {
@@ -1420,7 +1431,17 @@ export default function CompanySetupPage() {
           
           if (currentStep === 'details') currentStepNum = 2 // Completed Details
           if (currentStep === 'owner') currentStepNum = 3   // Completed Owner
-          if (currentStep === 'documents') currentStepNum = 4 // Completed Documents
+          if (currentStep === 'documents') {
+             // Only mark as complete if all docs are uploaded
+             const hasAllDocs = formData.cacDocument && 
+                                formData.proofOfAddress && 
+                                formData.companyPolicies;
+             if (hasAllDocs) {
+                currentStepNum = 4 // Completed Documents
+             } else {
+                currentStepNum = 3 // Still on Documents (or completed previous step 2)
+             }
+          }
           if (currentStep === 'review') currentStepNum = 5    // Completed Review
           
           // Prepare formData for saving

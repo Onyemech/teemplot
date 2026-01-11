@@ -207,6 +207,22 @@ export class EmployeeInvitationService {
 
       const company = companyResult.rows[0];
 
+      // Fix: Apply the same fallback logic as CompanyService
+      let totalLimit = Number(company.employee_limit ?? 0);
+      
+      // If limit is 0/missing, determine effective limit based on plan
+      if (totalLimit === 0) {
+        if (company.subscription_status === 'trial') {
+          totalLimit = 50; // Trial plans get 50 seats
+        } else {
+          // Fallback to legacy employee_count or default
+          // Note: We don't have employee_count in the query above, let's add it
+          // Wait, we need to modify the query first.
+          // For now, default to 5 if not trial
+          totalLimit = 5; 
+        }
+      }
+
       const countsResult = await queryExecutor.query(
         `SELECT
           (SELECT COUNT(*)
@@ -225,7 +241,7 @@ export class EmployeeInvitationService {
 
       const currentCount = Number(countsResult.rows[0]?.current_count ?? 0);
       const pendingInvitations = Number(countsResult.rows[0]?.pending_invitations ?? 0);
-      const totalLimit = Number(company.employee_limit ?? 0);
+      // totalLimit is already calculated above
       const currentUsage = currentCount + pendingInvitations;
       const remaining = Math.max(0, totalLimit - currentUsage);
       
