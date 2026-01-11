@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import { useUser } from '@/contexts/UserContext'
-import { CheckCircle, Clock, AlertCircle, PlayCircle, Filter, Calendar, User } from 'lucide-react'
+import { Clock, AlertCircle, Calendar, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function TaskStatusPage() {

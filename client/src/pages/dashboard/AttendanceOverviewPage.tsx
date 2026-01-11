@@ -10,8 +10,6 @@ import {
   Zap,
   X,
   Clock as ClockIcon,
-  FileSpreadsheet,
-  FileText,
   CheckCircle,
   Calendar,
   Users,
@@ -67,7 +65,7 @@ export default function AttendanceOverviewPage() {
   const navigate = useNavigate()
   const { user } = useUser()
   const { hasAccess } = useFeatureAccess()
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsPerPage] = useState(10)
@@ -92,14 +90,12 @@ export default function AttendanceOverviewPage() {
   // Download Modal State
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
-  const [downloadPeriod, setDownloadPeriod] = useState('This Week')
   const [downloadFormat, setDownloadFormat] = useState<'csv' | 'pdf'>('csv')
   const [isDownloading, setIsDownloading] = useState(false)
 
   // Filter State
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [filterDepartment, setFilterDepartment] = useState('All Departments')
-  const [filterPeriod, setFilterPeriod] = useState('Today')
 
   useEffect(() => {
     if (!hasAccess('attendance')) {
@@ -107,7 +103,7 @@ export default function AttendanceOverviewPage() {
       return
     }
     fetchData()
-  }, [selectedDate, filterPeriod])
+  }, [selectedDate])
 
   const fetchData = async () => {
     try {

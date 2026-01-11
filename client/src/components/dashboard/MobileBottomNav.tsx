@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Menu, X, ChevronRight, MoreHorizontal, LogOut, Settings } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { navigationConfig, reportingConfig, NavItemConfig } from './Sidebar';
+import { apiClient } from '@/lib/api';
 
 export default function MobileBottomNav() {
   const { pathname } = useLocation();
@@ -18,12 +19,7 @@ export default function MobileBottomNav() {
   const getAccessibleItems = (items: NavItemConfig[]) => {
     return items.filter(item => {
       if (item.adminOnly && !isAdmin) return false;
-      if (item.feature && !hasAccess(item.feature)) return false; // Hide completely if feature not in plan? Or show locked?
-      // Sidebar logic shows locked items if they are "implemented" but locked.
-      // But typically bottom nav items should be the primary accessible ones.
-      // Let's mimic Sidebar logic: if it's a feature mismatch, Sidebar usually hides it if !hasAccess.
-      // Wait, Sidebar code: "if (item.feature && !hasAccess(item.feature)) { return null }"
-      // So yes, hide if not accessible.
+      if (item.feature && !hasAccess(item.feature)) return false; 
       return true;
     });
   };
@@ -32,8 +28,6 @@ export default function MobileBottomNav() {
   const allReportingItems = useMemo(() => getAccessibleItems(reportingConfig), [user, companyPlan]);
 
   // Select top items for the bar
-  // We want: Home, Attendance, Leave, Employees/Tasks, More
-  // So we take first 4 items
   const primaryItems = allNavItems.slice(0, 4);
   
   // The rest go into "More"
@@ -52,6 +46,13 @@ export default function MobileBottomNav() {
       'Performance Reviews': 'Reviews',
     };
     return map[label] || label;
+  };
+
+  const handleClockOut = async () => {
+    // This is a quick clock out from the menu, usually redirects to dashboard or triggers action
+    // For now, let's redirect to dashboard which has the clock out logic
+    setIsMoreOpen(false);
+    window.location.href = '/dashboard';
   };
 
   const NavItem = ({ item, onClick }: { item: NavItemConfig; onClick?: () => void }) => {
@@ -181,6 +182,40 @@ export default function MobileBottomNav() {
                   ))}
                 </div>
               )}
+
+              {/* Quick Actions Section */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Quick Actions</h3>
+                
+                {/* Clock Out Button */}
+                <button
+                  onClick={handleClockOut}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-50 rounded-lg text-red-600">
+                      <LogOut className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium text-gray-900">Clock Out</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+
+                {/* Settings Button */}
+                <Link
+                  to="/dashboard/settings"
+                  onClick={() => setIsMoreOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
+                      <Settings className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium text-gray-900">Settings</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Clock, Save, AlertTriangle, Loader2 } from 'lucide-react';
+import { MapPin, Clock, Save, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import AddressAutocomplete from '@/components/ui/AddressAutocomplete';

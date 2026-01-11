@@ -355,50 +355,52 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="p-6 space-y-4">
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pl-1">Quick Actions</h2>
+      {/* Quick Actions - Scrollable Container */}
+      <div className="flex-1 overflow-y-auto pb-32">
+        <div className="p-6 space-y-4">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pl-1">Quick Actions</h2>
 
-        {/* Attendance Card */}
-        <div 
-            onClick={() => navigate('/dashboard/attendance')} 
-            className="bg-[#d2f9e580] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#2E7D32]/20"
-        >
-            <div>
-                <h3 className="font-bold text-[#034a3f] text-lg">Attendance</h3>
-                <p className="text-[11px] text-[#034a3f]/70 mt-1 font-medium">Effortless tracking of your time on the job</p>
-            </div>
-             <div className="bg-white p-3 rounded-full shadow-sm">
-                <Clock className="h-6 w-6 text-[#034a3f]" />
-            </div>
-        </div>
+          {/* Attendance Card */}
+          <div 
+              onClick={() => navigate('/dashboard/attendance')} 
+              className="bg-[#d2f9e580] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#2E7D32]/20"
+          >
+              <div>
+                  <h3 className="font-bold text-[#034a3f] text-lg">Attendance</h3>
+                  <p className="text-[11px] text-[#034a3f]/70 mt-1 font-medium">Effortless tracking of your time on the job</p>
+              </div>
+               <div className="bg-white p-3 rounded-full shadow-sm">
+                  <Clock className="h-6 w-6 text-[#034a3f]" />
+              </div>
+          </div>
 
-         {/* Send Requests Card */}
-        <div 
-            onClick={() => navigate('/dashboard/requests')} 
-            className="bg-[#ffece380] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#E65100]/20"
-        >
-            <div>
-                <h3 className="font-bold text-[#E65100] text-lg">Send Requests</h3>
-                <p className="text-[11px] text-[#E65100]/70 mt-1 font-medium">Need approval? Send your request instantly</p>
-            </div>
-             <div className="bg-white p-3 rounded-full shadow-sm">
-                <Send className="h-6 w-6 text-[#E65100]" />
-            </div>
-        </div>
+           {/* Send Requests Card */}
+          <div 
+              onClick={() => navigate('/dashboard/requests')} 
+              className="bg-[#ffece380] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#E65100]/20"
+          >
+              <div>
+                  <h3 className="font-bold text-[#E65100] text-lg">Send Requests</h3>
+                  <p className="text-[11px] text-[#E65100]/70 mt-1 font-medium">Need approval? Send your request instantly</p>
+              </div>
+               <div className="bg-white p-3 rounded-full shadow-sm">
+                  <Send className="h-6 w-6 text-[#E65100]" />
+              </div>
+          </div>
 
-         {/* Leave/Balance Card */}
-        <div 
-            onClick={() => navigate('/dashboard/leave')} 
-            className="bg-[#dbe5fd80] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#1565C0]/20"
-        >
-            <div>
-                <h3 className="font-bold text-[#1565C0] text-lg">Leave</h3>
-                <p className="text-[11px] text-[#1565C0]/70 mt-1 font-medium">Balance your work and rest—start with a leave request</p>
-            </div>
-             <div className="bg-white p-3 rounded-full shadow-sm">
-                <Scale className="h-6 w-6 text-[#1565C0]" />
-            </div>
+           {/* Leave/Balance Card */}
+          <div 
+              onClick={() => navigate('/dashboard/leave')} 
+              className="bg-[#dbe5fd80] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#1565C0]/20"
+          >
+              <div>
+                  <h3 className="font-bold text-[#1565C0] text-lg">Leave</h3>
+                  <p className="text-[11px] text-[#1565C0]/70 mt-1 font-medium">Balance your work and rest—start with a leave request</p>
+              </div>
+               <div className="bg-white p-3 rounded-full shadow-sm">
+                  <Scale className="h-6 w-6 text-[#1565C0]" />
+              </div>
+          </div>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Fingerprint, MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, Fingerprint, MapPin, Loader2, CheckCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 

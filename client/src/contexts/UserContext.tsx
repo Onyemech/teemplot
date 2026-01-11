@@ -35,6 +35,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchUser = async () => {
+    // Prevent fetching if we are on the too-many-requests page to avoid infinite loops
+    if (window.location.pathname === '/too-many-requests') {
+      setLoading(false);
+      return;
+    }
+
     try {
       // IMPORTANT: Use /api prefix for all backend routes
       console.log('🔍 Fetching user data from /api/auth/me...');

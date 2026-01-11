@@ -155,7 +155,7 @@ export default function OwnerDashboard() {
             {/* Quick Actions */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => navigate('/dashboard/employees')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-[#E8F5E9] hover:border-[#0F5D5D]/20 transition-all active:scale-95"
