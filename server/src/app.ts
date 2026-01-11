@@ -92,7 +92,8 @@ export async function buildApp() {
   });
 
   await app.register(rateLimit, {
-    max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
+    // Increase limit for development to prevent blocking during testing
+    max: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '1000' : '100')),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
     errorResponseBuilder: (request, context) => {
       // Check if context.after is already a string (e.g. "15 minutes")

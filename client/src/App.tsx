@@ -39,6 +39,7 @@ import PaymentCallbackPage from './pages/PaymentCallbackPage'
 
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
+import TooManyRequestsPage from './pages/error/TooManyRequestsPage'
 
 import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
@@ -63,6 +64,7 @@ function App() {
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/too-many-requests" element={<TooManyRequestsPage />} />
       
       {/* Auth Callback Routes */}
       <Route path="/auth/callback" element={<GoogleCallbackPage />} />

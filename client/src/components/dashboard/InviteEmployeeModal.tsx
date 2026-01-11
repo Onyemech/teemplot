@@ -218,9 +218,13 @@ export default function InviteEmployeeModal({
         })
       } else {
         // Generic error with comprehensive troubleshooting
+        let cleanMessage = errorData?.message || 'Failed to send invitation. Please try again.';
+        // Clean up status codes from message if present
+        cleanMessage = cleanMessage.replace(/(Error\s*)?\d{3}\s*:?\s*/gi, '').trim();
+
         setInvitationError({
           code: errorData?.code || 'UNKNOWN_ERROR',
-          message: errorData?.message || 'Failed to send invitation. Please try again.',
+          message: cleanMessage,
           details: errorData?.details,
           troubleshooting: [
             'Check your internet connection',
