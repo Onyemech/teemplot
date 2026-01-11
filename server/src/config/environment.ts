@@ -54,10 +54,7 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-/**
- * Intelligent CORS configuration
- * Automatically detects environment and sets appropriate origins
- */
+
 function getAllowedOrigins(): string[] {
   // If explicitly set, use that
   if (env.ALLOWED_ORIGINS) {
@@ -70,9 +67,9 @@ function getAllowedOrigins(): string[] {
   if (isDev) {
     // Development: Allow localhost on common ports
     return [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5174',
+      'http://localhost:3000', // Vite (Client)
+      'http://localhost:5173', // Vite (Client)
+      'http://localhost:5174', // Vite (Client)
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',

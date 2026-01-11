@@ -347,11 +347,19 @@ export class EmployeeInvitationService {
    */
   private async queueInvitationEmail(invitation: any): Promise<void> {
     try {
+      // Fetch company details to get the name
+      const companyResult = await query(
+        'SELECT name FROM companies WHERE id = $1',
+        [invitation.company_id]
+      );
+      
+      const companyName = companyResult.rows[0]?.name || 'Teemplot';
+
       // Use existing email service with retry mechanism
       await emailService.sendEmployeeInvitation(
         invitation.email,
         invitation.first_name,
-        '', // companyName - will be populated by email service
+        companyName, // Pass the fetched company name
         invitation.invited_by, // inviterName
         invitation.role,
         `${process.env.FRONTEND_URL}/accept-invitation?token=${invitation.invitation_token}`
@@ -439,10 +447,12 @@ export class EmployeeInvitationService {
    */
   async getInvitationByToken(token: string): Promise<any | null> {
     const result = await query(
-      `SELECT * FROM employee_invitations 
-       WHERE invitation_token = $1 
-         AND status = 'pending' 
-         AND expires_at > NOW()
+      `SELECT i.*, c.name as company_name, c.logo_url as company_logo, c.biometrics_required 
+       FROM employee_invitations i
+       JOIN companies c ON i.company_id = c.id
+       WHERE i.invitation_token = $1 
+         AND i.status = 'pending' 
+         AND i.expires_at > NOW()
        LIMIT 1`,
       [token]
     );

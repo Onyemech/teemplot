@@ -99,6 +99,12 @@ export default function AcceptInvitationPage() {
         return
       }
 
+      // If we already have an error, don't retry unless token changed
+      if (error) {
+        setLoading(false)
+        return
+      }
+
       try {
         const response = await apiClient.get(`/api/employee-invitations/invitation/${token}`)
         const data = response.data
@@ -120,15 +126,19 @@ export default function AcceptInvitationPage() {
           lastName: data.data.lastName || '',
         }))
       } catch (err: any) {
-        setError(err.message || 'Failed to load invitation')
-        toast.error(err.message || 'Failed to load invitation')
+        // Only set error state, do NOT show toast here to prevent loop if toast context triggers re-render
+        // The UI will show the error message anyway
+        const message = err.message || 'Failed to load invitation'
+        setError(message)
+        console.error('Invitation fetch error:', err)
       } finally {
         setLoading(false)
       }
     }
 
     fetchInvitation()
-  }, [token, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]) // Removed 'toast' and 'error' from deps to prevent loops
 
   const toBase64 = (buffer: ArrayBuffer | undefined) => {
     if (!buffer) return undefined

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useMemo } from 'react';
 import ToastContainer from '../components/ui/ToastContainer';
 import { ToastProps, ToastType } from '../components/ui/Toast';
 
@@ -94,8 +94,17 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
     showToast(message, 'warning', duration);
   }, [showToast]);
 
+  // Memoize the context value to prevent unnecessary re-renders in consumers
+  const contextValue = useMemo(() => ({
+    showToast,
+    success,
+    error,
+    info,
+    warning
+  }), [showToast, success, error, info, warning]);
+
   return (
-    <ToastContext.Provider value={{ showToast, success, error, info, warning }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <ToastContainer toasts={toasts} onRemove={removeToast} position={position} />
     </ToastContext.Provider>

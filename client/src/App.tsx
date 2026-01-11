@@ -5,6 +5,7 @@ import OnboardingGuard from './components/OnboardingGuard'
 import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
 import { UserProvider } from './contexts/UserContext'
+import { ToastProvider } from './contexts/ToastContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -49,9 +50,10 @@ import OnboardingCompletePage from './pages/onboarding/CompletePage'
 function App() {
   return (
     <ErrorBoundary>
-      <UserProvider>
-        <PWAUpdateNotification />
-        <Routes>
+      <ToastProvider position="top-right">
+        <UserProvider>
+          <PWAUpdateNotification />
+          <Routes>
       {/* Public Routes */}
       <Route path="/" element={
         <LandingGuard>
@@ -127,7 +129,8 @@ function App() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-      </UserProvider>
+        </UserProvider>
+      </ToastProvider>
     </ErrorBoundary>
   )
 }

@@ -207,17 +207,9 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Fetch company settings to determine biometrics requirements
-      let biometricsEnabled = false;
-      let biometricsMandatory = false;
-      try {
-        const companyRes = await query(
-          'SELECT biometrics_required FROM companies WHERE id = $1',
-          [invitation.company_id]
-        );
-        biometricsEnabled = Boolean(companyRes.rows[0]?.biometrics_required);
-        biometricsMandatory = biometricsEnabled;
-      } catch {}
+      // Biometrics requirements are now returned by the service
+      const biometricsEnabled = Boolean(invitation.biometrics_required);
+      const biometricsMandatory = biometricsEnabled;
 
       // Return safe invitation details (no sensitive data)
       return reply.code(200).send({
@@ -229,6 +221,8 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
           role: invitation.role,
           position: invitation.position,
           companyId: invitation.company_id,
+          companyName: invitation.company_name, // Added
+          companyLogo: invitation.company_logo, // Added
           biometricsEnabled,
           biometricsMandatory,
         },
