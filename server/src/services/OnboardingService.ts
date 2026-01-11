@@ -120,6 +120,7 @@ export class OnboardingService {
     const updateData: any = {
       subscription_plan: plan,
       company_size: companySize.toString(),
+      employee_limit: companySize, // Set the limit based on selected size
     };
 
     // Gold plans get 30-day trial for new companies
@@ -271,7 +272,8 @@ export class OnboardingService {
       name: companyName,
       tax_identification_number: taxId,
       industry,
-      employee_count: employeeCount,
+      employee_count: employeeCount, // Legacy field
+      employee_limit: employeeCount, // Set the actual limit
       website,
       // Legacy address field (for backward compatibility)
       address: formattedAddress || address,

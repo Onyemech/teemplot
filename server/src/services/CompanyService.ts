@@ -32,6 +32,25 @@ export class CompanyService {
 
       const company = companyQuery.rows[0];
 
+      // Determine the effective employee limit
+      // Fallback logic: if employee_limit is missing/zero, check for trial status or legacy employee_count
+      let effectiveLimit = company.employee_limit;
+      
+      if (!effectiveLimit || effectiveLimit === 0) {
+        if (company.subscription_status === 'trial') {
+          // Trial plans get a generous default if not set
+          effectiveLimit = 50; 
+        } else {
+          // Fallback to legacy field or default
+          effectiveLimit = parseInt(company.employee_count) || 5;
+        }
+        
+        // Self-healing: Update the DB so we don't need this fallback next time
+        // We do this asynchronously to not block the response
+        this.db.query('UPDATE companies SET employee_limit = $1 WHERE id = $2', [effectiveLimit, companyId])
+          .catch(err => logger.warn({ err, companyId }, 'Failed to self-heal employee_limit'));
+      }
+
       const countsQuery = await this.db.query(
         `SELECT 
           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as active_count,
@@ -44,6 +63,7 @@ export class CompanyService {
 
       return {
         ...company,
+        employee_limit: effectiveLimit, // Return the effective limit
         current_employee_count: currentCount,
         pending_invitations_count: pendingCount
       };
