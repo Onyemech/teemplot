@@ -226,7 +226,7 @@ export default function AcceptInvitationPage() {
         token,
         password: formData.password,
         phoneNumber: '', // Optional
-        dateOfBirth: '', // Optional
+        dateOfBirth: undefined, // Optional - Send undefined instead of empty string
         biometric: biometricCaptured || undefined,
       })
 

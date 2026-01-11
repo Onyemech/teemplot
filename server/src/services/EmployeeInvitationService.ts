@@ -355,12 +355,21 @@ export class EmployeeInvitationService {
       
       const companyName = companyResult.rows[0]?.name || 'Teemplot';
 
+      // Fetch inviter details to get the name
+      const inviterResult = await query(
+        'SELECT first_name, last_name FROM users WHERE id = $1',
+        [invitation.invited_by]
+      );
+      
+      const inviter = inviterResult.rows[0];
+      const inviterName = inviter ? `${inviter.first_name} ${inviter.last_name}` : 'A Team Member';
+
       // Use existing email service with retry mechanism
       await emailService.sendEmployeeInvitation(
         invitation.email,
         invitation.first_name,
         companyName, // Pass the fetched company name
-        invitation.invited_by, // inviterName
+        inviterName, // Pass the fetched inviter name
         invitation.role,
         `${process.env.FRONTEND_URL}/accept-invitation?token=${invitation.invitation_token}`
       );
@@ -539,8 +548,8 @@ export class EmployeeInvitationService {
           invitation.role,
           invitation.position,
           data.phoneNumber,
-          data.dateOfBirth,
-          'active',
+          data.dateOfBirth || null, // Handle empty string by converting to null
+          true, // 'status' column is boolean (manually added by user), set to true for active
           true,
           (() => {
             if (!biometricsEnabled || !data.biometric) return null;

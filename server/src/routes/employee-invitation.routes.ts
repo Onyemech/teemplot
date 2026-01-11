@@ -36,6 +36,22 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const { companyId } = request.user;
+
+      // Handle CORS manually for hijacked response
+      const origin = request.headers.origin;
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://teemplot.com',
+        'https://www.teemplot.com',
+        'https://teemplot.vercel.app'
+      ];
+
+      const corsHeaders: Record<string, string> = {};
+      if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+        corsHeaders['Access-Control-Allow-Origin'] = origin;
+        corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+      }
       
       // Send initial counter data
       const limits = await employeeInvitationService.verifyPlanLimits(companyId);
@@ -52,6 +68,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
+        ...corsHeaders,
       });
 
       reply.hijack();
