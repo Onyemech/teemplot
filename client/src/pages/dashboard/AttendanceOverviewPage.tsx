@@ -96,6 +96,8 @@ export default function AttendanceOverviewPage() {
   // Filter State
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [filterDepartment, setFilterDepartment] = useState('All Departments')
+  const [filterStatus, setFilterStatus] = useState('All Statuses')
+  const [filterLocation, setFilterLocation] = useState('All Locations')
 
   useEffect(() => {
     if (!hasAccess('attendance')) {
@@ -165,6 +167,8 @@ export default function AttendanceOverviewPage() {
   }
 
   const uniqueDepartments = ['All Departments', ...new Set(records.map(r => r.department))]
+  const uniqueStatuses = ['All Statuses', 'Present', 'Late Arrival', 'Early Departure', 'On Leave', 'Absent']
+  const uniqueLocations = ['All Locations', 'Onsite', 'Remote']
 
   const filteredRecords = records.filter(record => {
     const matchesSearch = 
@@ -175,7 +179,19 @@ export default function AttendanceOverviewPage() {
       filterDepartment === 'All Departments' || 
       record.department === filterDepartment
 
-    return matchesSearch && matchesDepartment
+    const matchesStatus = 
+      filterStatus === 'All Statuses' || 
+      (filterStatus === 'Present' && record.status === 'present') ||
+      (filterStatus === 'Late Arrival' && record.status === 'late_arrival') ||
+      (filterStatus === 'Early Departure' && record.status === 'early_departure') ||
+      (filterStatus === 'On Leave' && record.status === 'on_leave') ||
+      (filterStatus === 'Absent' && record.status === 'absent')
+
+    const matchesLocation = 
+      filterLocation === 'All Locations' || 
+      record.location?.toLowerCase() === filterLocation.toLowerCase()
+
+    return matchesSearch && matchesDepartment && matchesStatus && matchesLocation
   })
 
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage)
@@ -234,12 +250,91 @@ export default function AttendanceOverviewPage() {
     )
   }
 
+  const generateCSV = () => {
+    const headers = ['Employee Name', 'Department', 'Clock In', 'Clock Out', 'Duration', 'Status', 'Location', 'Date']
+    const csvContent = [
+      headers.join(','),
+      ...filteredRecords.map(r => [
+        `"${r.employeeName}"`,
+        `"${r.department}"`,
+        `"${r.clockInTime || ''}"`,
+        `"${r.clockOutTime || ''}"`,
+        `"${r.duration}"`,
+        `"${r.status}"`,
+        `"${r.location}"`,
+        `"${r.date}"`
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `attendance_report_${format(selectedDate, 'yyyy-MM-dd')}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
+  const generatePDF = () => {
+    const doc = new jsPDF()
+    
+    // Add Title
+    doc.setFontSize(18)
+    doc.text('Attendance Report', 14, 22)
+    
+    // Add Date and Filter Info
+    doc.setFontSize(11)
+    doc.setTextColor(100)
+    doc.text(`Date: ${format(selectedDate, 'PPP')}`, 14, 30)
+    doc.text(`Generated: ${format(new Date(), 'PPP p')}`, 14, 36)
+    
+    // Add Table
+    autoTable(doc, {
+      head: [['Employee', 'Department', 'Clock In', 'Clock Out', 'Duration', 'Status', 'Location']],
+      body: filteredRecords.map(r => [
+        r.employeeName,
+        r.department,
+        r.clockInTime || '-',
+        r.clockOutTime || '-',
+        r.duration,
+        r.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        r.location ? r.location.charAt(0).toUpperCase() + r.location.slice(1) : '-'
+      ]),
+      startY: 44,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [15, 93, 93] }, // #0F5D5D
+    })
+
+    // Add Page Numbers
+    const pageCount = doc.internal.pages.length - 1
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(10)
+      doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10, { align: 'right' })
+    }
+
+    doc.save(`attendance_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`)
+  }
+
   const handleDownload = async () => {
     setIsDownloading(true)
-    await new Promise(resolve => setTimeout(resolve, 1500)) // Simulating
-    setIsDownloading(false)
-    setIsDownloadModalOpen(false)
-    setIsSuccessModalOpen(true)
+    try {
+      if (downloadFormat === 'csv') {
+        generateCSV()
+      } else {
+        generatePDF()
+      }
+      setIsDownloadModalOpen(false)
+      setIsSuccessModalOpen(true)
+    } catch (error) {
+      console.error('Download failed:', error)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   if (loading) {
@@ -262,13 +357,19 @@ export default function AttendanceOverviewPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Date Navigation */}
           <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-            <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
+            <button 
+              onClick={() => setSelectedDate(prev => subDays(prev, 1))}
+              className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            >
               <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             </button>
             <span className="text-sm md:text-base text-gray-700 font-medium min-w-[140px] text-center">
               {format(selectedDate, 'EEE, MMM dd, yyyy')}
             </span>
-            <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
+            <button 
+              onClick={() => setSelectedDate(prev => addDays(prev, 1))}
+              className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
+            >
               <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             </button>
           </div>
@@ -597,7 +698,7 @@ export default function AttendanceOverviewPage() {
                     <h2 className="text-lg font-bold text-gray-900">Filter Attendance</h2>
                     <button onClick={() => setIsFilterModalOpen(false)}><X className="w-5 h-5" /></button>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Department</label>
                         <Select
@@ -607,8 +708,36 @@ export default function AttendanceOverviewPage() {
                             fullWidth
                         />
                     </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Status</label>
+                        <Select
+                            options={uniqueStatuses.map(status => ({ value: status, label: status }))}
+                            value={filterStatus}
+                            onChange={setFilterStatus}
+                            fullWidth
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Location</label>
+                        <Select
+                            options={uniqueLocations.map(loc => ({ value: loc, label: loc }))}
+                            value={filterLocation}
+                            onChange={setFilterLocation}
+                            fullWidth
+                        />
+                    </div>
                     <div className="flex gap-3 mt-8">
-                        <Button variant="outline" fullWidth onClick={() => setFilterDepartment('All Departments')}>Reset</Button>
+                        <Button 
+                          variant="outline" 
+                          fullWidth 
+                          onClick={() => {
+                            setFilterDepartment('All Departments')
+                            setFilterStatus('All Statuses')
+                            setFilterLocation('All Locations')
+                          }}
+                        >
+                          Reset
+                        </Button>
                         <Button fullWidth onClick={() => setIsFilterModalOpen(false)}>Apply</Button>
                     </div>
                 </div>
@@ -628,8 +757,20 @@ export default function AttendanceOverviewPage() {
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Format</label>
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => setDownloadFormat('csv')} className={`p-3 rounded-xl border-2 ${downloadFormat === 'csv' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>CSV</button>
-                            <button onClick={() => setDownloadFormat('pdf')} className={`p-3 rounded-xl border-2 ${downloadFormat === 'pdf' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>PDF</button>
+                            <button 
+                                onClick={() => setDownloadFormat('csv')} 
+                                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'csv' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                            >
+                                <span className="font-semibold">CSV</span>
+                                <span className="text-xs mt-1 opacity-80">Spreadsheet</span>
+                            </button>
+                            <button 
+                                onClick={() => setDownloadFormat('pdf')} 
+                                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'pdf' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                            >
+                                <span className="font-semibold">PDF</span>
+                                <span className="text-xs mt-1 opacity-80">Document</span>
+                            </button>
                         </div>
                     </div>
                     <div className="flex gap-3 mt-8">

@@ -115,7 +115,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4 md:gap-3 md:mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-4 md:gap-3 md:mb-8 [&>*:nth-last-child(1):nth-child(odd)]:col-span-2 md:[&>*:nth-last-child(1):nth-child(odd)]:col-span-1">
           <StatCard
             label="Total Employees"
             value={stats?.totalEmployees || 0}
@@ -155,7 +155,7 @@ export default function OwnerDashboard() {
             {/* Quick Actions */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 [&>*:nth-last-child(1):nth-child(odd)]:col-span-2 md:[&>*:nth-last-child(1):nth-child(odd)]:col-span-1">
                 <button
                   onClick={() => navigate('/dashboard/employees')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-[#E8F5E9] hover:border-[#0F5D5D]/20 transition-all active:scale-95"
