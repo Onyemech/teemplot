@@ -54,7 +54,7 @@ export function useEmployeeLimit() {
 
       // Determine plan type
       let planType: 'silver' | 'gold' | 'enterprise' = 'silver'
-      if (subscription_status === 'trial') planType = 'silver' // Treat trial as silver for display or handle separately
+      if (subscription_status === 'trial') planType = 'gold' // Trial gives Gold access
       else if (subscription_plan?.includes('gold')) planType = 'gold'
       else if (subscription_plan?.includes('enterprise')) planType = 'enterprise'
 
