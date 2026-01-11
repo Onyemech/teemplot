@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { X, Bell, CheckCircle, AlertTriangle, Info, Clock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { X, Bell, CheckCircle, AlertTriangle,  Clock } from 'lucide-react';
+// import { useNavigate } from 'react-router-dom';
 
 export interface Notification {
   id: string;
