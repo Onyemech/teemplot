@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../utils/logger';
 import { taskService } from '../services/TaskService';
+import { requireFeature } from '../middleware/subscription.middleware';
 import { EventEmitter } from 'events';
 
 const taskEvents = new EventEmitter();
@@ -9,7 +10,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
   
   // SSE endpoint
   fastify.get('/updates', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, (request, reply) => {
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -30,7 +31,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Get department tasks
   fastify.get('/department', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const tasks = await taskService.getDepartmentTasks(request.user);
@@ -49,7 +50,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Create task
   fastify.post('/', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const task = await taskService.createTask(request.body as any, request.user);
@@ -70,7 +71,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Get all tasks (with filters)
   fastify.get('/', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { tasks, pagination } = await taskService.getTasks(request.query as any, request.user);
@@ -92,7 +93,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Get single task
   fastify.get('/:taskId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
@@ -112,7 +113,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Update task
   fastify.put('/:taskId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
@@ -133,7 +134,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Mark task as complete (by employee)
   fastify.post('/:taskId/complete', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
@@ -154,7 +155,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Review task (by owner/admin)
   fastify.post('/:taskId/review', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };
@@ -180,7 +181,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Get tasks awaiting review
   fastify.get('/awaiting-review', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const tasks = await taskService.getAwaitingReview(request.user);
@@ -199,7 +200,7 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
 
   // Delete task
   fastify.delete('/:taskId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
   }, async (request, reply) => {
     try {
       const { taskId } = request.params as { taskId: string };

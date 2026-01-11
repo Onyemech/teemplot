@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import nodemailer from 'nodemailer';
+import { realtimeService } from './RealtimeService';
 
 interface EmailNotification {
   to: string;
@@ -85,23 +86,22 @@ export class NotificationService {
   }
 
   /**
-   * Send push notification (placeholder for future implementation)
+   * Send push notification
    */
   async sendPushNotification(notification: PushNotification): Promise<boolean> {
-    // TODO: Implement with Firebase Cloud Messaging, OneSignal, or similar
     logger.info({
       userId: notification.userId,
       title: notification.title,
     }, 'Push notification queued');
 
-    // Store notification in database for in-app display
+    // Store notification in database and send real-time update
     await this.storeInAppNotification(notification);
 
     return true;
   }
 
   /**
-   * Store notification in database for in-app display
+   * Store notification in database for in-app display and send SSE
    */
   private async storeInAppNotification(notification: PushNotification): Promise<void> {
     // Get user's company_id
@@ -114,6 +114,7 @@ export class NotificationService {
     }
 
     const companyId = userResult.rows[0].company_id;
+    const notificationType = notification.data?.type || 'info';
 
     const query = `
       INSERT INTO notifications (
@@ -126,12 +127,11 @@ export class NotificationService {
         is_read,
         created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+      RETURNING id, created_at
     `;
 
     try {
-      const notificationType = notification.data?.type || 'info';
-      
-      await pool.query(query, [
+      const result = await pool.query(query, [
         notification.userId,
         companyId,
         notification.title,
@@ -139,9 +139,86 @@ export class NotificationService {
         notificationType,
         JSON.stringify(notification.data || {}),
       ]);
+
+      const newNotification = result.rows[0];
+
+      // Send real-time update via SSE
+      realtimeService.sendToUser(notification.userId, 'notification', {
+        id: newNotification.id,
+        title: notification.title,
+        body: notification.body,
+        type: notificationType,
+        data: notification.data,
+        is_read: false,
+        created_at: newNotification.created_at
+      });
+
     } catch (error) {
       logger.error({ error }, 'Failed to store in-app notification');
     }
+  }
+
+  /**
+   * Get notifications for a user
+   */
+  async getNotifications(userId: string, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
+    
+    const query = `
+      SELECT id, title, body, type, data, is_read, created_at
+      FROM notifications
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+
+    const countQuery = `SELECT COUNT(*) FROM notifications WHERE user_id = $1`;
+
+    const [notifications, countResult] = await Promise.all([
+      pool.query(query, [userId, limit, offset]),
+      pool.query(countQuery, [userId])
+    ]);
+
+    return {
+      items: notifications.rows,
+      total: parseInt(countResult.rows[0].count),
+      page,
+      limit,
+      totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
+    };
+  }
+
+  /**
+   * Get unread notification count
+   */
+  async getUnreadCount(userId: string): Promise<number> {
+    const query = `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false`;
+    const result = await pool.query(query, [userId]);
+    return parseInt(result.rows[0].count);
+  }
+
+  /**
+   * Mark notification as read
+   */
+  async markAsRead(userId: string, notificationId: string): Promise<void> {
+    const query = `
+      UPDATE notifications 
+      SET is_read = true 
+      WHERE id = $1 AND user_id = $2
+    `;
+    await pool.query(query, [notificationId, userId]);
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  async markAllAsRead(userId: string): Promise<void> {
+    const query = `
+      UPDATE notifications 
+      SET is_read = true 
+      WHERE user_id = $1 AND is_read = false
+    `;
+    await pool.query(query, [userId]);
   }
 
   /**
@@ -353,4 +430,3 @@ export class NotificationService {
 }
 
 export const notificationService = new NotificationService();
-

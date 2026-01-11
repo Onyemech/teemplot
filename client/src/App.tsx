@@ -52,7 +52,6 @@ function App() {
     <ErrorBoundary>
       <ToastProvider position="top-right">
         <UserProvider>
-          {/* <NotificationProvider> */}
             <PWAUpdateNotification />
             <Routes>
       {/* Public Routes */}
@@ -128,13 +127,11 @@ function App() {
       <Route path="/superadmin" element={<SuperAdminPage />} />
 
     {/* Catch all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+   <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-        {/* </NotificationProvider> */}
         </UserProvider>
       </ToastProvider>
     </ErrorBoundary>
   )
 }
-
 export default App

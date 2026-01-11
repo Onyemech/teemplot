@@ -1,13 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { logger } from '../utils/logger';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
+import { requireFeature } from '../middleware/subscription.middleware';
 
 export default async function leaveRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
   
   // Request leave
   fastify.post('/request', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('leave')],
   }, async (request, reply) => {
     try {
       const { companyId, userId } = request.user;
@@ -113,7 +114,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
 
   // Get leave requests
   fastify.get('/requests', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('leave')],
   }, async (request, reply) => {
     try {
       const { companyId, userId, role } = request.user;
@@ -189,7 +190,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
 
   // Get single leave request
   fastify.get('/requests/:requestId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('leave')],
   }, async (request, reply) => {
     try {
       const { companyId, userId, role } = request.user;
@@ -243,7 +244,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
 
   // Approve/Reject leave request
   fastify.post('/requests/:requestId/review', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('leave')],
   }, async (request, reply) => {
     try {
       const { companyId, userId, role } = request.user;

@@ -391,8 +391,10 @@ export class TaskService {
     }
 
     const task = taskResult.rows[0];
-    if (task.created_by !== userId) {
-      throw new Error('Only the original assigner can review this task');
+    
+    // Allow owners to review any task, others only if they created it
+    if (role !== 'owner' && task.created_by !== userId) {
+      throw new Error('Only the original assigner (or owner) can review this task');
     }
 
     if (task.review_status !== 'pending_review') {
