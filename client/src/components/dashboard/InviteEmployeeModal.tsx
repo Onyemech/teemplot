@@ -139,7 +139,16 @@ export default function InviteEmployeeModal({
         throw new Error('First name and last name are required')
       }
 
-      await apiClient.post('/api/employee-invitations/invite', formData)
+      // Payload optimization: Send only essential data
+      const payload = {
+        email: formData.email.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        role: formData.role,
+        position: formData.position?.trim() || undefined
+      }
+
+      await apiClient.post('/api/employee-invitations/invite', payload)
       
       setShowSuccess(true)
       toast.success('Invitation sent successfully!')

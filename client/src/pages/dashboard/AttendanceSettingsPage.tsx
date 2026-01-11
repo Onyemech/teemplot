@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import MultiClockinManager from '../../components/dashboard/MultiClockinManager';
 import AttendanceGeneralSettings from '../../components/dashboard/AttendanceGeneralSettings';
+import CompanyLocationSettings from '../../components/dashboard/CompanyLocationSettings';
 import { MapPin, Settings } from 'lucide-react';
 
 export default function AttendanceSettingsPage() {
@@ -40,15 +41,18 @@ export default function AttendanceSettingsPage() {
             `}
           >
             <MapPin className="w-4 h-4" />
-            Multiple Locations
+            Locations & Branches
           </button>
         </nav>
       </div>
 
       {/* Content */}
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
         {activeTab === 'general' && (
-          <AttendanceGeneralSettings />
+          <>
+            <CompanyLocationSettings />
+            <AttendanceGeneralSettings />
+          </>
         )}
         
         {activeTab === 'multi-clockin' && (

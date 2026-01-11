@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Calendar, Clock, User, Flag, Type } from 'lucide-react'
 
 export default function TaskAssignPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -15,6 +21,10 @@ export default function TaskAssignPage() {
     dueDate: '',
     estimatedHours: 1
   })
+
+  useEffect(() => {
+    fetchAssignableUsers()
+  }, [])
 
   const fetchAssignableUsers = async () => {
     try {
@@ -27,10 +37,6 @@ export default function TaskAssignPage() {
     }
   }
 
-  useEffect(() => {
-    fetchAssignableUsers()
-  }, [])
-
   const submit = async () => {
     if (!form.title || !form.assignedTo) {
       toast.error('Title and assignee are required')
@@ -38,17 +44,10 @@ export default function TaskAssignPage() {
     }
     setLoading(true)
     try {
-      const res = await apiClient.post('/api/tasks', {
-        title: form.title,
-        description: form.description,
-        assignedTo: form.assignedTo,
-        priority: form.priority,
-        dueDate: form.dueDate,
-        estimatedHours: form.estimatedHours
-      })
+      const res = await apiClient.post('/api/tasks', form)
       if (res.data.success) {
         toast.success(res.data.message || 'Task assigned')
-        setForm({ title: '', description: '', assignedTo: '', priority: 'medium', dueDate: '', estimatedHours: 1 })
+        navigate('/dashboard/tasks/status')
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Failed to assign task')
@@ -58,81 +57,90 @@ export default function TaskAssignPage() {
   }
 
   return (
-    <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-[#212121] mb-4">Assign Task</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:col-span-2">
-          <label className="text-sm text-[#212121] mb-1 block">Title</label>
-          <input
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={() => navigate(-1)} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Assign New Task</h1>
+          <p className="text-gray-500">Create and assign a task to a team member</p>
+        </div>
+      </div>
+
+      <Card className="max-w-3xl">
+        <div className="p-6 space-y-6">
+          <Input
+            label="Task Title"
+            required
+            placeholder="e.g. Update Landing Page"
             value={form.title}
             onChange={e => setForm({ ...form, title: e.target.value })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-            placeholder="Task title"
+            icon={<Type className="w-5 h-5" />}
+            fullWidth
           />
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+            <textarea
+              className="w-full min-h-[120px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+              placeholder="Detailed description of the task..."
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Select
+              label="Assign To"
+              required
+              options={users.map(u => ({
+                label: `${u.first_name} ${u.last_name} (${u.role})`,
+                value: u.id,
+                icon: <User className="w-4 h-4" />
+              }))}
+              value={form.assignedTo}
+              onChange={val => setForm({ ...form, assignedTo: val })}
+              placeholder="Select team member"
+              searchable
+            />
+
+            <Select
+              label="Priority"
+              options={[
+                { label: 'Low', value: 'low', icon: <Flag className="w-4 h-4 text-gray-500" /> },
+                { label: 'Medium', value: 'medium', icon: <Flag className="w-4 h-4 text-blue-500" /> },
+                { label: 'High', value: 'high', icon: <Flag className="w-4 h-4 text-orange-500" /> },
+                { label: 'Urgent', value: 'urgent', icon: <Flag className="w-4 h-4 text-red-500" /> },
+              ]}
+              value={form.priority}
+              onChange={val => setForm({ ...form, priority: val })}
+            />
+
+            <Input
+              type="date"
+              label="Due Date"
+              value={form.dueDate}
+              onChange={e => setForm({ ...form, dueDate: e.target.value })}
+              icon={<Calendar className="w-5 h-5" />}
+              fullWidth
+            />
+
+            <Input
+              type="number"
+              label="Estimated Hours"
+              min={1}
+              value={form.estimatedHours}
+              onChange={e => setForm({ ...form, estimatedHours: parseInt(e.target.value) || 0 })}
+              icon={<Clock className="w-5 h-5" />}
+              fullWidth
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+            <Button variant="primary" onClick={submit} loading={loading}>Assign Task</Button>
+          </div>
         </div>
-        <div className="md:col-span-2">
-          <label className="text-sm text-[#212121] mb-1 block">Description</label>
-          <textarea
-            value={form.description}
-            onChange={e => setForm({ ...form, description: e.target.value })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-            rows={3}
-            placeholder="Describe the task"
-          />
-        </div>
-        <div>
-          <label className="text-sm text-[#212121] mb-1 block">Assign To</label>
-          <select
-            value={form.assignedTo}
-            onChange={e => setForm({ ...form, assignedTo: e.target.value })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-          >
-            <option value="">Select user</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.first_name} {u.last_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm text-[#212121] mb-1 block">Priority</label>
-          <select
-            value={form.priority}
-            onChange={e => setForm({ ...form, priority: e.target.value })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-sm text-[#212121] mb-1 block">Due Date</label>
-          <input
-            type="date"
-            value={form.dueDate}
-            onChange={e => setForm({ ...form, dueDate: e.target.value })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-          />
-        </div>
-        <div>
-          <label className="text-sm text-[#212121] mb-1 block">Estimated Hours</label>
-          <input
-            type="number"
-            min={1}
-            value={form.estimatedHours}
-            onChange={e => setForm({ ...form, estimatedHours: parseInt(e.target.value) || 1 })}
-            className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-          />
-        </div>
-      </div>
-      <div className="mt-4">
-        <Button variant="primary" onClick={submit} loading={loading}>
-          Assign Task
-        </Button>
-      </div>
+      </Card>
     </div>
   )
 }
