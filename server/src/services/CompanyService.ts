@@ -33,20 +33,24 @@ export class CompanyService {
       const company = companyQuery.rows[0];
 
       // Determine the effective employee limit
-      // Fallback logic: if employee_limit is missing/zero, check for trial status or legacy employee_count
-      let effectiveLimit = company.employee_limit;
+      // Priority: 
+      // 1. employee_limit (Schema v2)
+      // 2. employee_count (User input from Onboarding)
+      // 3. Defaults (50 for trial, 5 otherwise)
       
-      if (!effectiveLimit || effectiveLimit === 0) {
-        if (company.subscription_status === 'trial') {
-          // Trial plans get a generous default if not set
-          effectiveLimit = 50; 
+      let effectiveLimit = Number(company.employee_limit ?? 0);
+      
+      if (effectiveLimit === 0) {
+        // Try user's input from onboarding
+        const userDeclaredSize = parseInt(company.employee_count ?? 0);
+        if (userDeclaredSize > 0) {
+          effectiveLimit = userDeclaredSize;
         } else {
-          // Fallback to legacy field or default
-          effectiveLimit = parseInt(company.employee_count) || 5;
+          // Fallback if no input found
+          effectiveLimit = company.subscription_status === 'trial' ? 50 : 5;
         }
         
-        // Self-healing: Update the DB so we don't need this fallback next time
-        // We do this asynchronously to not block the response
+        // Self-healing: Update the DB
         this.db.query('UPDATE companies SET employee_limit = $1 WHERE id = $2', [effectiveLimit, companyId])
           .catch(err => logger.warn({ err, companyId }, 'Failed to self-heal employee_limit'));
       }

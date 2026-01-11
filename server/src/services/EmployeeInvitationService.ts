@@ -208,18 +208,15 @@ export class EmployeeInvitationService {
       const company = companyResult.rows[0];
 
       // Fix: Apply the same fallback logic as CompanyService
+      // Priority: employee_limit -> employee_count -> Default (50/5)
       let totalLimit = Number(company.employee_limit ?? 0);
       
-      // If limit is 0/missing, determine effective limit based on plan
       if (totalLimit === 0) {
-        if (company.subscription_status === 'trial') {
-          totalLimit = 50; // Trial plans get 50 seats
+        const userDeclaredSize = parseInt(company.employee_count ?? 0);
+        if (userDeclaredSize > 0) {
+          totalLimit = userDeclaredSize;
         } else {
-          // Fallback to legacy employee_count or default
-          // Note: We don't have employee_count in the query above, let's add it
-          // Wait, we need to modify the query first.
-          // For now, default to 5 if not trial
-          totalLimit = 5; 
+          totalLimit = company.subscription_status === 'trial' ? 50 : 5;
         }
       }
 

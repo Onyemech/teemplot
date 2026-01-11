@@ -224,9 +224,12 @@ export default function CompanySetupPage() {
           } else if (completedSteps.includes(3)) {
              // Robust check: Ensure all documents are actually present before allowing review
              // This prevents users from skipping to review if they saved with partial uploads
-             const hasAllDocs = cleanedFormData.cacDocument && 
-                                cleanedFormData.proofOfAddress && 
-                                cleanedFormData.companyPolicies;
+             // Use type guards or simple truthy check for the objects/strings
+             const hasCac = !!cleanedFormData.cacDocument;
+             const hasAddress = !!cleanedFormData.proofOfAddress;
+             const hasPolicies = !!cleanedFormData.companyPolicies;
+             
+             const hasAllDocs = hasCac && hasAddress && hasPolicies;
              
              if (hasAllDocs) {
                 setCurrentStep('review')
@@ -1433,9 +1436,12 @@ export default function CompanySetupPage() {
           if (currentStep === 'owner') currentStepNum = 3   // Completed Owner
           if (currentStep === 'documents') {
              // Only mark as complete if all docs are uploaded
-             const hasAllDocs = formData.cacDocument && 
-                                formData.proofOfAddress && 
-                                formData.companyPolicies;
+             const hasCac = !!formData.cacDocument;
+             const hasAddress = !!formData.proofOfAddress;
+             const hasPolicies = !!formData.companyPolicies;
+             
+             const hasAllDocs = hasCac && hasAddress && hasPolicies;
+
              if (hasAllDocs) {
                 currentStepNum = 4 // Completed Documents
              } else {
