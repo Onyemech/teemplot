@@ -20,7 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useUser } from '@/contexts/UserContext'
-import { format } from 'date-fns'
+import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns'
 import MobileAttendancePage from '../mobile/AttendancePage'
 import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
@@ -61,11 +61,14 @@ interface AttendanceRecord {
   lateBy?: string
 }
 
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
 export default function AttendanceOverviewPage() {
   const navigate = useNavigate()
   const { user } = useUser()
   const { hasAccess } = useFeatureAccess()
-  const [selectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsPerPage] = useState(10)
@@ -130,8 +133,12 @@ export default function AttendanceOverviewPage() {
       }
 
       // Fetch Attendance Records
-      // In a real scenario, we would pass query params for date/filter
-      const recordsRes = await apiClient.get('/api/attendance')
+      const params = new URLSearchParams()
+      params.append('startDate', startOfDay(selectedDate).toISOString())
+      params.append('endDate', endOfDay(selectedDate).toISOString())
+      params.append('limit', '2000')
+
+      const recordsRes = await apiClient.get(`/api/attendance?${params.toString()}`)
       if (recordsRes.data.success) {
         // Transform API data to frontend model
         const mappedRecords: AttendanceRecord[] = recordsRes.data.data.map((r: any) => ({

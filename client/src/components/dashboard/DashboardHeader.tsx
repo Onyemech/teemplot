@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Search, ChevronDown, LogOut, User, Settings, Bell } from 'lucide-react'
+import { Search, ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
 import { buildApiUrl } from '@/utils/apiHelpers'
+import { NotificationBell } from '../notifications/NotificationBell'
 
 interface DashboardHeaderProps {
   // onMenuClick: () => void
@@ -64,12 +65,7 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
           
-          {/* Mobile Notifications Only */}
-          <button className="md:hidden relative p-2 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-50 transition-colors">
-             <Bell className="w-5 h-5" />
-             {/* Simple dot for mobile */}
-             <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border border-white"></span>
-          </button>
+          <NotificationBell />
 
           {/* Desktop User Menu */}
           <div className="relative hidden md:block">

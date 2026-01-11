@@ -166,6 +166,15 @@ export const API_ENDPOINTS = {
     GET: '/admin/address-audit',
     VERIFY: '/admin/address-audit/verify',
   },
+
+  // Notifications
+  NOTIFICATIONS: {
+    STREAM: '/notifications/stream',
+    LIST: '/notifications',
+    UNREAD_COUNT: '/notifications/unread-count',
+    MARK_READ: (id: string) => `/notifications/${id}/read`,
+    MARK_ALL_READ: '/notifications/read-all',
+  },
 } as const;
 
 /**

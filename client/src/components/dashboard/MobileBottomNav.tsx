@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronRight, MoreHorizontal, LogOut, Settings } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { navigationConfig, reportingConfig, NavItemConfig } from './Sidebar';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 export default function MobileBottomNav() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { user, hasRole } = useUser();
   const { hasAccess } = useFeatureAccess();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -52,6 +54,18 @@ export default function MobileBottomNav() {
     // For now, let's redirect to dashboard which has the clock out logic
     setIsMoreOpen(false);
     window.location.href = '/dashboard';
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch(buildApiUrl('/auth/logout'), {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    navigate('/login');
   };
 
   const NavItem = ({ item, onClick }: { item: NavItemConfig; onClick?: () => void }) => {
@@ -214,6 +228,20 @@ export default function MobileBottomNav() {
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
+
+                {/* Logout Button */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-50 rounded-lg text-red-600">
+                      <LogOut className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium text-gray-900">Logout</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
               </div>
             </div>
           </div>
