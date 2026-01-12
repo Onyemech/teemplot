@@ -6,3 +6,9 @@ dist/
 .DS_Store
 coverage/
 .nyc_output/
+logs
+.env.production
+leetcode
+docs
+scripts
+.figma

@@ -18,14 +18,14 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { 
-        startDate, 
-        endDate, 
-        department, 
-        search, 
-        status, 
-        page = 1, 
-        limit = 10 
+      const {
+        startDate,
+        endDate,
+        department,
+        search,
+        status,
+        page = 1,
+        limit = 10
       } = request.query as any;
 
       const offset = (page - 1) * limit;
@@ -76,11 +76,11 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { 
-        startDate, 
-        endDate, 
-        department, 
-        search, 
+      const {
+        startDate,
+        endDate,
+        department,
+        search,
         status
       } = request.query as any;
 
@@ -104,7 +104,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         const clockIn = new Date(record.clock_in_time).toLocaleTimeString();
         const clockOut = record.clock_out_time ? new Date(record.clock_out_time).toLocaleTimeString() : '--:--';
         const location = record.clock_in_location ? 'Onsite' : 'Remote'; // Simplified logic
-        
+
         return [
           `"${record.first_name} ${record.last_name}"`,
           `"${record.email}"`,
@@ -149,15 +149,15 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
       // Check if location verification is required
       const requiresVerification = await userService.isLocationVerificationRequired(request.user.userId, request.user.companyId);
       if (requiresVerification && !location) {
-         return reply.code(400).send({
-            success: false,
-            message: 'Location verification required. Please provide current location.',
-            requiresLocationVerification: true
-         });
+        return reply.code(400).send({
+          success: false,
+          message: 'Location verification required. Please provide current location.',
+          requiresLocationVerification: true
+        });
       }
 
       if (requiresVerification && location) {
-          await userService.updateLocationVerification(request.user.userId);
+        await userService.updateLocationVerification(request.user.userId);
       }
 
       const attendance = await enhancedAttendanceService.checkIn({
@@ -186,38 +186,38 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Verify Location
   fastify.post('/verify-location', {
-      preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate],
   }, async (request, reply) => {
-      try {
-          const { location } = request.body as {
-              location: {
-                  latitude: number;
-                  longitude: number;
-              }
-          };
+    try {
+      const { location } = request.body as {
+        location: {
+          latitude: number;
+          longitude: number;
+        }
+      };
 
-          if (!location) {
-              return reply.code(400).send({
-                  success: false,
-                  message: 'Location is required'
-              });
-          }
-
-          // Here you might want to validate if the location is "reasonable" or matches expected patterns
-          // For now, we just trust the user provided location and update the timestamp
-          await userService.updateLocationVerification(request.user.userId);
-
-          return reply.code(200).send({
-              success: true,
-              message: 'Location verified successfully'
-          });
-      } catch (error: any) {
-          logger.error({ error, userId: request.user.userId }, 'Location verification failed');
-          return reply.code(500).send({
-              success: false,
-              message: 'Failed to verify location'
-          });
+      if (!location) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Location is required'
+        });
       }
+
+      // Here you might want to validate if the location is "reasonable" or matches expected patterns
+      // For now, we just trust the user provided location and update the timestamp
+      await userService.updateLocationVerification(request.user.userId);
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Location verified successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Location verification failed');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to verify location'
+      });
+    }
   });
 
   // Check out
@@ -269,6 +269,54 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Start Break
+  fastify.post('/break/start', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const attendanceRecord = await enhancedAttendanceService.startBreak(
+        request.user.userId,
+        request.user.companyId
+      );
+
+      return reply.code(200).send({
+        success: true,
+        data: attendanceRecord,
+        message: 'Break started successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Failed to start break');
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to start break'
+      });
+    }
+  });
+
+  // End Break
+  fastify.post('/break/end', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const attendanceRecord = await enhancedAttendanceService.endBreak(
+        request.user.userId,
+        request.user.companyId
+      );
+
+      return reply.code(200).send({
+        success: true,
+        data: attendanceRecord,
+        message: 'Break ended successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, userId: request.user.userId }, 'Failed to end break');
+      return reply.code(400).send({
+        success: false,
+        message: error.message || 'Failed to end break'
+      });
+    }
+  });
+
   // Get attendance status (matches frontend expectation)
   fastify.get('/status', {
     preHandler: [fastify.authenticate],
@@ -282,13 +330,15 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
       const requiresLocationVerification = await userService.isLocationVerificationRequired(request.user.userId, request.user.companyId);
 
       const data = {
-          isClockedIn: !!attendance && !attendance.clockOutTime,
-          clockInTime: attendance?.clockInTime || null,
-          clockOutTime: attendance?.clockOutTime || null,
-          totalHoursToday: 0, // Calculate if needed or fetch from DB
-          isWithinGeofence: attendance?.isWithinGeofence || false, // This is historical, might want current
-          distanceFromOffice: attendance?.clockInDistanceMeters || 0,
-          requiresLocationVerification
+        isClockedIn: !!attendance && !attendance.clockOutTime,
+        status: attendance?.status || 'absent',
+        clockInTime: attendance?.clockInTime || null,
+        clockOutTime: attendance?.clockOutTime || null,
+        totalHoursToday: 0, // Calculate if needed or fetch from DB
+        isWithinGeofence: attendance?.isWithinGeofence || false, // This is historical, might want current
+        distanceFromOffice: attendance?.clockInDistanceMeters || 0,
+        requiresLocationVerification,
+        breaks: attendance?.breaks || []
       };
 
       return reply.code(200).send({

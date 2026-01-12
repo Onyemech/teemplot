@@ -25,8 +25,6 @@ import LeaveDashboardPage from './pages/leave/LeaveDashboardPage'
 import LeaveRequestsPage from './pages/leave/LeaveRequestsPage'
 import LeaveRequestDetailPage from './pages/leave/LeaveRequestDetailPage'
 import LeaveCalendarPage from './pages/leave/LeaveCalendarPage'
-import TaxDashboardPage from './pages/tax/TaxDashboardPage'
-import TaxAssignmentDetailPage from './pages/tax/TaxAssignmentDetailPage'
 import TaskAssignPage from './pages/tasks/TaskAssignPage'
 import TaskCompletePage from './pages/tasks/TaskCompletePage'
 import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
@@ -114,9 +112,7 @@ function App() {
         <Route path="leave/requests" element={<LeaveRequestsPage />} />
         <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
         <Route path="leave/calendar" element={<LeaveCalendarPage />} />
-        <Route path="tax" element={<TaxDashboardPage />} />
-        <Route path="tax/assignments/:id" element={<TaxAssignmentDetailPage />} />
-        <Route path="tasks/assign" element={<TaskAssignPage />} />
+       <Route path="tasks/assign" element={<TaskAssignPage />} />
         <Route path="tasks/complete" element={<TaskCompletePage />} />
         <Route path="tasks/verify" element={<TaskVerifyPage />} />
         <Route path="tasks/status" element={<TaskStatusPage />} />

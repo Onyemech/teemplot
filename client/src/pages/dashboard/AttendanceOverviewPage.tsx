@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { 
+import {
   Download,
   Filter,
   Search,
@@ -15,7 +15,8 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  Coffee
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
@@ -59,6 +60,7 @@ interface AttendanceRecord {
   workHours?: string
   overtime?: string
   lateBy?: string
+  breakDuration?: string
 }
 
 import { jsPDF } from 'jspdf'
@@ -113,7 +115,7 @@ export default function AttendanceOverviewPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      
+
       // Fetch Dashboard Stats
       const statsRes = await apiClient.get('/api/dashboard/stats')
       if (statsRes.data.success) {
@@ -149,14 +151,15 @@ export default function AttendanceOverviewPage() {
           clockInTime: r.clock_in ? format(new Date(r.clock_in), 'hh:mm a') : null,
           clockOutTime: r.clock_out ? format(new Date(r.clock_out), 'hh:mm a') : null,
           duration: r.duration_minutes ? `${Math.floor(r.duration_minutes / 60)}h ${r.duration_minutes % 60}m` : '--',
-          status: r.status === 'late' ? 'late_arrival' : (r.status || 'absent'),
+          status: r.status === 'on_break' ? 'on_break' : (r.status === 'late' ? 'late_arrival' : (r.status || 'absent')),
           location: r.location_type || 'onsite',
           date: r.date,
           device: r.device_info?.userAgent || 'Unknown Device',
           ipAddress: r.ip_address || 'Unknown IP',
           workHours: '9:00 AM - 5:00 PM', // Placeholder or from settings
           overtime: r.overtime_minutes ? `${Math.floor(r.overtime_minutes / 60)}h ${r.overtime_minutes % 60}m` : '0h 0m',
-          lateBy: r.late_minutes ? `${r.late_minutes} mins` : '0 mins'
+          lateBy: r.late_minutes ? `${r.late_minutes} mins` : '0 mins',
+          breakDuration: r.total_break_minutes ? `${Math.floor(r.total_break_minutes)} mins` : '0 mins'
         }))
         setRecords(mappedRecords)
       }
@@ -178,24 +181,24 @@ export default function AttendanceOverviewPage() {
   const uniqueLocations = ['All Locations', 'Onsite', 'Remote']
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       record.department.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesDepartment = 
-      filterDepartment === 'All Departments' || 
+
+    const matchesDepartment =
+      filterDepartment === 'All Departments' ||
       record.department === filterDepartment
 
-    const matchesStatus = 
-      filterStatus === 'All Statuses' || 
+    const matchesStatus =
+      filterStatus === 'All Statuses' ||
       (filterStatus === 'Present' && record.status === 'present') ||
       (filterStatus === 'Late Arrival' && record.status === 'late_arrival') ||
       (filterStatus === 'Early Departure' && record.status === 'early_departure') ||
       (filterStatus === 'On Leave' && record.status === 'on_leave') ||
       (filterStatus === 'Absent' && record.status === 'absent')
 
-    const matchesLocation = 
-      filterLocation === 'All Locations' || 
+    const matchesLocation =
+      filterLocation === 'All Locations' ||
       record.location?.toLowerCase() === filterLocation.toLowerCase()
 
     return matchesSearch && matchesDepartment && matchesStatus && matchesLocation
@@ -217,35 +220,41 @@ export default function AttendanceOverviewPage() {
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      present: { 
-        bg: 'bg-green-100', 
-        text: 'text-green-700', 
-        label: 'Present', 
-        icon: <Check className="w-3 h-3" /> 
+      present: {
+        bg: 'bg-green-100',
+        text: 'text-green-700',
+        label: 'Present',
+        icon: <Check className="w-3 h-3" />
       },
-      late_arrival: { 
-        bg: 'bg-orange-100', 
-        text: 'text-orange-700', 
-        label: 'Late Arrival', 
-        icon: <ClockIcon className="w-3 h-3" /> 
+      late_arrival: {
+        bg: 'bg-orange-100',
+        text: 'text-orange-700',
+        label: 'Late Arrival',
+        icon: <ClockIcon className="w-3 h-3" />
       },
-      early_departure: { 
-        bg: 'bg-blue-100', 
-        text: 'text-blue-700', 
-        label: 'Early Departure', 
-        icon: <Zap className="w-3 h-3" /> 
+      early_departure: {
+        bg: 'bg-blue-100',
+        text: 'text-blue-700',
+        label: 'Early Departure',
+        icon: <Zap className="w-3 h-3" />
       },
-      on_leave: { 
-        bg: 'bg-purple-100', 
-        text: 'text-purple-700', 
-        label: 'On Leave', 
+      on_leave: {
+        bg: 'bg-purple-100',
+        text: 'text-purple-700',
+        label: 'On Leave',
         icon: <Calendar className="w-3 h-3" />
       },
-      absent: { 
-        bg: 'bg-red-100', 
-        text: 'text-red-700', 
-        label: 'Absent', 
-        icon: <X className="w-3 h-3" /> 
+      absent: {
+        bg: 'bg-red-100',
+        text: 'text-red-700',
+        label: 'Absent',
+        icon: <X className="w-3 h-3" />
+      },
+      on_break: {
+        bg: 'bg-orange-100',
+        text: 'text-orange-700',
+        label: 'On Break',
+        icon: <Coffee className="w-3 h-3" />
       }
     }
     const badge = badges[status as keyof typeof badges] || badges.absent
@@ -288,17 +297,17 @@ export default function AttendanceOverviewPage() {
 
   const generatePDF = () => {
     const doc = new jsPDF()
-    
+
     // Add Title
     doc.setFontSize(18)
     doc.text('Attendance Report', 14, 22)
-    
+
     // Add Date and Filter Info
     doc.setFontSize(11)
     doc.setTextColor(100)
     doc.text(`Date: ${format(selectedDate, 'PPP')}`, 14, 30)
     doc.text(`Generated: ${format(new Date(), 'PPP p')}`, 14, 36)
-    
+
     // Add Table
     autoTable(doc, {
       head: [['Employee', 'Department', 'Clock In', 'Clock Out', 'Duration', 'Status', 'Location']],
@@ -360,11 +369,11 @@ export default function AttendanceOverviewPage() {
           <h1 className="text-2xl font-bold text-gray-900">Attendance Overview</h1>
           <p className="text-sm text-gray-500">Track and manage employee attendance</p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Date Navigation */}
           <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-            <button 
+            <button
               onClick={() => setSelectedDate(prev => subDays(prev, 1))}
               className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
             >
@@ -373,7 +382,7 @@ export default function AttendanceOverviewPage() {
             <span className="text-sm md:text-base text-gray-700 font-medium min-w-[140px] text-center">
               {format(selectedDate, 'EEE, MMM dd, yyyy')}
             </span>
-            <button 
+            <button
               onClick={() => setSelectedDate(prev => addDays(prev, 1))}
               className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
             >
@@ -395,7 +404,7 @@ export default function AttendanceOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Left: Donut Chart */}
         <div className="lg:col-span-1">
-          <AttendanceDonutChart 
+          <AttendanceDonutChart
             present={stats.presentToday}
             late={stats.lateToday}
             absent={stats.absentToday}
@@ -405,39 +414,39 @@ export default function AttendanceOverviewPage() {
 
         {/* Right: Stats Cards */}
         <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 h-fit">
-          <StatCard 
-            label="Total Employees" 
-            value={stats.totalEmployees} 
+          <StatCard
+            label="Total Employees"
+            value={stats.totalEmployees}
             icon={Users}
             iconColorClass="text-[#0F5D5D]"
           />
-          <StatCard 
-            label="Present Today" 
-            value={stats.presentToday} 
+          <StatCard
+            label="Present Today"
+            value={stats.presentToday}
             icon={CheckCircle}
             iconColorClass="text-green-600"
           />
-          <StatCard 
-            label="Late Arrival" 
-            value={stats.lateToday} 
+          <StatCard
+            label="Late Arrival"
+            value={stats.lateToday}
             icon={ClockIcon}
             iconColorClass="text-orange-600"
           />
-          <StatCard 
-            label="Absent" 
-            value={stats.absentToday} 
+          <StatCard
+            label="Absent"
+            value={stats.absentToday}
             icon={X}
             iconColorClass="text-red-600"
           />
-          <StatCard 
-            label="On Leave" 
-            value={stats.onLeave} 
+          <StatCard
+            label="On Leave"
+            value={stats.onLeave}
             icon={Calendar}
             iconColorClass="text-purple-600"
           />
-           <StatCard 
-            label="Avg. Work Hours" 
-            value="8h 12m" 
+          <StatCard
+            label="Avg. Work Hours"
+            value="8h 12m"
             icon={ClockIcon}
             iconColorClass="text-blue-600"
           />
@@ -447,110 +456,110 @@ export default function AttendanceOverviewPage() {
       {/* Search and Filter */}
       <div className="mb-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent bg-white shadow-sm"
-            />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search employees..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent bg-white shadow-sm"
+          />
         </div>
         <div className="flex gap-2">
-            <button 
-                onClick={() => setIsFilterModalOpen(true)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm"
-            >
-                <Filter className="w-4 h-4" />
-                <span>Filter</span>
-            </button>
-            <button 
-                onClick={() => setIsDownloadModalOpen(true)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm"
-            >
-                <Download className="w-4 h-4" />
-                <span>Download</span>
-            </button>
+          <button
+            onClick={() => setIsFilterModalOpen(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm"
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filter</span>
+          </button>
+          <button
+            onClick={() => setIsDownloadModalOpen(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download</span>
+          </button>
         </div>
       </div>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
         {paginatedRecords.length === 0 ? (
-             <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
-                <p className="text-gray-500">No attendance records found</p>
-             </div>
+          <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
+            <p className="text-gray-500">No attendance records found</p>
+          </div>
         ) : (
-            paginatedRecords.map((record) => (
-                <div key={record.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div 
-                      className="p-3 md:p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => toggleRow(record.id)}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="h-10 w-10 rounded-full bg-[#0F5D5D] flex items-center justify-center text-white font-bold text-sm">
-                                    {record.employeeName.split(' ').map(n => n[0]).join('')}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 text-sm">{record.employeeName}</h3>
-                                    <p className="text-xs text-gray-500">{record.department}</p>
-                                </div>
-                            </div>
-                            {getStatusBadge(record.status)}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                                <span className="text-xs text-gray-500">Clock In</span>
-                                <p className="font-medium text-gray-900">{record.clockInTime || '--:--'}</p>
-                            </div>
-                            <div>
-                                <span className="text-xs text-gray-500">Clock Out</span>
-                                <p className="font-medium text-gray-900">{record.clockOutTime || '--:--'}</p>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-center pt-1">
-                          {expandedRowId === record.id ? (
-                            <ChevronUp className="w-4 h-4 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          )}
-                        </div>
+          paginatedRecords.map((record) => (
+            <div key={record.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div
+                className="p-3 md:p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleRow(record.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 rounded-full bg-[#0F5D5D] flex items-center justify-center text-white font-bold text-sm">
+                      {record.employeeName.split(' ').map(n => n[0]).join('')}
                     </div>
-
-                    {/* Expanded Details Mobile */}
-                    {expandedRowId === record.id && (
-                      <div className="px-4 pb-4 pt-0 bg-gray-50/50 border-t border-gray-100 space-y-3">
-                        <div className="grid grid-cols-2 gap-4 mt-3">
-                          <div>
-                            <span className="text-xs text-gray-500 block">Work Hours</span>
-                            <span className="text-sm font-medium text-gray-900">{record.workHours}</span>
-                          </div>
-                          <div>
-                            <span className="text-xs text-gray-500 block">Overtime</span>
-                            <span className="text-sm font-medium text-green-600">{record.overtime}</span>
-                          </div>
-                          <div>
-                            <span className="text-xs text-gray-500 block">Late By</span>
-                            <span className="text-sm font-medium text-orange-600">{record.lateBy}</span>
-                          </div>
-                          <div>
-                            <span className="text-xs text-gray-500 block">Location</span>
-                            <span className="text-sm font-medium text-gray-900 capitalize">{record.location}</span>
-                          </div>
-                        </div>
-                        <div className="pt-2 border-t border-gray-200">
-                          <p className="text-xs text-gray-500 flex items-center gap-1">
-                            <Info className="w-3 h-3" />
-                            Device: {record.device}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm">{record.employeeName}</h3>
+                      <p className="text-xs text-gray-500">{record.department}</p>
+                    </div>
+                  </div>
+                  {getStatusBadge(record.status)}
                 </div>
-            ))
+
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-xs text-gray-500">Clock In</span>
+                    <p className="font-medium text-gray-900">{record.clockInTime || '--:--'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">Clock Out</span>
+                    <p className="font-medium text-gray-900">{record.clockOutTime || '--:--'}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-center pt-1">
+                  {expandedRowId === record.id ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* Expanded Details Mobile */}
+              {expandedRowId === record.id && (
+                <div className="px-4 pb-4 pt-0 bg-gray-50/50 border-t border-gray-100 space-y-3">
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <span className="text-xs text-gray-500 block">Work Hours</span>
+                      <span className="text-sm font-medium text-gray-900">{record.workHours}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Overtime</span>
+                      <span className="text-sm font-medium text-green-600">{record.overtime}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Late By</span>
+                      <span className="text-sm font-medium text-orange-600">{record.lateBy}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Location</span>
+                      <span className="text-sm font-medium text-gray-900 capitalize">{record.location}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <Info className="w-3 h-3" />
+                      Device: {record.device}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
 
@@ -579,8 +588,8 @@ export default function AttendanceOverviewPage() {
               ) : (
                 paginatedRecords.map((record) => (
                   <>
-                    <tr 
-                      key={record.id} 
+                    <tr
+                      key={record.id}
                       className={`hover:bg-gray-50 transition-colors cursor-pointer ${expandedRowId === record.id ? 'bg-gray-50' : ''}`}
                       onClick={() => toggleRow(record.id)}
                     >
@@ -625,7 +634,7 @@ export default function AttendanceOverviewPage() {
                         )}
                       </td>
                     </tr>
-                    
+
                     {/* Expanded Row Desktop */}
                     {expandedRowId === record.id && (
                       <tr className="bg-gray-50/50">
@@ -639,6 +648,10 @@ export default function AttendanceOverviewPage() {
                               <div>
                                 <p className="text-xs text-gray-500 mb-1">Scheduled Work Hours</p>
                                 <p className="text-sm font-medium text-gray-900">{record.workHours}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Break Duration</p>
+                                <p className="text-sm font-medium text-gray-900">{record.breakDuration}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-gray-500 mb-1">Overtime Duration</p>
@@ -668,135 +681,135 @@ export default function AttendanceOverviewPage() {
         </div>
       </div>
 
-       {/* Pagination */}
-       <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            Showing {Math.min((currentPage - 1) * recordsPerPage + 1, filteredRecords.length)} to {Math.min(currentPage * recordsPerPage, filteredRecords.length)} of {filteredRecords.length}
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-600" />
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-          )}
+      {/* Pagination */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          Showing {Math.min((currentPage - 1) * recordsPerPage + 1, filteredRecords.length)} to {Math.min(currentPage * recordsPerPage, filteredRecords.length)} of {filteredRecords.length}
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Modals (Download/Filter/Success) are the same as before... */}
       {/* ... keeping them for brevity if unchanged, but I'll include the closing tags to ensure the file is valid ... */}
       {/* (Actually, I should include them to be safe) */}
-      
+
       {/* Filter Modal */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-gray-900">Filter Attendance</h2>
-                    <button onClick={() => setIsFilterModalOpen(false)}><X className="w-5 h-5" /></button>
-                </div>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Department</label>
-                        <Select
-                            options={uniqueDepartments.map(dept => ({ value: dept, label: dept }))}
-                            value={filterDepartment}
-                            onChange={setFilterDepartment}
-                            fullWidth
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Status</label>
-                        <Select
-                            options={uniqueStatuses.map(status => ({ value: status, label: status }))}
-                            value={filterStatus}
-                            onChange={setFilterStatus}
-                            fullWidth
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Location</label>
-                        <Select
-                            options={uniqueLocations.map(loc => ({ value: loc, label: loc }))}
-                            value={filterLocation}
-                            onChange={setFilterLocation}
-                            fullWidth
-                        />
-                    </div>
-                    <div className="flex gap-3 mt-8">
-                        <Button 
-                          variant="outline" 
-                          fullWidth 
-                          onClick={() => {
-                            setFilterDepartment('All Departments')
-                            setFilterStatus('All Statuses')
-                            setFilterLocation('All Locations')
-                          }}
-                        >
-                          Reset
-                        </Button>
-                        <Button fullWidth onClick={() => setIsFilterModalOpen(false)}>Apply</Button>
-                    </div>
-                </div>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900">Filter Attendance</h2>
+              <button onClick={() => setIsFilterModalOpen(false)}><X className="w-5 h-5" /></button>
             </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Department</label>
+                <Select
+                  options={uniqueDepartments.map(dept => ({ value: dept, label: dept }))}
+                  value={filterDepartment}
+                  onChange={setFilterDepartment}
+                  fullWidth
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Status</label>
+                <Select
+                  options={uniqueStatuses.map(status => ({ value: status, label: status }))}
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  fullWidth
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Location</label>
+                <Select
+                  options={uniqueLocations.map(loc => ({ value: loc, label: loc }))}
+                  value={filterLocation}
+                  onChange={setFilterLocation}
+                  fullWidth
+                />
+              </div>
+              <div className="flex gap-3 mt-8">
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onClick={() => {
+                    setFilterDepartment('All Departments')
+                    setFilterStatus('All Statuses')
+                    setFilterLocation('All Locations')
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button fullWidth onClick={() => setIsFilterModalOpen(false)}>Apply</Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Download Modal */}
       {isDownloadModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-gray-900">Download Report</h2>
-                    <button onClick={() => setIsDownloadModalOpen(false)}><X className="w-5 h-5" /></button>
-                </div>
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Format</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button 
-                                onClick={() => setDownloadFormat('csv')} 
-                                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'csv' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
-                            >
-                                <span className="font-semibold">CSV</span>
-                                <span className="text-xs mt-1 opacity-80">Spreadsheet</span>
-                            </button>
-                            <button 
-                                onClick={() => setDownloadFormat('pdf')} 
-                                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'pdf' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
-                            >
-                                <span className="font-semibold">PDF</span>
-                                <span className="text-xs mt-1 opacity-80">Document</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div className="flex gap-3 mt-8">
-                        <Button variant="outline" fullWidth onClick={() => setIsDownloadModalOpen(false)}>Cancel</Button>
-                        <Button fullWidth loading={isDownloading} onClick={handleDownload}>Download</Button>
-                    </div>
-                </div>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900">Download Report</h2>
+              <button onClick={() => setIsDownloadModalOpen(false)}><X className="w-5 h-5" /></button>
             </div>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Format</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setDownloadFormat('csv')}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'csv' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                  >
+                    <span className="font-semibold">CSV</span>
+                    <span className="text-xs mt-1 opacity-80">Spreadsheet</span>
+                  </button>
+                  <button
+                    onClick={() => setDownloadFormat('pdf')}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${downloadFormat === 'pdf' ? 'border-[#0F5D5D] bg-teal-50 text-[#0F5D5D]' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                  >
+                    <span className="font-semibold">PDF</span>
+                    <span className="text-xs mt-1 opacity-80">Document</span>
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-8">
+                <Button variant="outline" fullWidth onClick={() => setIsDownloadModalOpen(false)}>Cancel</Button>
+                <Button fullWidth loading={isDownloading} onClick={handleDownload}>Download</Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Success Modal */}
       {isSuccessModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-8 shadow-xl text-center">
-                <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Success</h2>
-                <Button fullWidth onClick={() => setIsSuccessModalOpen(false)}>Close</Button>
-            </div>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-8 shadow-xl text-center">
+            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Success</h2>
+            <Button fullWidth onClick={() => setIsSuccessModalOpen(false)}>Close</Button>
+          </div>
         </div>
       )}
     </div>

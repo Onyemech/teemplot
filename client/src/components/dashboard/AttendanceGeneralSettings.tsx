@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Fingerprint, MapPin, Loader2, CheckCircle } from 'lucide-react';
+import { Clock, Fingerprint, MapPin, Loader2, CheckCircle, Coffee } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -10,6 +10,8 @@ interface CompanySettings {
   require_geofence_for_clockin: boolean;
   biometrics_required: boolean;
   biometric_timeout_minutes: number;
+  breaks_enabled: boolean;
+  max_break_duration_minutes: number;
 }
 
 export default function AttendanceGeneralSettings() {
@@ -17,6 +19,7 @@ export default function AttendanceGeneralSettings() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [savingAuto, setSavingAuto] = useState(false);
   const [savingBio, setSavingBio] = useState(false);
+  const [savingBreaks, setSavingBreaks] = useState(false);
   const { success, error: showError } = useToast();
 
   useEffect(() => {
@@ -96,6 +99,33 @@ export default function AttendanceGeneralSettings() {
     }
   };
 
+  const updateBreakSettings = async (key: keyof CompanySettings, value: boolean | number) => {
+    if (!settings) return;
+
+    try {
+      setSavingBreaks(true);
+      const newSettings = { ...settings, [key]: value };
+      setSettings(newSettings);
+
+      const response = await apiClient.patch('/api/company-settings/breaks', {
+        breaksEnabled: newSettings.breaks_enabled,
+        maxBreakDurationMinutes: newSettings.max_break_duration_minutes
+      });
+
+      if (response.data.success) {
+        success('Break settings updated');
+      } else {
+        throw new Error('Failed to update');
+      }
+    } catch (error) {
+      console.error('Failed to update break settings:', error);
+      showError('Failed to update break settings');
+      setSettings(settings);
+    } finally {
+      setSavingBreaks(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -121,7 +151,7 @@ export default function AttendanceGeneralSettings() {
             </div>
           </div>
         </div>
-        
+
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -168,7 +198,7 @@ export default function AttendanceGeneralSettings() {
             <div className="text-sm text-blue-800">
               <p className="font-medium">Geofence Configuration</p>
               <p>
-                Current radius: {settings.geofence_radius_meters} meters. 
+                Current radius: {settings.geofence_radius_meters} meters.
                 Configure office locations in the "Multiple Clock-in Setup" tab.
               </p>
             </div>
@@ -189,7 +219,7 @@ export default function AttendanceGeneralSettings() {
             </div>
           </div>
         </div>
-        
+
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -219,6 +249,57 @@ export default function AttendanceGeneralSettings() {
                 Biometric data is stored securely on the user's device and never transmitted to our servers.
                 We only receive a cryptographic proof of identity.
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Break Management Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <Coffee className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Break Management</h3>
+              <p className="text-sm text-gray-500">Configure allowance for employee breaks</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <label className="text-base font-semibold text-gray-900">Enable Breaks</label>
+              <p className="text-sm text-gray-500 max-w-md">
+                Allow employees to log break times (e.g. Lunch, Tea Break).
+                Track duration of breaks in reports.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.breaks_enabled}
+                onChange={(e) => updateBreakSettings('breaks_enabled', e.target.checked)}
+                className="sr-only peer"
+                disabled={savingBreaks}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+            </label>
+          </div>
+
+          <div className="pt-6 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max Break Duration (Minutes)</label>
+            <div className="max-w-xs">
+              <input
+                type="number"
+                value={settings.max_break_duration_minutes}
+                onChange={(e) => updateBreakSettings('max_break_duration_minutes', parseInt(e.target.value) || 0)}
+                disabled={!settings.breaks_enabled || savingBreaks}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:opacity-50 disabled:bg-gray-100"
+              />
+              <p className="mt-1 text-xs text-gray-500">Recommended duration. Employees exceeding this may be flagged.</p>
             </div>
           </div>
         </div>

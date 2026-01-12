@@ -44,12 +44,17 @@ export interface AttendanceRecord {
   status: string;
   isWithinGeofence?: boolean;
   clockInDistanceMeters?: number;
+  breaks?: {
+    id: string;
+    startTime: string;
+    endTime?: string;
+    duration?: number;
+  }[];
+  totalBreakMinutes?: number;
 }
 
 class EnhancedAttendanceService {
-  /**
-   * Check in employee with geofence validation
-   */
+ 
   async checkIn(request: CheckInRequest): Promise<AttendanceRecord> {
     try {
       const { userId, companyId, location, method, biometricsProof } = request;
@@ -212,6 +217,24 @@ class EnhancedAttendanceService {
         }
       }
 
+      // Check for active breaks and close them
+      const activeBreaks = await query(
+        `SELECT id FROM attendance_breaks 
+         WHERE attendance_record_id = $1 AND end_time IS NULL`,
+        [attendanceId]
+      );
+
+      if (activeBreaks.rows.length > 0) {
+        await query(
+          `UPDATE attendance_breaks 
+           SET end_time = NOW(),
+               duration_minutes = EXTRACT(EPOCH FROM (NOW() - start_time))/60
+           WHERE attendance_record_id = $1 AND end_time IS NULL`,
+          [attendanceId]
+        );
+        logger.info({ userId, attendanceId }, 'Auto-closed active break on checkout');
+      }
+
       // Update attendance record
       const updateResult = await query(
         `UPDATE attendance_records 
@@ -260,6 +283,119 @@ class EnhancedAttendanceService {
   }
 
   /**
+   * Start a break for an employee
+   */
+  async startBreak(userId: string, companyId: string): Promise<AttendanceRecord> {
+    try {
+      // Get current attendance
+      const attendance = await this.getCurrentAttendance(userId, companyId);
+
+      if (!attendance) {
+        throw new Error('You must be clocked in to start a break');
+      }
+
+      if (attendance.clockOutTime) {
+        throw new Error('Cannot start break after clocking out');
+      }
+
+      // Check if already on break
+      const activeBreak = await query(
+        `SELECT id FROM attendance_breaks 
+         WHERE attendance_record_id = $1 AND end_time IS NULL`,
+        [attendance.id]
+      );
+
+      if (activeBreak.rows.length > 0) {
+        throw new Error('You are already on a break');
+      }
+
+      // Check company settings
+      const companyResult = await query(
+        'SELECT breaks_enabled FROM companies WHERE id = $1',
+        [companyId]
+      );
+
+      if (!companyResult.rows[0]?.breaks_enabled) {
+        throw new Error('Breaks are not enabled for this company');
+      }
+
+      // Start break
+      await query(
+        `INSERT INTO attendance_breaks (attendance_record_id, start_time)
+         VALUES ($1, NOW())`,
+        [attendance.id]
+      );
+
+      // Update status to 'on_break'
+      await query(
+        `UPDATE attendance_records SET status = 'on_break' WHERE id = $1`,
+        [attendance.id]
+      );
+
+      logger.info({ userId, companyId, attendanceId: attendance.id }, 'Break started');
+
+      return this.getCurrentAttendance(userId, companyId) as Promise<AttendanceRecord>;
+    } catch (error: any) {
+      logger.error({ error, userId }, 'Failed to start break');
+      throw error;
+    }
+  }
+
+  /**
+   * End a break for an employee
+   */
+  async endBreak(userId: string, companyId: string): Promise<AttendanceRecord> {
+    try {
+      // Get current attendance
+      const attendance = await this.getCurrentAttendance(userId, companyId);
+
+      if (!attendance) {
+        throw new Error('Attendance record not found');
+      }
+
+      // Find active break
+      const breakResult = await query(
+        `SELECT id, start_time FROM attendance_breaks 
+         WHERE attendance_record_id = $1 AND end_time IS NULL`,
+        [attendance.id]
+      );
+
+      if (breakResult.rows.length === 0) {
+        throw new Error('No active break found');
+      }
+
+      const breakRecord = breakResult.rows[0];
+
+      // Calculate duration
+      // We let the DB handle the timestamp diff or calculate here. 
+      // Ideally update end_time = NOW() and let a trigger or query calc duration.
+      // Here we'll just update end_time and calculate duration in minutes.
+
+      await query(
+        `UPDATE attendance_breaks 
+         SET end_time = NOW(),
+             duration_minutes = EXTRACT(EPOCH FROM (NOW() - start_time))/60
+         WHERE id = $1`,
+        [breakRecord.id]
+      );
+
+      // Update status back to 'present' (or 'late' if they were late, but simplest is 'present')
+      // NOTE: If they were originally late, we might want to preserve that, but 'present' usually implies 'currently working'
+      await query(
+        `UPDATE attendance_records SET status = 'present' WHERE id = $1`,
+        [attendance.id]
+      );
+
+      logger.info({ userId, companyId, attendanceId: attendance.id }, 'Break ended');
+
+      return this.getCurrentAttendance(userId, companyId) as Promise<AttendanceRecord>;
+    } catch (error: any) {
+      logger.error({ error, userId }, 'Failed to end break');
+      throw error;
+    }
+  }
+
+  /**
    * Get current attendance status for user
    */
   async getCurrentAttendance(userId: string, companyId: string): Promise<AttendanceRecord | null> {
@@ -278,7 +414,7 @@ class EnhancedAttendanceService {
         return null;
       }
 
-      return this.mapAttendanceRecord(result.rows[0]);
+      return this.mapAttendanceRecord(result.rows[0], true);
     } catch (error: any) {
       logger.error({ error, userId }, 'Failed to get current attendance');
       throw error;
@@ -540,7 +676,37 @@ class EnhancedAttendanceService {
   /**
    * Map database record to AttendanceRecord
    */
-  private mapAttendanceRecord(row: any): AttendanceRecord {
+  /**
+   * Map database record to AttendanceRecord
+   */
+  private async mapAttendanceRecord(row: any, includeBreaks: boolean = false): Promise<AttendanceRecord> {
+    let breaks: any[] = [];
+    let totalBreakMinutes = 0;
+
+    if (includeBreaks || row.id) { // Always fetch if we have an ID, or make logic tighter
+      // Fetches breaks if requested. 
+      // Note: For 'getCompanyAttendance' (bulk), executing a query per row is bad for performance.
+      // It's better to JOIN in the main query or fetch separately.
+      // For 'getCurrentAttendance' (single), this is fine.
+      if (includeBreaks) {
+        const breaksResult = await query(
+          `SELECT id, start_time, end_time, duration_minutes 
+                 FROM attendance_breaks 
+                 WHERE attendance_record_id = $1 
+                 ORDER BY start_time ASC`,
+          [row.id]
+        );
+        breaks = breaksResult.rows.map(b => ({
+          id: b.id,
+          startTime: b.start_time,
+          endTime: b.end_time,
+          duration: b.duration_minutes
+        }));
+
+        totalBreakMinutes = breaks.reduce((acc, b) => acc + (b.duration || 0), 0);
+      }
+    }
+
     return {
       id: row.id,
       userId: row.user_id,
@@ -556,7 +722,9 @@ class EnhancedAttendanceService {
       checkOutMethod: row.check_out_method,
       status: row.status,
       isWithinGeofence: row.is_within_geofence,
-      clockInDistanceMeters: row.clock_in_distance_meters
+      clockInDistanceMeters: row.clock_in_distance_meters,
+      breaks: breaks.length > 0 ? breaks : undefined,
+      totalBreakMinutes: totalBreakMinutes > 0 ? totalBreakMinutes : undefined
     };
   }
 
@@ -625,7 +793,8 @@ class EnhancedAttendanceService {
 
       // Get data
       let queryStr = `
-        SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position
+        SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position,
+        (SELECT SUM(COALESCE(duration_minutes, EXTRACT(EPOCH FROM (NOW() - start_time))/60)) FROM attendance_breaks WHERE attendance_record_id = ar.id) as total_break_minutes
         FROM attendance_records ar
         JOIN users u ON ar.user_id = u.id
         WHERE ${whereClause}

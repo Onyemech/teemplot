@@ -29,7 +29,10 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           time_format,
           date_format,
           currency,
-          language
+
+          language,
+          breaks_enabled,
+          max_break_duration_minutes
         FROM companies 
         WHERE id = $1`,
         [request.user.companyId]
@@ -504,6 +507,75 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         message: 'Failed to update display preferences'
+      });
+    }
+  });
+
+  // Update break settings
+  fastify.patch('/breaks', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      // Check role
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update break settings'
+        });
+      }
+      const { breaksEnabled, maxBreakDurationMinutes } = request.body as {
+        breaksEnabled?: boolean;
+        maxBreakDurationMinutes?: number;
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (typeof breaksEnabled === 'boolean') {
+        params.push(breaksEnabled);
+        updates.push(`breaks_enabled = $${paramIndex++}`);
+      }
+
+      if (maxBreakDurationMinutes) {
+        params.push(maxBreakDurationMinutes);
+        updates.push(`max_break_duration_minutes = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      params.push(request.user.companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE companies 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING breaks_enabled, max_break_duration_minutes`,
+        params
+      );
+
+      logger.info({
+        companyId: request.user.companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body as object)
+      }, 'Break settings updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: result.rows[0],
+        message: 'Break settings updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update break settings');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update break settings'
       });
     }
   });
