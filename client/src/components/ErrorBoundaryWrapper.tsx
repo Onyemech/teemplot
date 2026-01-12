@@ -27,7 +27,7 @@ class ErrorBoundaryWrapper extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
@@ -67,11 +67,11 @@ class ErrorBoundaryWrapper extends Component<Props, State> {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
-              
+
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 Something went wrong
               </h1>
-              
+
               <p className="text-gray-600 mb-6">
                 We're sorry for the inconvenience. The error has been logged and we'll look into it.
               </p>
@@ -95,20 +95,61 @@ class ErrorBoundaryWrapper extends Component<Props, State> {
               )}
 
               <div className="flex gap-3 w-full">
-                <button
-                  onClick={this.handleGoHome}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                {/* Using native anchor tags as fallbacks in case React handlers fail */}
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    this.handleGoHome();
+                  }}
+                  className="flex-1"
                 >
-                  <Home className="w-4 h-4" />
-                  Go Home
-                </button>
-                <button
-                  onClick={this.handleReset}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#0F5D5D] text-white rounded-lg hover:bg-[#0a4545] transition-colors"
+                  <button
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    type="button"
+                  >
+                    <Home className="w-4 h-4" />
+                    Go Home
+                  </button>
+                </a>
+                <a
+                  href={window.location.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    this.handleReset();
+                  }}
+                  className="flex-1"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Reload Page
-                </button>
+                  <button
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0F5D5D] text-white rounded-lg hover:bg-[#0a4545] transition-colors"
+                    type="button"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reload Page
+                  </button>
+                </a>
+              </div>
+
+              {/* Fallback text links in case buttons don't render */}
+              <div className="mt-4 text-sm text-gray-500">
+                <p>
+                  Still stuck?{' '}
+                  <a
+                    href="/"
+                    className="text-[#0F5D5D] underline hover:text-[#0a4545]"
+                    onClick={() => {
+                      // Clear storage to help reset any broken state
+                      try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                      } catch (e) {
+                        // Ignore storage errors
+                      }
+                    }}
+                  >
+                    Clear data and go home
+                  </a>
+                </p>
               </div>
             </div>
           </div>

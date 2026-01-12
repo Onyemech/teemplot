@@ -26,7 +26,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     // Log to error tracking service (e.g., Sentry)
     if (process.env.NODE_ENV === 'production') {
       // TODO: Send to error tracking service
@@ -61,11 +61,11 @@ class ErrorBoundary extends Component<Props, State> {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
-              
+
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 Oops! Something went wrong
               </h1>
-              
+
               <p className="text-gray-600 mb-6">
                 We're sorry for the inconvenience. The error has been logged and we'll look into it.
               </p>
@@ -89,22 +89,63 @@ class ErrorBoundary extends Component<Props, State> {
               )}
 
               <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <Button
-                  variant="outline"
-                  onClick={this.handleGoHome}
-                  fullWidth
+                {/* Using native anchor tags as fallbacks in case React handlers fail */}
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    this.handleGoHome();
+                  }}
+                  className="flex-1"
                 >
-                  Go Home
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={this.handleReset}
-                  icon={<RefreshCw className="w-4 h-4" />}
-                  iconPosition="left"
-                  fullWidth
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    type="button"
+                  >
+                    Go Home
+                  </Button>
+                </a>
+                <a
+                  href={window.location.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    this.handleReset();
+                  }}
+                  className="flex-1"
                 >
-                  Reload Page
-                </Button>
+                  <Button
+                    variant="primary"
+                    icon={<RefreshCw className="w-4 h-4" />}
+                    iconPosition="left"
+                    fullWidth
+                    type="button"
+                  >
+                    Reload Page
+                  </Button>
+                </a>
+              </div>
+
+              {/* Fallback text links in case buttons don't render */}
+              <div className="mt-4 text-sm text-gray-500">
+                <p>
+                  Still stuck?{' '}
+                  <a
+                    href="/"
+                    className="text-[#0F5D5D] underline hover:text-[#0a4545]"
+                    onClick={() => {
+                      // Clear storage to help reset any broken state
+                      try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                      } catch (e) {
+                        // Ignore storage errors
+                      }
+                    }}
+                  >
+                    Clear data and go home
+                  </a>
+                </p>
               </div>
             </div>
           </div>
