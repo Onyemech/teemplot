@@ -107,12 +107,37 @@ class ErrorBoundary extends Component<Props, State> {
                   </Button>
                 </a>
                 <a
+                  href="/login"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      await fetch('/api/auth/logout', { method: 'POST' });
+                    } catch (err) {
+                      console.error('Logout failed', err);
+                    }
+                    window.location.href = '/login';
+                  }}
+                  className="flex-1"
+                >
+                  <Button
+                    variant="outline"
+                    className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                    fullWidth
+                    type="button"
+                  >
+                    Sign Out
+                  </Button>
+                </a>
+              </div>
+
+              <div className="w-full mt-3">
+                <a
                   href={window.location.href}
                   onClick={(e) => {
                     e.preventDefault();
                     this.handleReset();
                   }}
-                  className="flex-1"
+                  className="block w-full"
                 >
                   <Button
                     variant="primary"

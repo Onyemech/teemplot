@@ -113,12 +113,35 @@ class ErrorBoundaryWrapper extends Component<Props, State> {
                   </button>
                 </a>
                 <a
+                  href="/login"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      await fetch('/api/auth/logout', { method: 'POST' });
+                    } catch (err) {
+                      console.error('Logout failed', err);
+                    }
+                    window.location.href = '/login';
+                  }}
+                  className="flex-1"
+                >
+                  <button
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-red-200 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                    type="button"
+                  >
+                    Log Out
+                  </button>
+                </a>
+              </div>
+
+              <div className="w-full mt-3">
+                <a
                   href={window.location.href}
                   onClick={(e) => {
                     e.preventDefault();
                     this.handleReset();
                   }}
-                  className="flex-1"
+                  className="block w-full"
                 >
                   <button
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0F5D5D] text-white rounded-lg hover:bg-[#0a4545] transition-colors"
