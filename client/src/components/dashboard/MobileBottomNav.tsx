@@ -12,6 +12,7 @@ export default function MobileBottomNav() {
   const { user, hasRole } = useUser();
   const { hasAccess } = useFeatureAccess();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<NavItemConfig | null>(null);
 
   const isAdmin = hasRole(['admin', 'owner']);
   const companyPlan = user?.subscriptionPlan || 'trial';
@@ -49,10 +50,11 @@ export default function MobileBottomNav() {
     return map[label] || label;
   };
 
-  const handleClockOut = () => {
+  const handleCloseMore = () => {
     setIsMoreOpen(false);
-    navigate('/dashboard');
+    setActiveSubmenu(null);
   };
+
 
   const handleLogout = async () => {
     try {
@@ -126,115 +128,159 @@ export default function MobileBottomNav() {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsMoreOpen(false)}
+            onClick={handleCloseMore}
           />
 
           {/* Drawer Content */}
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto flex flex-col shadow-xl animate-in slide-in-from-bottom duration-300">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
-              <span className="font-bold text-lg text-gray-900">Menu</span>
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10 transition-colors">
+              <div className="flex items-center gap-2">
+                {activeSubmenu && (
+                  <button
+                    onClick={() => setActiveSubmenu(null)}
+                    className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors flex items-center gap-1 text-primary font-medium"
+                  >
+                    <ChevronRight className="w-5 h-5 rotate-180" />
+                    <span>Back</span>
+                  </button>
+                )}
+                <span className="font-bold text-lg text-gray-900">
+                  {activeSubmenu ? activeSubmenu.label : 'Menu'}
+                </span>
+              </div>
               <button
-                onClick={() => setIsMoreOpen(false)}
+                onClick={handleCloseMore}
                 className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                aria-label="Close menu"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
 
-            <div className="p-4 space-y-6 pb-24">
-              {/* Secondary Nav Items */}
-              {secondaryItems.length > 0 && (
+            <div className="p-4 space-y-6 pb-24 animate-in fade-in duration-300">
+              {activeSubmenu ? (
+                /* Submenu View */
                 <div className="space-y-1">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Apps</h3>
-                  {secondaryItems.map((item) => (
+                  {getAccessibleItems(activeSubmenu.submenu || []).map((subItem) => (
                     <Link
-                      key={item.href}
-                      to={item.href}
-                      onClick={() => setIsMoreOpen(false)}
+                      key={subItem.href}
+                      to={subItem.href}
+                      onClick={handleCloseMore}
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/5 rounded-lg text-primary">
-                          <item.icon className="w-5 h-5" />
+                          <subItem.icon className="w-5 h-5" />
                         </div>
-                        <span className="font-medium text-gray-900">{item.label}</span>
+                        <span className="font-medium text-gray-900">{subItem.label}</span>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </Link>
                   ))}
                 </div>
-              )}
+              ) : (
+                /* Root Menu View */
+                <>
+                  {/* Secondary Nav Items */}
+                  {secondaryItems.length > 0 && (
+                    <div className="space-y-1">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Apps</h3>
+                      {secondaryItems.map((item) => {
+                        const hasSub = item.submenu && item.submenu.length > 0;
+                        return (
+                          <div key={item.href}>
+                            {hasSub ? (
+                              <button
+                                onClick={() => setActiveSubmenu(item)}
+                                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-primary/5 rounded-lg text-primary">
+                                    <item.icon className="w-5 h-5" />
+                                  </div>
+                                  <span className="font-medium text-gray-900">{item.label}</span>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                              </button>
+                            ) : (
+                              <Link
+                                to={item.href}
+                                onClick={handleCloseMore}
+                                className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-primary/5 rounded-lg text-primary">
+                                    <item.icon className="w-5 h-5" />
+                                  </div>
+                                  <span className="font-medium text-gray-900">{item.label}</span>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                              </Link>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-              {/* Reporting Section */}
-              {allReportingItems.length > 0 && (
-                <div className="space-y-1">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Reporting</h3>
-                  {allReportingItems.map((item) => (
+                  {/* Reporting Section */}
+                  {allReportingItems.length > 0 && (
+                    <div className="space-y-1">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Reporting</h3>
+                      {allReportingItems.map((item) => (
+                        <Link
+                          key={item.href}
+                          to={item.href}
+                          onClick={handleCloseMore}
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                              <item.icon className="w-5 h-5" />
+                            </div>
+                            <span className="font-medium text-gray-900">{item.label}</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Quick Actions Section */}
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Quick Actions</h3>
+
+                    {/* Settings Button */}
                     <Link
-                      key={item.href}
-                      to={item.href}
-                      onClick={() => setIsMoreOpen(false)}
+                      to="/dashboard/settings"
+                      onClick={handleCloseMore}
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                          <item.icon className="w-5 h-5" />
+                        <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
+                          <Settings className="w-5 h-5" />
                         </div>
-                        <span className="font-medium text-gray-900">{item.label}</span>
+                        <span className="font-medium text-gray-900">Settings</span>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </Link>
-                  ))}
-                </div>
+
+                    {/* Logout Button */}
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-50 rounded-lg text-red-600">
+                          <LogOut className="w-5 h-5" />
+                        </div>
+                        <span className="font-medium text-gray-900">Logout</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                </>
               )}
-
-              {/* Quick Actions Section */}
-              <div className="space-y-1">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Quick Actions</h3>
-
-                {/* Clock Out Button */}
-                <button
-                  onClick={handleClockOut}
-                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-50 rounded-lg text-red-600">
-                      <LogOut className="w-5 h-5" />
-                    </div>
-                    <span className="font-medium text-gray-900">Attendance Actions</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
-
-                {/* Settings Button */}
-                <Link
-                  to="/dashboard/settings"
-                  onClick={() => setIsMoreOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
-                      <Settings className="w-5 h-5" />
-                    </div>
-                    <span className="font-medium text-gray-900">Settings</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </Link>
-
-                {/* Logout Button */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-50 rounded-lg text-red-600">
-                      <LogOut className="w-5 h-5" />
-                    </div>
-                    <span className="font-medium text-gray-900">Logout</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
             </div>
           </div>
         </div>

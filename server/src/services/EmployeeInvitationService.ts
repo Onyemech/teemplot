@@ -184,7 +184,7 @@ export class EmployeeInvitationService {
     try {
       // Get company subscription details
       const companyResult = await queryExecutor.query(
-        `SELECT plan as subscription_plan, subscription_status, employee_limit 
+        `SELECT plan, subscription_plan, subscription_status, employee_limit 
          FROM companies WHERE id = $1`,
         [companyId]
       );
@@ -198,6 +198,7 @@ export class EmployeeInvitationService {
       }
 
       const company = companyResult.rows[0];
+      const effectivePlan = (company.subscription_plan || company.plan || '').toLowerCase();
 
       // Fix: Use robust plan-based limits
       // If employee_limit is explicitly set (e.g. from a custom subscription), use it.
@@ -208,8 +209,10 @@ export class EmployeeInvitationService {
         // Fallback to defaults if no explicit limit is set
         if (company.subscription_status === 'trial') {
           totalLimit = 50; // Trial limit
-        } else if (company.subscription_plan?.includes('gold')) {
+        } else if (effectivePlan.includes('gold')) {
           totalLimit = 500; // Gold limit (example)
+        } else if (effectivePlan.includes('silver')) {
+          totalLimit = 50; // Silver limit (example)
         } else {
           totalLimit = 5; // Default Silver/Free limit
         }

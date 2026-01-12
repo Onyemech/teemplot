@@ -79,7 +79,7 @@ export class OnboardingService {
     const { companyId, documentType, url } = data;
 
     const updateData: any = {};
-    
+
     if (documentType === 'cac') {
       updateData.cac_document_url = url;
     } else if (documentType === 'proof_of_address') {
@@ -89,7 +89,7 @@ export class OnboardingService {
     }
 
     await this.db.update('companies', updateData, { id: companyId });
-    
+
     logger.info(`Document uploaded for company ${companyId}: ${documentType}`);
 
     // Check if all documents are uploaded, then notify superadmin
@@ -118,7 +118,8 @@ export class OnboardingService {
     const totalPrice = pricePerEmployee * companySize;
 
     const updateData: any = {
-      subscription_plan: plan,
+      subscription_plan: plan, // Keep both for backward compatibility
+      plan: plan.split('_')[0], // Standardize to 'silver' or 'gold'
       company_size: companySize.toString(),
       employee_limit: companySize, // Set the limit based on selected size
     };
@@ -180,7 +181,7 @@ export class OnboardingService {
 
     // Check if owner email is different from registrant
     const registrant = await this.db.findOne('users', { id: registrantUserId });
-    
+
     if (!registrant) {
       throw new Error('Registrant not found');
     }
@@ -235,19 +236,19 @@ export class OnboardingService {
    * Stage 5: Business Information - Save company details with geocoding
    */
   async saveBusinessInfo(data: BusinessInfoData): Promise<void> {
-    const { 
-      companyId, 
-      companyName, 
-      taxId, 
-      industry, 
-      employeeCount, 
-      website, 
-      address, 
-      city, 
-      stateProvince, 
-      country, 
-      postalCode, 
-      officeLatitude, 
+    const {
+      companyId,
+      companyName,
+      taxId,
+      industry,
+      employeeCount,
+      website,
+      address,
+      city,
+      stateProvince,
+      country,
+      postalCode,
+      officeLatitude,
       officeLongitude,
       formattedAddress,
       streetNumber,
@@ -361,7 +362,7 @@ export class OnboardingService {
     let completed = false;
     if (user) {
       const progress = await onboardingProgressService.getProgress(user.id);
-      const requiredSteps = [1,2,3,4,5,6];
+      const requiredSteps = [1, 2, 3, 4, 5, 6];
       completed = progress ? requiredSteps.every(s => progress.completedSteps.includes(s)) : false;
     }
     return {
