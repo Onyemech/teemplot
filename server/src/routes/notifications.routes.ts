@@ -6,7 +6,13 @@ import { z } from 'zod';
 export async function notificationRoutes(fastify: FastifyInstance) {
   // SSE Endpoint
   fastify.get('/stream', {
-    onRequest: [fastify.authenticate]
+    onRequest: [fastify.authenticate],
+    config: {
+      rateLimit: {
+        max: 1000,
+        timeWindow: '1 minute'
+      }
+    }
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     return realtimeService.handleConnection(request, reply);
   });
@@ -18,13 +24,13 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     try {
       const userId = (request.user as any).id || (request.user as any).userId;
       const { page, limit } = request.query as { page?: string, limit?: string };
-      
+
       const notifications = await notificationService.getNotifications(
-        userId, 
-        parseInt(page || '1'), 
+        userId,
+        parseInt(page || '1'),
         parseInt(limit || '20')
       );
-      
+
       return reply.send({ success: true, data: notifications });
     } catch (error: any) {
       fastify.log.error('Error fetching notifications:', error);
@@ -53,7 +59,7 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     try {
       const userId = (request.user as any).id || (request.user as any).userId;
       const { id } = request.params as { id: string };
-      
+
       await notificationService.markAsRead(userId, id);
       return reply.send({ success: true, message: 'Notification marked as read' });
     } catch (error: any) {

@@ -69,7 +69,7 @@ export async function buildApp() {
   await app.register(cors, {
     origin: (origin, callback) => {
       const allowedOrigins = config_env.allowedOrigins;
-      
+
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) {
         callback(null, true);
@@ -93,7 +93,7 @@ export async function buildApp() {
 
   await app.register(rateLimit, {
     // Increase limit for development to prevent blocking during testing
-    max: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '1000' : '100')),
+    max: parseInt(process.env.RATE_LIMIT_MAX || '10000'),
     timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
     errorResponseBuilder: (request, context) => {
       // Check if context.after is already a string (e.g. "15 minutes")
@@ -136,14 +136,14 @@ export async function buildApp() {
       await request.jwtVerify();
     } catch (error: any) {
       // Provide clear error messages
-      const message = error.message?.includes('expired') 
+      const message = error.message?.includes('expired')
         ? 'Session expired. Please log in again.'
         : error.message?.includes('invalid')
-        ? 'Invalid authentication token. Please log in again.'
-        : 'Authentication required. Please log in.';
-      
-      reply.code(401).send({ 
-        success: false, 
+          ? 'Invalid authentication token. Please log in again.'
+          : 'Authentication required. Please log in.';
+
+      reply.code(401).send({
+        success: false,
         message,
         code: 'AUTH_ERROR',
         requiresLogin: true
@@ -165,14 +165,14 @@ export async function buildApp() {
       },
     };
   };
-  
+
   app.get('/health', healthHandler);
   app.get('/api/health', healthHandler);
 
   // Routes - Use /api prefix for all routes
   // This works for both development (localhost:5000/api/...) and production (api.teemplot.com/api/...)
   const apiPrefix = '/api';
-  
+
   await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
 
   // Import and register onboarding routes
@@ -226,15 +226,15 @@ export async function buildApp() {
   // Import and register subscription routes
   const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
-  
+
   // Import and register leave management routes
   const leaveRoutes = await import('./routes/leave.routes');
   await app.register(leaveRoutes.default, { prefix: `${apiPrefix}/leave` });
-  
+
   // Import and register tax routes
   const taxRoutes = await import('./routes/tax.routes');
   await app.register(taxRoutes.default, { prefix: `${apiPrefix}/tax` });
-  
+
   // Import and register tasks routes
   const tasksRoutes = await import('./routes/tasks.routes');
   await app.register(tasksRoutes.default, { prefix: `${apiPrefix}/tasks` });

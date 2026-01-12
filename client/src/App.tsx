@@ -6,6 +6,7 @@ import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
 import { UserProvider } from './contexts/UserContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -50,81 +51,83 @@ function App() {
     <ErrorBoundary>
       <ToastProvider position="top-right">
         <UserProvider>
+          <NotificationProvider>
             <PWAUpdateNotification />
             <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={
-        <LandingGuard>
-          <LandingPage />
-        </LandingGuard>
-      } />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/too-many-requests" element={<TooManyRequestsPage />} />
-      
-      {/* Auth Callback Routes */}
-      <Route path="/auth/callback" element={<GoogleCallbackPage />} />
-      
-      {/* Payment Callback Route */}
-      <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+              {/* Public Routes */}
+              <Route path="/" element={
+                <LandingGuard>
+                  <LandingPage />
+                </LandingGuard>
+              } />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/too-many-requests" element={<TooManyRequestsPage />} />
 
-      {/* Onboarding Routes */}
-      <Route path="/onboarding">
-        <Route index element={<Navigate to="/onboarding/register" replace />} />
-        <Route path="register" element={
-          <OnboardingGuard>
-            <OnboardingRegisterPage />
-          </OnboardingGuard>
-        } />
-        <Route path="verify" element={
-          <OnboardingGuard>
-            <OnboardingVerifyPage />
-          </OnboardingGuard>
-        } />
-        <Route path="company-setup" element={
-          <OnboardingGuard>
-            <OnboardingCompanySetupPage />
-          </OnboardingGuard>
-        } />
-        <Route path="complete" element={
-          <OnboardingGuard>
-            <OnboardingCompletePage />
-          </OnboardingGuard>
-        } />
-      </Route>
+              {/* Auth Callback Routes */}
+              <Route path="/auth/callback" element={<GoogleCallbackPage />} />
 
-      {/* Protected Routes with Dashboard Layout */}
-      <Route path="/dashboard" element={
-        <DashboardGuard>
-          <DashboardLayout />
-        </DashboardGuard>
-      }>
-        <Route index element={<DashboardPage />} />
-        <Route path="employees" element={<EmployeesPage />} />
-        <Route path="attendance" element={<AttendanceOverviewPage />} />
-        <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />
-        <Route path="attendance/setup" element={<AttendanceSettingsPage />} />
-        <Route path="leave" element={<LeaveDashboardPage />} />
-        <Route path="leave/requests" element={<LeaveRequestsPage />} />
-        <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
-        <Route path="leave/calendar" element={<LeaveCalendarPage />} />
-       <Route path="tasks/assign" element={<TaskAssignPage />} />
-        <Route path="tasks/complete" element={<TaskCompletePage />} />
-        <Route path="tasks/verify" element={<TaskVerifyPage />} />
-        <Route path="tasks/status" element={<TaskStatusPage />} />
-        <Route path="inbox" element={<InboxPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-      
-      <Route path="/superadmin" element={<SuperAdminPage />} />
+              {/* Payment Callback Route */}
+              <Route path="/payment/callback" element={<PaymentCallbackPage />} />
 
-    {/* Catch all */}
-   <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+              {/* Onboarding Routes */}
+              <Route path="/onboarding">
+                <Route index element={<Navigate to="/onboarding/register" replace />} />
+                <Route path="register" element={
+                  <OnboardingGuard>
+                    <OnboardingRegisterPage />
+                  </OnboardingGuard>
+                } />
+                <Route path="verify" element={
+                  <OnboardingGuard>
+                    <OnboardingVerifyPage />
+                  </OnboardingGuard>
+                } />
+                <Route path="company-setup" element={
+                  <OnboardingGuard>
+                    <OnboardingCompanySetupPage />
+                  </OnboardingGuard>
+                } />
+                <Route path="complete" element={
+                  <OnboardingGuard>
+                    <OnboardingCompletePage />
+                  </OnboardingGuard>
+                } />
+              </Route>
+
+              {/* Protected Routes with Dashboard Layout */}
+              <Route path="/dashboard" element={
+                <DashboardGuard>
+                  <DashboardLayout />
+                </DashboardGuard>
+              }>
+                <Route index element={<DashboardPage />} />
+                <Route path="employees" element={<EmployeesPage />} />
+                <Route path="attendance" element={<AttendanceOverviewPage />} />
+                <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />
+                <Route path="attendance/setup" element={<AttendanceSettingsPage />} />
+                <Route path="leave" element={<LeaveDashboardPage />} />
+                <Route path="leave/requests" element={<LeaveRequestsPage />} />
+                <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
+                <Route path="leave/calendar" element={<LeaveCalendarPage />} />
+                <Route path="tasks/assign" element={<TaskAssignPage />} />
+                <Route path="tasks/complete" element={<TaskCompletePage />} />
+                <Route path="tasks/verify" element={<TaskVerifyPage />} />
+                <Route path="tasks/status" element={<TaskStatusPage />} />
+                <Route path="inbox" element={<InboxPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+
+              <Route path="/superadmin" element={<SuperAdminPage />} />
+
+              {/* Catch all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </NotificationProvider>
         </UserProvider>
       </ToastProvider>
     </ErrorBoundary>

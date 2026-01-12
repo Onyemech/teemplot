@@ -54,7 +54,7 @@ export interface AttendanceRecord {
 }
 
 class EnhancedAttendanceService {
- 
+
   async checkIn(request: CheckInRequest): Promise<AttendanceRecord> {
     try {
       const { userId, companyId, location, method, biometricsProof } = request;
@@ -103,7 +103,7 @@ class EnhancedAttendanceService {
         if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence) {
           throw new Error(
             `You must be within ${company.geofence_radius_meters}m of the office to check in. ` +
-            `Current distance: ${distanceMeters !== null ? Math.round(distanceMeters) : 'unknown'}m`
+            `Current distance: ${distanceMeters !== null && !isNaN(distanceMeters) ? Math.round(distanceMeters) + 'm' : 'Location unavailable'}`
           );
         }
       }

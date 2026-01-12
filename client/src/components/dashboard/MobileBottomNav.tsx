@@ -20,7 +20,7 @@ export default function MobileBottomNav() {
   const getAccessibleItems = (items: NavItemConfig[]) => {
     return items.filter(item => {
       if (item.adminOnly && !isAdmin) return false;
-      if (item.feature && !hasAccess(item.feature)) return false; 
+      if (item.feature && !hasAccess(item.feature)) return false;
       return true;
     });
   };
@@ -30,10 +30,10 @@ export default function MobileBottomNav() {
 
   // Select top items for the bar
   const primaryItems = allNavItems.slice(0, 4);
-  
+
   // The rest go into "More"
   const secondaryItems = allNavItems.slice(4);
-  
+
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === href;
     return pathname.startsWith(href);
@@ -49,11 +49,9 @@ export default function MobileBottomNav() {
     return map[label] || label;
   };
 
-  const handleClockOut = async () => {
-    // This is a quick clock out from the menu, usually redirects to dashboard or triggers action
-    // For now, let's redirect to dashboard which has the clock out logic
+  const handleClockOut = () => {
     setIsMoreOpen(false);
-    window.location.href = '/dashboard';
+    navigate('/dashboard');
   };
 
   const handleLogout = async () => {
@@ -77,18 +75,15 @@ export default function MobileBottomNav() {
       <Link
         to={item.href}
         onClick={onClick}
-        className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group ${
-          active ? 'text-[#0F5D5D]' : 'text-gray-400 hover:text-gray-600'
-        }`}
+        className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group ${active ? 'text-[#0F5D5D]' : 'text-gray-400 hover:text-gray-600'
+          }`}
       >
-        <div className={`p-1.5 rounded-xl mb-1 transition-all duration-200 ${
-          active ? 'bg-[#0F5D5D]/10 translate-y-[-2px]' : 'group-hover:bg-gray-50'
-        }`}>
+        <div className={`p-1.5 rounded-xl mb-1 transition-all duration-200 ${active ? 'bg-[#0F5D5D]/10 translate-y-[-2px]' : 'group-hover:bg-gray-50'
+          }`}>
           <Icon className={`w-6 h-6 ${active ? 'fill-current' : ''}`} strokeWidth={active ? 2.5 : 2} />
         </div>
-        <span className={`text-[10px] font-medium tracking-tight truncate max-w-[80px] ${
-          active ? 'font-semibold' : ''
-        }`}>
+        <span className={`text-[10px] font-medium tracking-tight truncate max-w-[80px] ${active ? 'font-semibold' : ''
+          }`}>
           {label}
         </span>
       </Link>
@@ -103,25 +98,22 @@ export default function MobileBottomNav() {
           {primaryItems.map((item) => (
             <NavItem key={item.href} item={item} />
           ))}
-          
+
           <button
             onClick={() => setIsMoreOpen(true)}
-            className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group ${
-              isMoreOpen ? 'text-[#0F5D5D]' : 'text-gray-400 hover:text-gray-600'
-            }`}
+            className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group ${isMoreOpen ? 'text-[#0F5D5D]' : 'text-gray-400 hover:text-gray-600'
+              }`}
           >
-            <div className={`p-1.5 rounded-xl mb-1 transition-all duration-200 ${
-              isMoreOpen ? 'bg-[#0F5D5D]/10 translate-y-[-2px]' : 'group-hover:bg-gray-50'
-            }`}>
+            <div className={`p-1.5 rounded-xl mb-1 transition-all duration-200 ${isMoreOpen ? 'bg-[#0F5D5D]/10 translate-y-[-2px]' : 'group-hover:bg-gray-50'
+              }`}>
               {isMoreOpen ? (
                 <MoreHorizontal className="w-6 h-6 fill-current" strokeWidth={2.5} />
               ) : (
                 <Menu className="w-6 h-6" strokeWidth={2} />
               )}
             </div>
-            <span className={`text-[10px] font-medium tracking-tight ${
-              isMoreOpen ? 'font-semibold' : ''
-            }`}>
+            <span className={`text-[10px] font-medium tracking-tight ${isMoreOpen ? 'font-semibold' : ''
+              }`}>
               More
             </span>
           </button>
@@ -132,16 +124,16 @@ export default function MobileBottomNav() {
       {isMoreOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={() => setIsMoreOpen(false)}
           />
-          
+
           {/* Drawer Content */}
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto flex flex-col shadow-xl animate-in slide-in-from-bottom duration-300">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
               <span className="font-bold text-lg text-gray-900">Menu</span>
-              <button 
+              <button
                 onClick={() => setIsMoreOpen(false)}
                 className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
               >
@@ -199,7 +191,7 @@ export default function MobileBottomNav() {
               {/* Quick Actions Section */}
               <div className="space-y-1">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Quick Actions</h3>
-                
+
                 {/* Clock Out Button */}
                 <button
                   onClick={handleClockOut}
@@ -209,7 +201,7 @@ export default function MobileBottomNav() {
                     <div className="p-2 bg-red-50 rounded-lg text-red-600">
                       <LogOut className="w-5 h-5" />
                     </div>
-                    <span className="font-medium text-gray-900">Clock Out</span>
+                    <span className="font-medium text-gray-900">Attendance Actions</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </button>

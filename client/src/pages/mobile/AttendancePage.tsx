@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Search, Fingerprint, Loader2, Coffee } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, Fingerprint, Loader2, Coffee,  Calendar, Clock, MapPin } from 'lucide-react'
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
-// import { useUser } from '@/contexts/UserContext'
+import { format, subDays, startOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns'
 
 interface AttendanceRecord {
   id: string
   date: string
   checkIn: string
   checkOut: string
-  status: 'Present' | 'Late' | 'Absent' | 'Leave'
   location: string
-  type: 'Office' | 'Remote'
+  status: string
+  type: string
+  duration: string
 }
 
 interface CompanySettings {
@@ -33,14 +34,18 @@ export default function MobileAttendancePage() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [processing, setProcessing] = useState(false)
 
+  // Filter States
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [dateFilter, setDateFilter] = useState<'7days' | '30days' | 'month'>('7days')
+
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [activeTab, selectedDate, dateFilter])
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      // Fetch company settings
+      // Fetch company settings (only once effectively, but ok to refresh)
       const settingsRes = await apiClient.get('/api/company-settings')
       if (settingsRes.data.success) {
         setCompanySettings(settingsRes.data.data)
@@ -52,19 +57,37 @@ export default function MobileAttendancePage() {
         setTodayStatus(statusRes.data.data)
       }
 
-      // Fetch history (mock for now or use actual endpoint if available)
-      // The history endpoint exists: /attendance/history
-      const historyRes = await apiClient.get('/api/attendance/history')
+      // Calculate Date Range based on params
+      let startDate: Date
+      let endDate: Date
+
+      if (activeTab === 'single') {
+        startDate = startOfDay(selectedDate)
+        endDate = endOfDay(selectedDate)
+      } else {
+        endDate = endOfDay(new Date())
+        if (dateFilter === '7days') startDate = subDays(new Date(), 7)
+        else if (dateFilter === '30days') startDate = subDays(new Date(), 30)
+        else startDate = startOfMonth(new Date()) // month
+      }
+
+      const params = new URLSearchParams()
+      params.append('startDate', startDate.toISOString())
+      params.append('endDate', endDate.toISOString())
+
+      // Fetch history
+      const historyRes = await apiClient.get(`/api/attendance/history?${params.toString()}`)
+
       if (historyRes.data.success) {
-        // Map backend history to frontend model
         const mappedHistory = historyRes.data.data.map((record: any) => ({
           id: record.id,
-          date: new Date(record.clock_in_time).toLocaleDateString(),
+          date: new Date(record.clock_in_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
           checkIn: new Date(record.clock_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           checkOut: record.clock_out_time ? new Date(record.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-          status: record.status.charAt(0).toUpperCase() + record.status.slice(1),
-          location: 'Office', // Placeholder or derive from record
-          type: 'Office'
+          status: record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Absent',
+          location: record.location_address || 'Office',
+          type: record.location_type === 'remote' ? 'Remote' : 'Office',
+          duration: record.duration_minutes ? `${Math.floor(record.duration_minutes / 60)}h ${record.duration_minutes % 60}m` : '-'
         }))
         setAttendanceHistory(mappedHistory)
       }
@@ -355,8 +378,8 @@ export default function MobileAttendancePage() {
           <button
             onClick={() => setActiveTab('single')}
             className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 z-10 ${activeTab === 'single'
-                ? 'bg-white text-[#0F5D5D] shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-[#0F5D5D] shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
           >
             Single Attendance
@@ -364,8 +387,8 @@ export default function MobileAttendancePage() {
           <button
             onClick={() => setActiveTab('multiple')}
             className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 z-10 ${activeTab === 'multiple'
-                ? 'bg-white text-[#0F5D5D] shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-white text-[#0F5D5D] shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
           >
             Multiple Attendance
@@ -373,39 +396,100 @@ export default function MobileAttendancePage() {
         </div>
       </div>
 
-      {/* List Content */}
-      <div className="px-6 py-4 space-y-4">
-        {attendanceHistory.map((record) => (
-          <div key={record.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-50">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-xs font-semibold text-gray-500">{record.date}</span>
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${record.status === 'Present' ? 'bg-[#E8F5E9] text-[#1B5E20]' :
-                  record.status === 'Late' ? 'bg-[#FFF3E0] text-[#E65100]' :
-                    'bg-[#FFEBEE] text-[#C62828]'
-                }`}>
-                {record.status}
-              </span>
+      {/* Filters and Controls */}
+      <div className="px-6 mb-4">
+        {activeTab === 'single' ? (
+          <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+            <button
+              onClick={() => setSelectedDate(d => subDays(d, 1))}
+              className="p-2 hover:bg-gray-50 rounded-lg text-gray-500"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#0F5D5D]" />
+              <span className="font-semibold text-gray-700">{format(selectedDate, 'EEE, MMM d, yyyy')}</span>
             </div>
+            <button
+              onClick={() => setSelectedDate(d => new Date(d.setDate(d.getDate() + 1)))}
+              disabled={isSameDay(selectedDate, new Date())}
+              className={`p-2 rounded-lg text-gray-500 ${isSameDay(selectedDate, new Date()) ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {[
+              { id: '7days', label: 'Last 7 Days' },
+              { id: '30days', label: 'Last 30 Days' },
+              { id: 'month', label: 'This Month' }
+            ].map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => setDateFilter(filter.id as any)}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all ${dateFilter === filter.id
+                    ? 'bg-[#0F5D5D] text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200'
+                  }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="flex items-center space-x-2 mb-1">
-                  <span className="text-sm font-bold text-gray-900">{record.checkIn}</span>
-                  <span className="text-xs text-gray-400">-</span>
-                  <span className="text-sm font-bold text-gray-900">{record.checkOut}</span>
+      {/* List Content */}
+      <div className="px-6 pb-4 space-y-3">
+        {attendanceHistory.length > 0 ? (
+          attendanceHistory.map((record) => (
+            <div key={record.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-gray-900">{record.date}</span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> {record.type}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${record.type === 'Office' ? 'bg-[#0F5D5D]' : 'bg-blue-500'
-                    }`} />
-                  <span className="text-[10px] font-medium text-gray-500">{record.type} • {record.location}</span>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${record.status === 'Present' ? 'bg-green-50 text-green-700' :
+                    record.status === 'Late' ? 'bg-orange-50 text-orange-700' :
+                      'bg-red-50 text-red-700'
+                  }`}>
+                  {record.status}
+                </span>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Check In</span>
+                  <span className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#0F5D5D]" />
+                    {record.checkIn}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Check Out</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {record.checkOut}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Duration</span>
+                  <span className="text-xs font-bold text-gray-700">
+                    {record.duration}
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-        {attendanceHistory.length === 0 && (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            No attendance records found
+          ))
+        ) : (
+          <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
+            <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm font-medium">No records found</p>
+            <p className="text-xs text-gray-400 mt-1">Try changing the filter date</p>
           </div>
         )}
       </div>

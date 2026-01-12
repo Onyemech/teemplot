@@ -1,11 +1,47 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/dashboard/Sidebar'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
 
+import { apiClient } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
+import BiometricSetupPrompt from '@/components/auth/BiometricSetupPrompt'
+
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user } = useUser()
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false)
+  const [isMandatory, setIsMandatory] = useState(false)
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        // 1. Check company settings
+        const settingsRes = await apiClient.get('/api/company-settings')
+        if (!settingsRes.data.success) return
+
+        const settings = settingsRes.data.data
+        if (!settings.biometrics_required) return
+
+        // 2. Check user credentials
+        const credsRes = await apiClient.get('/api/webauthn/credentials')
+        const creds = credsRes.data.data
+
+        if (Array.isArray(creds) && creds.length === 0) {
+          setIsMandatory(true)
+          setShowBiometricPrompt(true)
+        }
+      } catch (error) {
+        console.error('Failed to check biometrics:', error)
+      }
+    }
+
+    // Only check if user is loaded
+    if (user) {
+      checkBiometrics()
+    }
+  }, [user])
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -18,14 +54,14 @@ export default function DashboardLayout() {
           Let's keep it but just not trigger it from header.
       */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Header - Visible on all devices now */}
         <div>
           <DashboardHeader />
         </div>
-        
+
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
           <Outlet />
@@ -34,6 +70,13 @@ export default function DashboardLayout() {
         {/* Mobile Bottom Navigation */}
         <MobileBottomNav />
       </div>
+
+      <BiometricSetupPrompt
+        isOpen={showBiometricPrompt}
+        onClose={() => setShowBiometricPrompt(false)}
+        onSuccess={() => setShowBiometricPrompt(false)}
+        isMandatory={isMandatory}
+      />
     </div>
   )
 }
