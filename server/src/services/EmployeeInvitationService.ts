@@ -577,6 +577,14 @@ export class EmployeeInvitationService {
         [invitation.id]
       );
 
+      // 5.5 Update company employee_count cache
+      await client.query(
+        `UPDATE companies 
+         SET employee_count = (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL)
+         WHERE id = $1`,
+        [invitation.company_id]
+      );
+
       // 6. Audit log
       await auditService.logAction({
         companyId: invitation.company_id,
