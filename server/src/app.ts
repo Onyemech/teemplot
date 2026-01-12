@@ -80,8 +80,15 @@ export async function buildApp() {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
-        callback(new Error('Not allowed by CORS'), false);
+        // Double check against wildcards if necessary, but strictly:
+        if (process.env.NODE_ENV === 'development') {
+          // In development, explicitly return the origin instead of true/wildcard
+          // to satisfy 'credentials: true' requirements for SSE/CORS
+          callback(null, origin);
+        } else {
+          logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
+          callback(new Error('Not allowed by CORS'), false);
+        }
       }
     },
     credentials: true,

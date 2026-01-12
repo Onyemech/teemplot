@@ -1,0 +1,391 @@
+--- PUBLIC FUNCTIONS ---
+
+FUNCTION: cleanup_table_definition_cache
+-------------------------
+
+DECLARE
+    deleted_count integer;
+BEGIN
+    DELETE FROM public.table_definition_cache 
+    WHERE last_updated < (now() - older_than);
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+
+
+FUNCTION: refresh_timezone_cache
+-------------------------
+
+BEGIN
+  REFRESH MATERIALIZED VIEW timezone_cache;
+END;
+
+
+FUNCTION: increment_employee_count
+-------------------------
+
+BEGIN
+    -- Only increment if user is active and not deleted
+    IF NEW.is_active = true AND NEW.deleted_at IS NULL THEN
+        UPDATE companies 
+        SET employee_count = employee_count + 1,
+            updated_at = now()
+        WHERE id = NEW.company_id;
+    END IF;
+    RETURN NEW;
+END;
+
+
+FUNCTION: decrement_employee_count
+-------------------------
+
+BEGIN
+    -- Decrement if user was active and is now inactive or deleted
+    IF (OLD.is_active = true AND NEW.is_active = false) OR
+       (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL) THEN
+        UPDATE companies 
+        SET employee_count = GREATEST(employee_count - 1, 0),
+            updated_at = now()
+        WHERE id = OLD.company_id;
+    -- Increment if user was inactive and is now active
+    ELSIF (OLD.is_active = false AND NEW.is_active = true) AND NEW.deleted_at IS NULL THEN
+        UPDATE companies 
+        SET employee_count = employee_count + 1,
+            updated_at = now()
+        WHERE id = NEW.company_id;
+    END IF;
+    RETURN NEW;
+END;
+
+
+FUNCTION: get_company_employee_counts
+-------------------------
+
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COALESCE(active_employees.count, 0)::BIGINT as current_count,
+    COALESCE(c.employee_limit, 0) as declared_limit,
+    COALESCE(pending_invites.count, 0)::BIGINT as pending_invitations,
+    GREATEST(0, COALESCE(c.employee_limit, 0) - COALESCE(active_employees.count, 0) - COALESCE(pending_invites.count, 0)) as remaining_slots
+  FROM companies c
+  LEFT JOIN (
+    SELECT company_id, COUNT(*) as count
+    FROM users
+    WHERE company_id = company_uuid 
+      AND role IN ('employee', 'manager', 'admin')
+      AND status = 'active'
+    GROUP BY company_id
+  ) active_employees ON c.id = active_employees.company_id
+  LEFT JOIN (
+    SELECT company_id, COUNT(*) as count
+    FROM employee_invitations
+    WHERE company_id = company_uuid 
+      AND status = 'pending'
+      AND expires_at > NOW()
+    GROUP BY company_id
+  ) pending_invites ON c.id = pending_invites.company_id
+  WHERE c.id = company_uuid;
+END;
+
+
+FUNCTION: update_company_invitation_counter
+-------------------------
+
+BEGIN
+  -- This function is a placeholder for atomic counter updates
+  -- In a production system, you might want to implement actual counter tracking
+  -- For now, we'll just log the operation for audit purposes
+  
+  INSERT INTO audit_logs (
+    user_id,
+    company_id,
+    action,
+    details,
+    created_at
+  ) VALUES (
+    COALESCE(current_setting('app.current_user_id', true), 'system'),
+    company_uuid,
+    'invitation_counter_update',
+    jsonb_build_object('delta', delta, 'timestamp', NOW()),
+    NOW()
+  );
+END;
+
+
+FUNCTION: get_invitation_statistics
+-------------------------
+
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COUNT(*) as total_invitations,
+    COUNT(*) FILTER (WHERE status = 'pending' AND expires_at > NOW()) as pending_invitations,
+    COUNT(*) FILTER (WHERE status = 'accepted') as accepted_invitations,
+    COUNT(*) FILTER (WHERE status = 'expired' OR (status = 'pending' AND expires_at <= NOW())) as expired_invitations,
+    COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled_invitations,
+    MAX(created_at) as last_invitation_sent
+  FROM employee_invitations
+  WHERE company_id = company_uuid;
+END;
+
+
+FUNCTION: update_employee_invitations_updated_at
+-------------------------
+
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+
+
+FUNCTION: validate_clock_in_location
+-------------------------
+
+DECLARE
+  v_company_id UUID;
+  v_office_lat NUMERIC;
+  v_office_lng NUMERIC;
+  v_radius INTEGER;
+  v_distance NUMERIC;
+BEGIN
+  SELECT c.office_latitude, c.office_longitude, c.geofence_radius_meters, u.company_id
+  INTO v_office_lat, v_office_lng, v_radius, v_company_id
+  FROM users u
+  JOIN companies c ON c.id = u.company_id
+  WHERE u.id = p_employee_id;
+
+  IF v_office_lat IS NULL OR v_office_lng IS NULL THEN
+    RETURN TRUE;
+  END IF;
+
+  v_distance := 6371000 * acos(
+    cos(radians(v_office_lat)) * cos(radians(p_lat)) *
+    cos(radians(p_lng) - radians(v_office_lng)) +
+    sin(radians(v_office_lat)) * sin(radians(p_lat))
+  );
+
+  RETURN v_distance <= v_radius;
+END;
+
+
+FUNCTION: validate_clock_out_location
+-------------------------
+
+DECLARE
+  v_company_id UUID;
+  v_office_lat NUMERIC;
+  v_office_lng NUMERIC;
+  v_radius INTEGER;
+  v_distance NUMERIC;
+BEGIN
+  SELECT c.office_latitude, c.office_longitude, c.geofence_radius_meters, u.company_id
+  INTO v_office_lat, v_office_lng, v_radius, v_company_id
+  FROM users u
+  JOIN companies c ON c.id = u.company_id
+  WHERE u.id = p_employee_id;
+
+  IF v_office_lat IS NULL OR v_office_lng IS NULL THEN
+    RETURN TRUE;
+  END IF;
+
+  v_distance := 6371000 * acos(
+    cos(radians(v_office_lat)) * cos(radians(p_lat)) *
+    cos(radians(p_lng) - radians(v_office_lng)) +
+    sin(radians(v_office_lat)) * sin(radians(p_lat))
+  );
+
+  RETURN v_distance <= v_radius;
+END;
+
+
+FUNCTION: update_updated_at_column
+-------------------------
+
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+
+
+FUNCTION: is_within_work_hours
+-------------------------
+
+DECLARE
+  v_work_start TIME;
+  v_work_end TIME;
+  v_check_time TIME;
+BEGIN
+  SELECT work_start_time, work_end_time
+  INTO v_work_start, v_work_end
+  FROM companies
+  WHERE id = p_company_id;
+
+  v_check_time := p_check_time::TIME;
+
+  RETURN v_check_time BETWEEN v_work_start AND v_work_end;
+END;
+
+
+FUNCTION: check_early_departure
+-------------------------
+
+DECLARE
+  v_work_end_time TIME;
+  v_threshold INTEGER;
+  v_minutes_early INTEGER;
+BEGIN
+  SELECT work_end_time, early_departure_threshold_minutes
+  INTO v_work_end_time, v_threshold
+  FROM companies
+  WHERE id = p_company_id;
+
+  v_minutes_early := EXTRACT(EPOCH FROM (v_work_end_time - p_checkout_time::TIME)) / 60;
+
+  RETURN v_minutes_early >= v_threshold;
+END;
+
+
+FUNCTION: check_late_arrival
+-------------------------
+
+DECLARE
+  v_work_start_time TIME;
+  v_grace_period INTEGER;
+  v_minutes_late INTEGER;
+BEGIN
+  SELECT work_start_time, grace_period_minutes
+  INTO v_work_start_time, v_grace_period
+  FROM companies
+  WHERE id = p_company_id;
+
+  v_minutes_late := EXTRACT(EPOCH FROM (p_checkin_time::TIME - v_work_start_time)) / 60;
+
+  RETURN v_minutes_late > v_grace_period;
+END;
+
+
+FUNCTION: check_geofence
+-------------------------
+
+DECLARE
+  v_office_lat NUMERIC;
+  v_office_lng NUMERIC;
+  v_radius INTEGER;
+  v_distance NUMERIC;
+BEGIN
+  SELECT office_latitude, office_longitude, geofence_radius_meters
+  INTO v_office_lat, v_office_lng, v_radius
+  FROM companies
+  WHERE id = p_company_id;
+
+  IF v_office_lat IS NULL OR v_office_lng IS NULL THEN
+    RETURN TRUE;
+  END IF;
+
+  v_distance := 6371000 * acos(
+    cos(radians(v_office_lat)) * cos(radians(p_latitude)) *
+    cos(radians(p_longitude) - radians(v_office_lng)) +
+    sin(radians(v_office_lat)) * sin(radians(p_latitude))
+  );
+
+  RETURN v_distance <= v_radius;
+END;
+
+
+FUNCTION: get_employees_for_auto_checkin
+-------------------------
+
+BEGIN
+  RETURN QUERY
+  SELECT u.id, u.email, u.first_name, u.last_name
+  FROM users u
+  WHERE u.company_id = p_company_id
+    AND u.is_active = TRUE
+    AND NOT EXISTS (
+      SELECT 1 FROM attendance_records a
+      WHERE a.user_id = u.id
+        AND DATE(a.clock_in_time) = CURRENT_DATE
+    );
+END;
+
+
+FUNCTION: update_attendance_on_checkout
+-------------------------
+
+BEGIN
+  IF NEW.clock_out_time IS NOT NULL AND OLD.clock_out_time IS NULL THEN
+    NEW.total_hours := EXTRACT(EPOCH FROM (NEW.clock_out_time - NEW.clock_in_time)) / 3600;
+  END IF;
+  RETURN NEW;
+END;
+
+
+FUNCTION: update_attendance_on_checkin
+-------------------------
+
+BEGIN
+  RETURN NEW;
+END;
+
+
+--- TRIGGERS ---
+[
+  {
+    "event_object_table": "users",
+    "trigger_name": "trigger_increment_employee_count",
+    "action_statement": "EXECUTE FUNCTION increment_employee_count()",
+    "action_orientation": "ROW",
+    "action_timing": "AFTER"
+  },
+  {
+    "event_object_table": "users",
+    "trigger_name": "trigger_decrement_employee_count",
+    "action_statement": "EXECUTE FUNCTION decrement_employee_count()",
+    "action_orientation": "ROW",
+    "action_timing": "AFTER"
+  },
+  {
+    "event_object_table": "onboarding_progress",
+    "trigger_name": "update_onboarding_progress_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  },
+  {
+    "event_object_table": "files",
+    "trigger_name": "update_files_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  },
+  {
+    "event_object_table": "company_files",
+    "trigger_name": "update_company_files_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  },
+  {
+    "event_object_table": "user_files",
+    "trigger_name": "update_user_files_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  },
+  {
+    "event_object_table": "employee_invitations",
+    "trigger_name": "trigger_update_employee_invitations_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_employee_invitations_updated_at()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  },
+  {
+    "event_object_table": "company_locations",
+    "trigger_name": "update_company_locations_updated_at",
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_orientation": "ROW",
+    "action_timing": "BEFORE"
+  }
+]

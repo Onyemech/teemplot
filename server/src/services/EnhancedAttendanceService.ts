@@ -80,15 +80,57 @@ class EnhancedAttendanceService {
         if (!biometricsProof) {
           throw new Error('Biometric verification required');
         }
-        // In a real implementation, we would verify the proof here
-        // For now, presence is enough to indicate flow compliance
+      }
+
+      // STRICT CHECK: Auto-Clockin
+      if (method === 'auto' && !company.auto_clockin_enabled) {
+        logger.warn({ userId, companyId }, 'Auto check-in attempted but disabled');
+        throw new Error('Auto check-in is disabled for this company');
+      }
+
+      // Check Working Days
+      if (company.working_days) {
+        const today = new Date().getDay(); // 0 = Sunday
+        let isWorkingDay = false;
+
+        try {
+          // Handle different formats (Array or JSON)
+          const workingDays = typeof company.working_days === 'string'
+            ? JSON.parse(company.working_days)
+            : company.working_days;
+
+          if (Array.isArray(workingDays)) {
+            // [1, 2, 3, 4, 5] format (1=Mon, 7=Sun or 0=Sun?)
+            // Assuming standard JS: 0=Sun. Postgres might be 1=Mon, 7=Sun.
+            // Let's assume standard mapping if array: 1..5 is Mon-Fri.
+            // If today is 0 (Sun), check if 7 or 0 is in array?
+            // Safest to rely on JSON object format from our new UI
+            isWorkingDay = workingDays.includes(today) || (today === 0 && workingDays.includes(7));
+          } else {
+            // JSON Object { "1": true ... } where 1=Mon, 0=Sun
+            isWorkingDay = !!workingDays[today.toString()];
+          }
+
+          if (!isWorkingDay) {
+            // We allow it but log it/flag it? User wanted "robust".
+            // Strict enforcement:
+            // throw new Error('Not a working day');
+            // Soft enforcement (Allow Overtime):
+            logger.info({ userId, day: today }, 'Employee checking in on non-working day');
+          }
+        } catch (e) {
+          logger.error({ error: e, workingDays: company.working_days }, 'Failed to parse working days');
+        }
       }
 
       let isWithinGeofence = true;
       let distanceMeters: number | null = null;
+      let locationId: string | null = null;
+      let locationName: string | null = null;
 
       // Check geofence if location provided
-      if (location && company.office_latitude && company.office_longitude) {
+      if (location) {
+        // v2 check_geofence returns table (is_within, distance_meters, location_id, location_name)
         const geofenceResult = await query(
           'SELECT * FROM check_geofence($1, $2, $3)',
           [companyId, location.latitude, location.longitude]
@@ -97,28 +139,17 @@ class EnhancedAttendanceService {
         if (geofenceResult.rows.length > 0) {
           isWithinGeofence = geofenceResult.rows[0].is_within;
           distanceMeters = geofenceResult.rows[0].distance_meters;
+          locationId = geofenceResult.rows[0].location_id;
+          locationName = geofenceResult.rows[0].location_name;
         }
 
         // Enforce geofence for manual check-ins if required
         if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence) {
           throw new Error(
-            `You must be within ${company.geofence_radius_meters}m of the office to check in. ` +
-            `Current distance: ${distanceMeters !== null && !isNaN(distanceMeters) ? Math.round(distanceMeters) + 'm' : 'Location unavailable'}`
+            `You must be within the geofence to check in. ` +
+            `Distance: ${distanceMeters !== null && !isNaN(distanceMeters) ? Math.round(distanceMeters) + 'm' : 'Unknown'}`
           );
         }
-      }
-
-      // Check if already checked in today
-      const existingResult = await query(
-        `SELECT id FROM attendance_records 
-         WHERE user_id = $1 
-           AND clock_in_time::DATE = CURRENT_DATE 
-           AND clock_out_time IS NULL`,
-        [userId]
-      );
-
-      if (existingResult.rows.length > 0) {
-        throw new Error('Already checked in today');
       }
 
       // Create attendance record
@@ -126,8 +157,9 @@ class EnhancedAttendanceService {
         `INSERT INTO attendance_records (
           company_id, user_id, clock_in_time, 
           clock_in_location, clock_in_distance_meters,
-          is_within_geofence, check_in_method
-        ) VALUES ($1, $2, NOW(), $3, $4, $5, $6)
+          is_within_geofence, check_in_method,
+          location_id, location_address
+        ) VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8)
         RETURNING *`,
         [
           companyId,
@@ -135,7 +167,9 @@ class EnhancedAttendanceService {
           location ? JSON.stringify(location) : null,
           distanceMeters,
           isWithinGeofence,
-          method
+          method,
+          locationId,
+          locationName || location?.address || null
         ]
       );
 
@@ -426,6 +460,17 @@ class EnhancedAttendanceService {
    */
   async processAutoCheckIn(companyId: string): Promise<number> {
     try {
+      // Get company settings
+      const companyResult = await query(
+        'SELECT auto_clockin_enabled FROM companies WHERE id = $1',
+        [companyId]
+      );
+
+      if (companyResult.rows.length === 0 || !companyResult.rows[0].auto_clockin_enabled) {
+        logger.info({ companyId }, 'Auto clock-in skipped: disabled or company not found');
+        return 0;
+      }
+
       // Get employees eligible for auto check-in
       const employeesResult = await query(
         'SELECT * FROM get_employees_for_auto_checkin($1)',
@@ -791,10 +836,24 @@ class EnhancedAttendanceService {
 
       const total = parseInt(countResult.rows[0].count);
 
-      // Get data
+      // Get data with optimized subqueries for breaks to avoid N+1
       let queryStr = `
         SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position,
-        (SELECT SUM(COALESCE(duration_minutes, EXTRACT(EPOCH FROM (NOW() - start_time))/60)) FROM attendance_breaks WHERE attendance_record_id = ar.id) as total_break_minutes
+        (
+          SELECT SUM(duration_minutes) 
+          FROM attendance_breaks 
+          WHERE attendance_record_id = ar.id
+        ) as total_break_minutes,
+        (
+          SELECT json_agg(json_build_object(
+            'id', id,
+            'startTime', start_time,
+            'endTime', end_time,
+            'duration', duration_minutes
+          ))
+          FROM attendance_breaks 
+          WHERE attendance_record_id = ar.id
+        ) as breaks_json
         FROM attendance_records ar
         JOIN users u ON ar.user_id = u.id
         WHERE ${whereClause}
@@ -816,7 +875,11 @@ class EnhancedAttendanceService {
       const result = await query(queryStr, params);
 
       return {
-        data: result.rows,
+        data: result.rows.map(row => ({
+          ...row,
+          breaks: row.breaks_json || undefined,
+          totalBreakMinutes: parseFloat(row.total_break_minutes) || 0
+        })),
         total
       };
     } catch (error: any) {

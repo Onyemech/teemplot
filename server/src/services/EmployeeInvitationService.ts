@@ -4,7 +4,7 @@ import { emailService } from './EmailService';
 import { auditService } from './AuditService';
 import { generateInvitationToken } from '../utils/tokenGenerator';
 import { addDays } from 'date-fns';
-import {  UserRole } from '../constants/roles';
+import { UserRole } from '../constants/roles';
 
 interface Invitation {
   id: string;
@@ -61,7 +61,7 @@ export class EmployeeInvitationService {
     }
   ): Promise<InvitationResult> {
     const transactionId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     return await transaction(async (client) => {
       try {
         await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [companyId]);
@@ -108,7 +108,7 @@ export class EmployeeInvitationService {
           // the audit log inside this transaction would also rollback. 
           // However, auditService might use its own pool/query. 
           // Let's assume for now we want to throw immediately.
-          
+
           throw new AppError(
             'EMPLOYEE_LIMIT_REACHED',
             `You have reached your employee limit of ${limits.declaredLimit} employees.`,
@@ -123,28 +123,20 @@ export class EmployeeInvitationService {
 
         // Step 2: Create invitation within transaction
         const invitation = await this.createInvitation(companyId, invitedBy, invitationData, transactionId, client);
-        
-        // Step 3: Update company counters atomically
-        await this.updateCompanyCounters(companyId, 1, client);
-        
+
         // Step 4: Send invitation email (queued, non-blocking)
-        // This is external side effect, should happen after commit usually, but here we just queue it.
-        // If transaction fails, we might have queued an email for a non-existent invite.
-        // Ideally we queue it after commit. But keeping it here for now as per original flow.
         await this.queueInvitationEmail(invitation);
-        
+
         // Step 5: Audit log the successful invitation
-        // Pass client to ensure it's part of the transaction
         if (auditService.logInvitationSentWithClient) {
-             await auditService.logInvitationSentWithClient(invitedBy, companyId, invitation.id, client);
+          await auditService.logInvitationSentWithClient(invitedBy, companyId, invitation.id, client);
         } else {
-             // Fallback if method doesn't exist (assuming auditService handles it or we accept eventual consistency for logs)
-             await auditService.logInvitationSent(invitedBy, companyId, invitation.id);
+          await auditService.logInvitationSent(invitedBy, companyId, invitation.id);
         }
-        
+
         // Step 6: Get updated counters for response
         const updatedLimits = await this.verifyPlanLimits(companyId, client);
-        
+
         return {
           invitationId: invitation.id,
           token: invitation.invitation_token,
@@ -152,17 +144,17 @@ export class EmployeeInvitationService {
           declaredLimit: updatedLimits.declaredLimit,
           remaining: updatedLimits.remaining
         };
-        
+
       } catch (error) {
         // No manual rollback needed, transaction wrapper handles it.
         // But we might want to log the failure outside the transaction (swallowed rollback).
         // Since we rethrow, the controller will catch it.
-        
+
         // We can't use the transaction client for logging failure if it's rolling back.
         // We should log failure in the catch block of the caller or use a separate "logInvitationFailed" that uses the pool directly.
         if (auditService && auditService.logInvitationFailed) {
-           // This uses global query/pool, so it persists even if transaction rolls back
-           await auditService.logInvitationFailed(invitedBy, companyId, transactionId, error);
+          // This uses global query/pool, so it persists even if transaction rolls back
+          await auditService.logInvitationFailed(invitedBy, companyId, transactionId, error);
         }
         throw error;
       }
@@ -207,16 +199,19 @@ export class EmployeeInvitationService {
 
       const company = companyResult.rows[0];
 
-      // Fix: Apply the same fallback logic as CompanyService
-      // Priority: employee_limit -> employee_count -> Default (50/5)
+      // Fix: Use robust plan-based limits
+      // If employee_limit is explicitly set (e.g. from a custom subscription), use it.
+      // Otherwise, use defaults based on subscription status/plan.
       let totalLimit = Number(company.employee_limit ?? 0);
-      
-      if (totalLimit === 0) {
-        const userDeclaredSize = parseInt(company.employee_count ?? 0);
-        if (userDeclaredSize > 0) {
-          totalLimit = userDeclaredSize;
+
+      if (totalLimit <= 0) {
+        // Fallback to defaults if no explicit limit is set
+        if (company.subscription_status === 'trial') {
+          totalLimit = 50; // Trial limit
+        } else if (company.subscription_plan?.includes('gold')) {
+          totalLimit = 500; // Gold limit (example)
         } else {
-          totalLimit = company.subscription_status === 'trial' ? 50 : 5;
+          totalLimit = 5; // Default Silver/Free limit
         }
       }
 
@@ -241,7 +236,7 @@ export class EmployeeInvitationService {
       // totalLimit is already calculated above
       const currentUsage = currentCount + pendingInvitations;
       const remaining = Math.max(0, totalLimit - currentUsage);
-      
+
       return {
         declaredLimit: totalLimit,
         currentCount,
@@ -252,12 +247,12 @@ export class EmployeeInvitationService {
         currentPlan: this.determineCurrentPlan(company),
         upgradeInfo: this.getUpgradeInfo(company)
       };
-      
+
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
       }
-      
+
       throw new AppError(
         'PLAN_VERIFICATION_FAILED',
         'Unable to verify your subscription plan. Please try again or contact support.',
@@ -328,12 +323,12 @@ export class EmployeeInvitationService {
    */
   private async updateCompanyCounters(companyId: string, delta: number, client?: any): Promise<void> {
     const queryExecutor = client || { query };
-    
+
     // We update the employee_count if it exists, otherwise this is a no-op 
     // as the count is often derived dynamically.
     // However, for performance caching, we might want to maintain it.
     // Given the schema analysis showed 'employee_count' exists on 'companies'.
-    
+
     await queryExecutor.query(
       `UPDATE companies 
        SET employee_count = COALESCE(employee_count, 0) + $1 
@@ -352,7 +347,7 @@ export class EmployeeInvitationService {
         'SELECT name FROM companies WHERE id = $1',
         [invitation.company_id]
       );
-      
+
       const companyName = companyResult.rows[0]?.name || 'Teemplot';
 
       // Fetch inviter details to get the name
@@ -360,7 +355,7 @@ export class EmployeeInvitationService {
         'SELECT first_name, last_name FROM users WHERE id = $1',
         [invitation.invited_by]
       );
-      
+
       const inviter = inviterResult.rows[0];
       const inviterName = inviter ? `${inviter.first_name} ${inviter.last_name}` : 'A Team Member';
 
@@ -421,7 +416,7 @@ export class EmployeeInvitationService {
     currency: string;
   } | undefined {
     const currentPlan = this.determineCurrentPlan(company);
-    
+
     // Define upgrade pricing based on current plan
     const upgradePricing = {
       trial: { pricePerEmployee: 1200, currency: 'NGN' },
@@ -669,7 +664,7 @@ export class EmployeeInvitationService {
       if (error instanceof AppError) {
         throw error;
       }
-      
+
       throw new AppError(
         'INVITATION_CANCEL_FAILED',
         'Failed to cancel invitation. Please try again.',

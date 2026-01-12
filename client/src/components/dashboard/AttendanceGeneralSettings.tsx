@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, Fingerprint, MapPin, Loader2, CheckCircle, Coffee } from 'lucide-react';
+import WorkScheduleSettings from './WorkScheduleSettings';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -138,6 +139,9 @@ export default function AttendanceGeneralSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Work Schedule Card */}
+      <WorkScheduleSettings />
+
       {/* Auto Clock-in Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-gray-50/50">

@@ -146,19 +146,19 @@ export default function AttendanceOverviewPage() {
         const mappedRecords: AttendanceRecord[] = recordsRes.data.data.map((r: any) => ({
           id: r.id,
           employeeId: r.user_id,
-          employeeName: `${r.user?.first_name || 'Unknown'} ${r.user?.last_name || ''}`,
-          department: r.user?.department || 'General',
-          clockInTime: r.clock_in ? format(new Date(r.clock_in), 'hh:mm a') : null,
-          clockOutTime: r.clock_out ? format(new Date(r.clock_out), 'hh:mm a') : null,
+          employeeName: `${r.first_name || 'Unknown'} ${r.last_name || ''}`,
+          department: r.department || 'General',
+          clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
+          clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
           duration: r.duration_minutes ? `${Math.floor(r.duration_minutes / 60)}h ${r.duration_minutes % 60}m` : '--',
-          status: r.status === 'on_break' ? 'on_break' : (r.status === 'late' ? 'late_arrival' : (r.status || 'absent')),
+          status: r.status === 'on_break' ? 'on_break' : (r.status === 'late_arrival' ? 'late_arrival' : (r.status || 'absent')),
           location: r.location_type || 'onsite',
-          date: r.date,
-          device: r.device_info?.userAgent || 'Unknown Device',
+          date: r.clock_in_time ? format(new Date(r.clock_in_time), 'yyyy-MM-dd') : '-',
+          device: r.check_in_method || 'Manual',
           ipAddress: r.ip_address || 'Unknown IP',
-          workHours: '9:00 AM - 5:00 PM', // Placeholder or from settings
+          workHours: 'Configurable',
           overtime: r.overtime_minutes ? `${Math.floor(r.overtime_minutes / 60)}h ${r.overtime_minutes % 60}m` : '0h 0m',
-          lateBy: r.late_minutes ? `${r.late_minutes} mins` : '0 mins',
+          lateBy: r.minutes_late ? `${r.minutes_late} mins` : '0 mins',
           breakDuration: r.total_break_minutes ? `${Math.floor(r.total_break_minutes)} mins` : '0 mins'
         }))
         setRecords(mappedRecords)
@@ -573,6 +573,7 @@ export default function AttendanceOverviewPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Clock-in</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Clock-out</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Break</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -619,6 +620,9 @@ export default function AttendanceOverviewPage() {
                         <div className={`text-sm ${record.status === 'early_departure' ? 'text-blue-600 font-medium' : 'text-gray-900'}`}>
                           {record.clockOutTime || '--:--'}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{record.breakDuration}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{record.duration}</div>

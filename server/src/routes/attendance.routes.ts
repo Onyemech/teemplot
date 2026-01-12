@@ -424,8 +424,10 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
       };
 
       let queryText = `
-        SELECT * FROM attendance_records 
-        WHERE user_id = $1
+        SELECT ar.*,
+        (SELECT SUM(COALESCE(duration_minutes, EXTRACT(EPOCH FROM (NOW() - start_time))/60)) FROM attendance_breaks WHERE attendance_record_id = ar.id) as total_break_minutes
+        FROM attendance_records ar
+        WHERE ar.user_id = $1
       `;
       const params: any[] = [request.user.userId];
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Search, Fingerprint, Loader2, Coffee,  Calendar, Clock, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, Fingerprint, Loader2, Coffee, Calendar, Clock, MapPin } from 'lucide-react'
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
@@ -15,6 +15,7 @@ interface AttendanceRecord {
   status: string
   type: string
   duration: string
+  breakDuration: string
 }
 
 interface CompanySettings {
@@ -87,7 +88,8 @@ export default function MobileAttendancePage() {
           status: record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Absent',
           location: record.location_address || 'Office',
           type: record.location_type === 'remote' ? 'Remote' : 'Office',
-          duration: record.duration_minutes ? `${Math.floor(record.duration_minutes / 60)}h ${record.duration_minutes % 60}m` : '-'
+          duration: record.duration_minutes ? `${Math.floor(record.duration_minutes / 60)}h ${record.duration_minutes % 60}m` : '-',
+          breakDuration: record.total_break_minutes ? `${Math.floor(record.total_break_minutes)}m` : '0m'
         }))
         setAttendanceHistory(mappedHistory)
       }
@@ -429,8 +431,8 @@ export default function MobileAttendancePage() {
                 key={filter.id}
                 onClick={() => setDateFilter(filter.id as any)}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all ${dateFilter === filter.id
-                    ? 'bg-[#0F5D5D] text-white shadow-md'
-                    : 'bg-white text-gray-600 border border-gray-200'
+                  ? 'bg-[#0F5D5D] text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200'
                   }`}
               >
                 {filter.label}
@@ -453,8 +455,8 @@ export default function MobileAttendancePage() {
                   </span>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${record.status === 'Present' ? 'bg-green-50 text-green-700' :
-                    record.status === 'Late' ? 'bg-orange-50 text-orange-700' :
-                      'bg-red-50 text-red-700'
+                  record.status === 'Late' ? 'bg-orange-50 text-orange-700' :
+                    'bg-red-50 text-red-700'
                   }`}>
                   {record.status}
                 </span>
@@ -475,7 +477,14 @@ export default function MobileAttendancePage() {
                     {record.checkOut}
                   </span>
                 </div>
-                <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                <div className="h-8 w-px bg-gray-200 mx-1"></div>
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Break</span>
+                  <span className="text-xs font-bold text-orange-600">
+                    {record.breakDuration}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-gray-200 mx-1"></div>
                 <div>
                   <span className="text-[10px] text-gray-400 block mb-1">Duration</span>
                   <span className="text-xs font-bold text-gray-700">
