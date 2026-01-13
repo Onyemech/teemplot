@@ -11,7 +11,9 @@ import { authRoutes } from './presentation/routes/authRoutes';
 import { userRoutes } from './presentation/routes/userRoutes';
 import { companyRoutes } from './presentation/routes/companyRoutes';
 import { attendanceRoutes } from './presentation/routes/attendanceRoutes';
+
 import { taskRoutes } from './presentation/routes/taskRoutes';
+import { notificationRoutes } from './routes/notifications.routes';
 import { healthRoutes } from './routes/health.routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -83,7 +85,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.code(401).send({ 
+      reply.code(401).send({
         success: false,
         message: 'Authentication required. Please log in.',
         error: 'UNAUTHORIZED'
@@ -106,6 +108,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(companyRoutes, { prefix: '/api/companies' });
   await server.register(attendanceRoutes, { prefix: '/api/attendance' });
   await server.register(taskRoutes, { prefix: '/api/tasks' });
+  await server.register(notificationRoutes, { prefix: '/api/notifications' });
   await server.register(healthRoutes); // Health check routes don't need prefix
 
   server.setErrorHandler((error: any, request, reply) => {

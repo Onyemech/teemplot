@@ -78,7 +78,8 @@ export async function buildApp() {
 
       // Check if origin is allowed
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
+        // Always return the exact origin for credentials validation, not "true"
+        callback(null, origin);
       } else {
         // Double check against wildcards if necessary, but strictly:
         if (process.env.NODE_ENV === 'development') {
@@ -93,7 +94,8 @@ export async function buildApp() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires'],
+    // Add Cache-Control explicitly requested by EventSource
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400, // 24 hours
   });

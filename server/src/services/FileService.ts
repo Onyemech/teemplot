@@ -96,7 +96,7 @@ export class FileService {
     try {
       // Compute hash
       const computedHash = crypto.createHash('sha256').update(params.buffer).digest('hex');
-      
+
       if (params.clientHash && params.clientHash !== computedHash) {
         throw new Error('Hash mismatch - file may be corrupted');
       }
@@ -137,11 +137,40 @@ export class FileService {
       const companyId = await this.getOrCreateCompanyId(userId, jwtCompanyId);
 
       // Attach logic
+      // Deactivate any existing files of this type for this company to ensure 1-to-1 mapping per type
       await this.db.query(
-        `INSERT INTO company_files (company_id, file_id, document_type, created_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [companyId, params.fileId, params.documentType]
+        `UPDATE company_files 
+         SET is_active = false 
+         WHERE company_id = $1 AND document_type = $2 AND is_active = true`,
+        [companyId, params.documentType]
       );
+
+      // Attach new file (or re-activate if it was just deactivated but is the same file - preventing churn)
+      // Actually, simplest is to just insert new active record, or update if exists
+      // But since we just deactivated everything, we can just insert a new active record.
+      // EXCEPT if the file_id is the same as the one we just deactivated?
+      // Let's use ON CONFLICT behavior or simple check.
+
+      const existingLink = await this.db.query(
+        `SELECT id FROM company_files WHERE company_id = $1 AND file_id = $2`,
+        [companyId, params.fileId]
+      );
+
+      if (existingLink.rows.length > 0) {
+        // Re-activate if it exists
+        await this.db.query(
+          `UPDATE company_files SET is_active = true, document_type = $3, created_at = NOW()
+           WHERE company_id = $1 AND file_id = $2`,
+          [companyId, params.fileId, params.documentType]
+        );
+      } else {
+        // Insert new
+        await this.db.query(
+          `INSERT INTO company_files (company_id, file_id, document_type, created_at, is_active)
+           VALUES ($1, $2, $3, NOW(), true)`,
+          [companyId, params.fileId, params.documentType]
+        );
+      }
 
       logger.info({ params }, 'File attached to company');
     } catch (error: any) {
@@ -192,7 +221,7 @@ export class FileService {
           'SELECT role FROM users WHERE id = $1 AND company_id = $2',
           [userId, companyId]
         );
-        
+
         if (adminCheck.rows.length === 0 || !['admin', 'owner'].includes(adminCheck.rows[0].role)) {
           throw new Error('Unauthorized to delete file');
         }
@@ -205,10 +234,10 @@ export class FileService {
       // For now, assuming 1:1 or 1:N but strict deletion, we delete the file record.
       // Ideally we should check if other links exist, but for this strict SaaS, maybe just delete.
       // Safe approach: delete if no other company_files links exist.
-      
+
       const links = await this.db.query('SELECT count(*) as count FROM company_files WHERE file_id = $1', [fileId]);
       if (links.rows[0].count === 0) {
-         await this.db.query('DELETE FROM files WHERE id = $1', [fileId]);
+        await this.db.query('DELETE FROM files WHERE id = $1', [fileId]);
       }
 
       logger.info({ fileId, userId, companyId }, 'File deleted');
