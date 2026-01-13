@@ -17,9 +17,9 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({ success: true, data: stats });
     } catch (error: any) {
       fastify.log.error('Error fetching dashboard stats:', error);
-      return reply.code(500).send({ 
+      return reply.code(500).send({
         success: false,
-        message: error.message || 'Failed to fetch dashboard stats' 
+        message: error.message || 'Failed to fetch dashboard stats'
       });
     }
   });
@@ -36,9 +36,9 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({ success: true, data: orders });
     } catch (error: any) {
       fastify.log.error('Error fetching recent orders:', error);
-      return reply.code(500).send({ 
+      return reply.code(500).send({
         success: false,
-        message: error.message || 'Failed to fetch recent orders' 
+        message: error.message || 'Failed to fetch recent orders'
       });
     }
   });
@@ -55,9 +55,9 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({ success: true, data: leads });
     } catch (error: any) {
       fastify.log.error('Error fetching recent leads:', error);
-      return reply.code(500).send({ 
+      return reply.code(500).send({
         success: false,
-        message: error.message || 'Failed to fetch recent leads' 
+        message: error.message || 'Failed to fetch recent leads'
       });
     }
   });
@@ -71,16 +71,51 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       const companyId = (request.user as any).companyId;
       const { getSubscriptionInfo } = await import('../middleware/subscription.middleware');
       const subscriptionInfo = await getSubscriptionInfo(companyId);
-      
+
       return reply.send({
         success: true,
         data: subscriptionInfo
       });
     } catch (error: any) {
       fastify.log.error('Error fetching subscription info:', error);
-      return reply.status(500).send({ 
+      return reply.status(500).send({
         success: false,
-        error: error.message || 'Failed to fetch subscription info' 
+        error: error.message || 'Failed to fetch subscription info'
+      });
+    }
+  });
+  // Get recent activity (HR context)
+  fastify.get('/recent-activity', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      // Return empty array for now to fix 404. 
+      // Ideally, aggregate from attendance, tasks, and leave logs.
+      const activity: any[] = [];
+      return reply.code(200).send({ success: true, data: activity });
+    } catch (error: any) {
+      fastify.log.error('Error fetching recent activity:', error);
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to fetch recent activity'
+      });
+    }
+  });
+
+  // Get employee stats
+  fastify.get('/employee-stats', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requireOnboarding]
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      // Placeholder for employee stats
+      return reply.code(200).send({ success: true, data: {} });
+    } catch (error: any) {
+      fastify.log.error('Error fetching employee stats:', error);
+      return reply.code(500).send({
+        success: false,
+        message: error.message || 'Failed to fetch employee stats'
       });
     }
   });

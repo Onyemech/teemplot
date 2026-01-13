@@ -14,6 +14,7 @@ import { attendanceRoutes } from './presentation/routes/attendanceRoutes';
 
 import { taskRoutes } from './presentation/routes/taskRoutes';
 import { notificationRoutes } from './routes/notifications.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 import { healthRoutes } from './routes/health.routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -109,6 +110,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(attendanceRoutes, { prefix: '/api/attendance' });
   await server.register(taskRoutes, { prefix: '/api/tasks' });
   await server.register(notificationRoutes, { prefix: '/api/notifications' });
+  await server.register(dashboardRoutes, { prefix: '/api/dashboard' });
   await server.register(healthRoutes); // Health check routes don't need prefix
 
   server.setErrorHandler((error: any, request, reply) => {
