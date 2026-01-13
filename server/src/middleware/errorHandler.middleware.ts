@@ -6,6 +6,12 @@ import { superAdminNotificationService } from '../services/SuperAdminNotificatio
  * Global error handler middleware
  * Catches all unhandled errors and notifies superadmins
  */
+import { formatErrorResponse, getStatusCodeFromError } from './error-formatter.middleware';
+
+/**
+ * Global error handler middleware
+ * Catches all unhandled errors and notifies superadmins
+ */
 export async function errorHandler(
   error: FastifyError,
   request: FastifyRequest,
@@ -19,6 +25,7 @@ export async function errorHandler(
     method: request.method,
     ip: request.ip,
     user: request.user,
+    code: error.code
   }, 'Unhandled error');
 
   // Notify superadmins for critical errors
@@ -34,13 +41,12 @@ export async function errorHandler(
     });
   }
 
-  // Send error response
-  const statusCode = error.statusCode || 500;
-  const message = statusCode === 500 ? 'Internal Server Error' : error.message;
+  // Use centralized error formatting
+  const statusCode = getStatusCodeFromError(error);
+  const formattedResponse = formatErrorResponse(error);
 
   reply.code(statusCode).send({
-    success: false,
-    message,
+    ...formattedResponse,
     ...(process.env.NODE_ENV === 'development' && {
       stack: error.stack,
       details: error,
@@ -54,7 +60,7 @@ export async function errorHandler(
 export function setupUncaughtExceptionHandler(): void {
   process.on('uncaughtException', (error: Error) => {
     logger.error({ error }, 'Uncaught Exception');
-    
+
     superAdminNotificationService.notifyError(error, {
       type: 'uncaughtException',
       timestamp: new Date().toISOString(),
@@ -75,9 +81,9 @@ export function setupUncaughtExceptionHandler(): void {
 export function setupUnhandledRejectionHandler(): void {
   process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
     logger.error({ reason, promise }, 'Unhandled Rejection');
-    
+
     const error = reason instanceof Error ? reason : new Error(String(reason));
-    
+
     superAdminNotificationService.notifyError(error, {
       type: 'unhandledRejection',
       timestamp: new Date().toISOString(),

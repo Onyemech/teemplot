@@ -5,30 +5,31 @@ import { query } from '../config/database';
 import crypto from 'crypto';
 import multipart from '@fastify/multipart';
 import { fileService } from '../services/FileService';
+import { formatErrorResponse, getStatusCodeFromError } from '../middleware/error-formatter.middleware';
 
 export default async function filesRoutes(fastify: FastifyInstance) {
-  
+
   // Security: Prevent directory traversal attacks by sanitizing filenames
   function sanitizeFilename(filename: string): string {
     if (!filename) return 'unnamed_file';
-    
+
     // Remove any path components (directory traversal attempts)
     let sanitized = filename.replace(/^.*[\\\/]/, '');
-    
+
     // Remove null bytes and other dangerous characters
     sanitized = sanitized.replace(/[\x00-\x1f\x80-\x9f]/g, '');
-    
+
     // Remove potentially dangerous characters
     sanitized = sanitized.replace(/[<>:"|?*]/g, '_');
-    
+
     // Limit length and ensure it's not empty
     sanitized = sanitized.trim() || 'unnamed_file';
     sanitized = sanitized.substring(0, 255);
-    
+
     // Add timestamp prefix to ensure uniqueness and prevent overwrites
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    
+
     return `${timestamp}_${random}_${sanitized}`;
   }
 
@@ -79,16 +80,16 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       return reply.code(200).send({
         success: true,
         data: result,
-        message: result.exists 
-          ? 'File already exists - no upload needed' 
+        message: result.exists
+          ? 'File already exists - no upload needed'
           : 'File does not exist - proceed with upload'
       });
     } catch (error: any) {
-      logger.error({ 
-        err: error, 
-        userId: request.user?.userId 
+      logger.error({
+        err: error,
+        userId: request.user?.userId
       }, 'Error checking file existence');
-      
+
       return reply.code(500).send({
         success: false,
         message: 'Failed to check file existence'
@@ -105,7 +106,7 @@ export default async function filesRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const data = await request.file();
-      
+
       if (!data) {
         return reply.code(400).send({
           success: false,
@@ -114,17 +115,17 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       }
 
       const buffer = await data.toBuffer();
-      
+
       // Extract client hash from form data if provided
       const formData = data.fields as any;
       const clientHash = formData?.hash?.value;
-      
+
       // Calculate hash to verify/deduplicate
       const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-      
+
       // Sanitize filename to prevent directory traversal attacks
       const sanitizedFilename = sanitizeFilename(data.filename);
-      
+
       const uploadResult = await fileService.uploadFile({
         hash,
         buffer,
@@ -140,15 +141,14 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         message: uploadResult.deduplicated ? 'File already exists - using existing file' : 'File uploaded successfully'
       });
     } catch (error: any) {
-      logger.error({ 
-        err: error, 
-        userId: request.user?.userId 
+      logger.error({
+        err: error,
+        userId: request.user?.userId
       }, 'Error uploading file');
-      
-      return reply.code(500).send({
-        success: false,
-        message: 'Failed to upload file'
-      });
+
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to upload file');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -199,16 +199,15 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         data: attachResult
       });
     } catch (error: any) {
-      logger.error({ 
-        err: error, 
+      logger.error({
+        err: error,
         userId: request.user?.userId,
-        companyId: request.user?.companyId 
+        companyId: request.user?.companyId
       }, 'Error attaching file to company');
-      
-      return reply.code(500).send({
-        success: false,
-        message: 'Failed to attach file to company'
-      });
+
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to attach file to company');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -238,12 +237,12 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         message: 'Company files retrieved successfully'
       });
     } catch (error: any) {
-      logger.error({ 
-        err: error, 
+      logger.error({
+        err: error,
         userId: request.user?.userId,
-        companyId: request.user?.companyId 
+        companyId: request.user?.companyId
       }, 'Error fetching company files');
-      
+
       return reply.code(500).send({
         success: false,
         message: 'Failed to fetch company files'
@@ -268,11 +267,11 @@ export default async function filesRoutes(fastify: FastifyInstance) {
         message: 'File deleted successfully'
       });
     } catch (error: any) {
-      logger.error({ 
-        err: error, 
-        userId: request.user?.userId 
+      logger.error({
+        err: error,
+        userId: request.user?.userId
       }, 'Error deleting file');
-      
+
       return reply.code(500).send({
         success: false,
         message: 'Failed to delete file'
@@ -330,7 +329,7 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       logger.error({ err: error }, 'Error generating upload signature');
-      
+
       return reply.code(500).send({
         success: false,
         message: 'Failed to generate upload signature'

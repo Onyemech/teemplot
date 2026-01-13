@@ -1,8 +1,8 @@
 import { requestDeduplicator } from './requestDeduplication';
 import { apiClient } from '../lib/api';
- 
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
- 
+
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, baseDelayMs = 500): Promise<T> {
   let attempt = 0;
   let lastError: any;
@@ -156,7 +156,7 @@ export const uploadLogo = async (companyId: string, userId: string, file: File) 
   return result
 }
 
-  // Upload Document API with hash-based deduplication and parallel processing
+// Upload Document API with hash-based deduplication and parallel processing
 export const uploadDocument = async (
   companyId: string,
   documentType: 'cac' | 'proof_of_address' | 'company_policy',
@@ -175,41 +175,41 @@ export const uploadDocument = async (
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-    
+
     // Step 2: Check if file already exists
     const checkResponse = await withRetry(() => apiClient.post('/api/files/check', {
-        hash,
-        filename: file.name,
-        size: file.size,
-        mimeType: file.type
-      }));
-    
+      hash,
+      filename: file.name,
+      size: file.size,
+      mimeType: file.type
+    }));
+
     const checkResult = checkResponse.data;
-    
+
     if (!checkResult.success) {
       throw new Error(checkResult.message || 'Failed to check file existence')
     }
-    
+
     let fileId: string
     let fileUrl: string
-    
+
     if (!checkResult.data.exists) {
       console.log('📤 Uploading new file:', file.name, 'hash:', hash.substring(0, 8))
       const formData = new FormData()
       formData.append('hash', hash)
       formData.append('document', file)
-      
+
       // Explicitly set Content-Type header to undefined to let browser set boundary
       // or remove headers entirely as axios handles it with FormData
       const uploadResponse = await withRetry(() => apiClient.post('/api/files/upload', formData));
-      
+
       const uploadResult = uploadResponse.data;
-      
+
       if (!uploadResult.success) {
         console.error('❌ Upload failed:', uploadResult)
         throw new Error(uploadResult.message || 'Failed to upload file')
       }
-      
+
       console.log('✅ File uploaded:', uploadResult.data.file.id)
       fileId = uploadResult.data.file.id
       fileUrl = uploadResult.data.file.secure_url || uploadResult.data.file.url
@@ -218,29 +218,29 @@ export const uploadDocument = async (
       fileId = checkResult.data.file.id
       fileUrl = checkResult.data.file.secure_url || checkResult.data.file.url
     }
-    
+
     // Step 4: Attach file to company
     console.log('🔗 Attaching file to company:', fileId, documentType, 'companyId:', companyId)
     const attachResponse = await withRetry(() => apiClient.post('/api/files/attach-to-company', {
-        fileId,
-        companyId,
-        documentType,
-        purpose: `Company ${documentType} document`,
-        metadata: {
-          originalFilename: file.name,
-          uploadedAt: new Date().toISOString()
-        }
-      }));
-    
+      fileId,
+      companyId,
+      documentType,
+      purpose: `Company ${documentType} document`,
+      metadata: {
+        originalFilename: file.name,
+        uploadedAt: new Date().toISOString()
+      }
+    }));
+
     const attachResult = attachResponse.data;
-    
+
     if (!attachResult.success) {
       console.error('❌ Attach failed:', attachResult)
       throw new Error(attachResult.message || 'Failed to attach document to company')
     }
-    
+
     console.log('✅ File attached to company successfully')
-    
+
     // Return file details including the secure URL and filename
     return {
       success: true,
@@ -256,7 +256,11 @@ export const uploadDocument = async (
     }
   } catch (error: any) {
     console.error('Upload document error:', error);
-    const message = error.response?.data?.message || error.message || 'Failed to upload document';
+    // Extract the most specific error message available
+    const message = error.response?.data?.message ||
+      (typeof error.response?.data === 'string' ? error.response.data : '') ||
+      error.message ||
+      'Failed to upload document';
     throw new Error(message);
   }
 }
@@ -270,25 +274,31 @@ export const uploadDocumentsBatch = async (
   }>
 ) => {
   console.log('📦 Starting batch upload of', documents.length, 'documents')
-  
+
   // Upload all documents in parallel
-  const uploadPromises = documents.map(({ type, file }) => 
+  const uploadPromises = documents.map(({ type, file }) =>
     uploadDocument(companyId, type, file)
       .then(result => ({ type, result, success: true as const, error: null }))
-      .catch(error => ({ type, result: null, success: false as const, error }))
+      .catch(error => {
+        // Extract meaningful error message
+        const message = error.response?.data?.message || error.message || 'Upload failed';
+        // Create clean error object
+        const cleanError = new Error(message);
+        return { type, result: null, success: false as const, error: cleanError };
+      })
   )
-  
+
   const results = await Promise.all(uploadPromises)
-  
+
   // Check for failures
   const failures = results.filter(r => !r.success)
   if (failures.length > 0) {
     const errorMsg = failures.map(f => `${f.type}: ${f.error?.message || 'Unknown error'}`).join(', ')
     throw new Error(`Failed to upload some documents: ${errorMsg}`)
   }
-  
+
   console.log('✅ All documents uploaded successfully')
-  
+
   // Type guard to ensure we only map successful results
   return results
     .filter((r): r is typeof results[number] & { success: true } => r.success)

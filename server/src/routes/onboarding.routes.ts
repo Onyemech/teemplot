@@ -4,6 +4,7 @@ import { fileUploadService } from '../services/FileUploadService';
 import { z } from 'zod';
 import multipart from '@fastify/multipart';
 import { validateFileUpload, sanitizeInput } from '../middleware/security.middleware';
+import { formatErrorResponse, getStatusCodeFromError } from '../middleware/error-formatter.middleware';
 import axios from 'axios';
 
 const UploadDocumentSchema = z.object({
@@ -89,7 +90,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       const geocodingService = new GeocodingService();
 
       let result;
-      
+
       // If placeId provided (from autocomplete), use that for accuracy
       if (data.placeId) {
         result = await geocodingService.getPlaceDetails(data.placeId);
@@ -116,7 +117,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     try {
       const rawData = CompanySetupSchema.parse(request.body);
       const data = sanitizeInput(rawData);
-      
+
       // If user is authenticated, verify they're saving their own data
       try {
         await request.jwtVerify();
@@ -131,7 +132,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         // User is not authenticated, but that's okay for initial onboarding
         // Just continue without authentication check
       }
-      
+
       await onboardingService.saveCompanySetup(data);
 
       return reply.code(200).send({
@@ -139,10 +140,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Company setup saved successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to save company setup',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to save company setup');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -151,7 +151,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     try {
       const rawData = OwnerDetailsSchema.parse(request.body);
       const data = sanitizeInput(rawData);
-      
+
       // If user is authenticated, verify they're saving their own data
       try {
         await request.jwtVerify();
@@ -166,7 +166,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         // User is not authenticated, but that's okay for initial onboarding
         // Just continue without authentication check
       }
-      
+
       await onboardingService.saveOwnerDetails(data);
 
       return reply.code(200).send({
@@ -174,10 +174,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Owner details saved successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to save owner details',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to save owner details');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -205,7 +204,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       // Validate address if coordinates are provided
       if (data.officeLatitude && data.officeLongitude) {
         const { addressValidationService } = await import('../services/AddressValidationService');
-        
+
         try {
           const validationResult = await addressValidationService.validateAddress({
             streetAddress: data.address,
@@ -263,25 +262,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         }
       });
     } catch (error: any) {
-      // Handle database constraint errors with user-friendly messages
-      if (error.message?.includes('place_id') && error.message?.includes('unique constraint')) {
-        return reply.code(400).send({
-          success: false,
-          message: 'This address is already registered. Please select a different address or contact support if this is your business location.',
-        });
-      }
-      
-      if (error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
-        return reply.code(400).send({
-          success: false,
-          message: 'Some information you provided is already in use. Please review your details and try again.',
-        });
-      }
-      
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to save business information',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to save business information');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -304,10 +287,10 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
           mimetype = part.mimetype;
           // Only buffer if it's the logo file we expect
           if (part.fieldname === 'file') {
-             fileBuffer = await part.toBuffer();
+            fileBuffer = await part.toBuffer();
           } else {
-             // Consume unknown files to avoid hanging
-             await part.toBuffer(); 
+            // Consume unknown files to avoid hanging
+            await part.toBuffer();
           }
         } else {
           // It's a field
@@ -403,8 +386,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       }
 
       // Extract file extension
-      const extension = filename.includes('.') 
-        ? `.${filename.split('.').pop()?.toLowerCase()}` 
+      const extension = filename.includes('.')
+        ? `.${filename.split('.').pop()?.toLowerCase()}`
         : '';
 
       // Prepare metadata for enhanced validation
@@ -418,13 +401,13 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       // NOTE: We rely on the external image service's own error handling (e.g. timeout)
       // If axios throws, it will be caught by the outer catch block
       const result = await fileUploadService.uploadLogo(fileBuffer, companyId, metadata);
-      
+
       // Save to database
       await onboardingService.uploadLogo(companyId, result.secureUrl);
 
       return reply.code(200).send({
         success: true,
-        data: { 
+        data: {
           logoUrl: result.secureUrl,
           publicId: result.publicId
         },
@@ -434,21 +417,20 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       // Check if it's an axios error from the image service
       if (axios.isAxiosError(error)) {
         fastify.log.error({
-           err: error.message,
-           status: error.response?.status,
-           data: error.response?.data
+          err: error.message,
+          status: error.response?.status,
+          data: error.response?.data
         }, 'Image Service Error');
-        
+
         return reply.code(error.response?.status || 500).send({
           success: false,
           message: 'Image service failed: ' + (error.response?.data?.error || error.message)
         });
       }
 
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to upload logo',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to upload logo');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -540,8 +522,8 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       }
 
       // Extract file extension
-      const extension = filename.includes('.') 
-        ? `.${filename.split('.').pop()?.toLowerCase()}` 
+      const extension = filename.includes('.')
+        ? `.${filename.split('.').pop()?.toLowerCase()}`
         : '';
 
       // Prepare metadata for enhanced validation
@@ -553,12 +535,12 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
 
       // Upload with comprehensive validation
       const result = await fileUploadService.uploadDocument(
-        fileBuffer, 
-        companyId, 
+        fileBuffer,
+        companyId,
         documentType as 'cac' | 'proof_of_address' | 'company_policy',
         metadata
       );
-      
+
       // Save to database
       await onboardingService.uploadDocument({
         companyId,
@@ -568,7 +550,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
 
       return reply.code(200).send({
         success: true,
-        data: { 
+        data: {
           documentUrl: result.secureUrl,
           publicId: result.publicId,
           fileId: result.fileId
@@ -576,10 +558,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Document uploaded successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to upload document',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to upload document');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -597,10 +578,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Plan selected successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to select plan',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to select plan');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -618,10 +598,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         redirectUrl: '/dashboard',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to complete onboarding',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to complete onboarding');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -674,7 +653,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
       }
 
       const { onboardingProgressService } = await import('../services/OnboardingProgressService');
-      
+
       await onboardingProgressService.saveProgress({
         userId,
         companyId,
@@ -688,10 +667,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         message: 'Progress saved successfully',
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to save progress',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to save progress');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 
@@ -730,10 +708,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         data: progress,
       });
     } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to get progress',
-      });
+      const statusCode = getStatusCodeFromError(error);
+      const formattedResponse = formatErrorResponse(error, 'Failed to get progress');
+      return reply.code(statusCode).send(formattedResponse);
     }
   });
 }

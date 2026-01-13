@@ -27,12 +27,12 @@ export default function CompanySetupPage() {
   const [loadingProgress, setLoadingProgress] = useState(false)
   const [progressMessage, setProgressMessage] = useState('')
   const [error, setError] = useState('')
-  
+
   // Helper to check if value is a File object
   const isFile = (value: any): value is File => {
     return value instanceof File
   }
-  
+
   // Simplified helper to get filename from various formats
   const getFileName = (doc: any): string => {
     if (!doc) return ''
@@ -48,7 +48,7 @@ export default function CompanySetupPage() {
     }
     return 'Uploaded document'
   }
-  
+
   // Helper to get file URL
   const getFileUrl = (doc: any): string | null => {
     if (!doc) return null
@@ -56,7 +56,7 @@ export default function CompanySetupPage() {
     if (typeof doc === 'object' && doc.url) return doc.url
     return null
   }
-  
+
   // Helper to get file size
   const getFileSize = (doc: any): number => {
     if (!doc) return 0
@@ -64,7 +64,7 @@ export default function CompanySetupPage() {
     if (typeof doc === 'object' && doc.size) return doc.size
     return 0
   }
-  
+
   const [formData, setFormData] = useState({
     // Company details
     companyLogo: null as File | { name: string; size: number; uploaded: boolean; url?: string } | string | null,
@@ -76,7 +76,7 @@ export default function CompanySetupPage() {
     website: '',
     headOffice: '',
     address: '',
-    
+
     // Geocoding data from Google Places (captured ONCE during onboarding)
     formattedAddress: '',
     streetNumber: '',
@@ -112,6 +112,43 @@ export default function CompanySetupPage() {
     { id: 'payment', label: 'Payments', completed: false },
   ]
 
+  // Track if initial load is done to prevent overwriting empty state
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+
+  // Auto-save effect with debounce
+  useEffect(() => {
+    // Don't auto-save if we haven't loaded initial data yet
+    if (!initialLoadComplete || !currentUser?.id) return
+
+    const timer = setTimeout(async () => {
+      // Don't save if loading or error
+      if (loading || loadingProgress) return
+
+      try {
+        // Prepare clean form data for saving
+        const dataToSave = { ...formData }
+
+        // Convert File objects to placeholders if needed, or rely on URL strings
+        // Ideally we only save what's already uploaded (URLs)
+        // But for progress, we might want to save text fields even if files aren't uploaded
+
+        await saveProgress({
+          userId: currentUser.id,
+          companyId: currentUser.companyId || '',
+          currentStep: steps.findIndex(s => s.id === currentStep) + 1,
+          completedSteps: steps.filter(s => s.completed).map(s => steps.findIndex(step => step.id === s.id) + 1),
+          formData: dataToSave
+        })
+        console.log('💾 Auto-saved progress')
+      } catch (e) {
+        console.error('Auto-save failed:', e)
+        // Silent fail for auto-save to avoid annoying user
+      }
+    }, 2000) // 2 second debounce
+
+    return () => clearTimeout(timer)
+  }, [formData, currentStep, initialLoadComplete, currentUser, loading, loadingProgress, saveProgress])
+
   // Load saved progress and handle URL token
   useEffect(() => {
     const loadProgress = async () => {
@@ -120,7 +157,7 @@ export default function CompanySetupPage() {
         console.log('⏳ Waiting for user to load...')
         return
       }
-      
+
       // FIRST: Check if token is in URL and save it (fallback for cross-domain cookie issues)
       const urlParams = new URLSearchParams(window.location.search)
       const urlToken = urlParams.get('token')
@@ -144,18 +181,16 @@ export default function CompanySetupPage() {
         // Clean URL
         window.history.replaceState({}, '', window.location.pathname)
       }
-      
+
       // Get user ID from secure context
       let userId = currentUser?.id
-      
+
       // Fallback: try to get from localStorage if UserContext is not ready yet
       if (!userId) {
         const fallbackUser = localStorage.getItem('user')
         if (fallbackUser) {
           try {
             const parsedUser = JSON.parse(fallbackUser)
-            // CHECK: Validate if this user is actually the one currently authenticated
-            // If the token is invalid/expired, using this ID might cause 404s
             userId = parsedUser.id
             console.log('📥 Using fallback user data from localStorage for progress fetch:', { userId })
           } catch (e) {
@@ -163,7 +198,7 @@ export default function CompanySetupPage() {
           }
         }
       }
-      
+
       console.log('👤 Current user from context:', currentUser)
       console.log('🆔 User ID for progress fetch:', userId)
 
@@ -171,6 +206,7 @@ export default function CompanySetupPage() {
       if (currentUser?.onboardingCompleted) {
         console.log('✅ User already completed onboarding, skipping progress fetch');
         setLoadingProgress(false);
+        setInitialLoadComplete(true);
         return;
       }
 
@@ -178,86 +214,99 @@ export default function CompanySetupPage() {
         // Show loading state
         setLoadingProgress(true)
         setProgressMessage('Fetching your saved progress...')
-        
+
         // Wait a moment for authentication cookie to be available
         await new Promise(resolve => setTimeout(resolve, 200))
-        
-        const progress = await getProgress(userId)
-        console.log('📊 Progress fetched:', progress)
-        if (progress && progress.formData) {
-          console.log('📥 Loading saved progress:', progress)
-          
-          // Process document fields - preserve object structure with filename and URL
-          const processDoc = (doc: any) => {
-            if (!doc) return null
-            // If it's already a File object, keep it
-            if (doc instanceof File) return doc
-            // If it's an object with metadata (from backend), keep the whole object
-            if (typeof doc === 'object' && (doc.filename || doc.name || doc.url)) {
-              return doc
-            }
-            // If it's a string (URL), keep it as fallback
-            if (typeof doc === 'string') return doc
-            return null
-          }
-          
-          const cleanedFormData = {
-            ...progress.formData,
-            // Process document fields - URLs will be displayed, Files will be uploaded
-            cacDocument: processDoc(progress.formData.cacDocument),
-            proofOfAddress: processDoc(progress.formData.proofOfAddress),
-            companyPolicies: processDoc(progress.formData.companyPolicies),
-            companyLogo: processDoc(progress.formData.companyLogo),
-          }
-          
-          setFormData(prev => ({
-            ...prev,
-            ...cleanedFormData,
-          }))
 
-          // Determine starting step based on completed steps
-          const completedSteps = progress.completedSteps || []
-          
-          // Logic to resume at the correct step (First incomplete step)
-          if (completedSteps.includes(4)) {
-             setCurrentStep('payment')
-          } else if (completedSteps.includes(3)) {
-             // Robust check: Ensure all documents are actually present before allowing review
-             // This prevents users from skipping to review if they saved with partial uploads
-             // Use type guards or simple truthy check for the objects/strings
-             const hasCac = !!cleanedFormData.cacDocument;
-             const hasAddress = !!cleanedFormData.proofOfAddress;
-             const hasPolicies = !!cleanedFormData.companyPolicies;
-             
-             const hasAllDocs = hasCac && hasAddress && hasPolicies;
-             
-             if (hasAllDocs) {
-                setCurrentStep('review')
-             } else {
-                console.log('⚠️ Documents step marked complete but docs missing. Resuming at Documents.')
-                setCurrentStep('documents')
-             }
-          } else if (completedSteps.includes(2)) {
-             setCurrentStep('documents')
-          } else if (completedSteps.includes(1)) {
-             setCurrentStep('owner')
+        try {
+          const progress = await getProgress(userId)
+          console.log('📊 Progress fetched:', progress)
+
+          if (progress && progress.formData) {
+            console.log('📥 Loading saved progress:', progress)
+
+            // Process document fields - preserve object structure with filename and URL
+            const processDoc = (doc: any) => {
+              if (!doc) return null
+              // If it's already a File object, keep it
+              if (doc instanceof File) return doc
+              // If it's a legacy string (URL), convert to object
+              if (typeof doc === 'string') return { url: doc, name: getFileName(doc), uploaded: true }
+              // If it's an object with metadata (from backend), keep it
+              if (typeof doc === 'object' && (doc.filename || doc.name || doc.url)) {
+                // Ensure consistency
+                return {
+                  ...doc,
+                  name: doc.name || doc.filename,
+                  url: doc.url || doc.secure_url
+                }
+              }
+              return null
+            }
+
+            const cleanedFormData = {
+              ...progress.formData,
+              // Process document fields - URLs will be displayed
+              cacDocument: processDoc(progress.formData.cacDocument),
+              proofOfAddress: processDoc(progress.formData.proofOfAddress),
+              companyPolicies: processDoc(progress.formData.companyPolicies),
+              companyLogo: processDoc(progress.formData.companyLogo),
+            }
+
+            // Merge with default state to ensure no fields are missing
+            setFormData(prev => ({
+              ...prev,
+              ...cleanedFormData,
+            }))
+
+            // Determine starting step based on completed steps
+            const completedSteps = progress.completedSteps || []
+
+            // Logic to resume at the correct step (First incomplete step)
+            // But prefer the saved currentStep if available and valid
+            let targetStep: Step = 'details';
+
+            if (progress.currentStep && progress.currentStep >= 1 && progress.currentStep <= 5) {
+              targetStep = steps[progress.currentStep - 1].id as Step;
+            } else {
+              // Fallback logic
+              if (completedSteps.includes(4)) {
+                targetStep = 'payment'
+              } else if (completedSteps.includes(3)) {
+                const hasCac = !!cleanedFormData.cacDocument;
+                const hasAddress = !!cleanedFormData.proofOfAddress;
+                const hasPolicies = !!cleanedFormData.companyPolicies;
+
+                if (hasCac && hasAddress && hasPolicies) {
+                  targetStep = 'review'
+                } else {
+                  targetStep = 'documents'
+                }
+              } else if (completedSteps.includes(2)) {
+                targetStep = 'documents'
+              } else if (completedSteps.includes(1)) {
+                targetStep = 'owner'
+              }
+            }
+
+            setCurrentStep(targetStep)
+            console.log('✅ Progress loaded. Resuming at:', targetStep)
+            setProgressMessage('Data loaded successfully!')
           } else {
-             setCurrentStep('details')
+            console.log('ℹ️ No saved progress found')
           }
-          
-          console.log('✅ Progress loaded and form populated. Resuming at:', currentStep)
-          setProgressMessage('Data loaded successfully!')
+        } catch (err) {
+          console.error('Error loading progress:', err)
+        } finally {
           setTimeout(() => {
             setLoadingProgress(false)
             setProgressMessage('')
-          }, 1500)
-        } else {
-          console.log('ℹ️ No saved progress found')
-          setLoadingProgress(false)
-          setProgressMessage('')
+            setInitialLoadComplete(true)
+          }, 500)
         }
       } else {
         setLoadingProgress(false)
+        setInitialLoadComplete(true)
       }
     }
     loadProgress()
@@ -321,7 +370,7 @@ export default function CompanySetupPage() {
       // Get user data from secure context (httpOnly cookies)
       let userId = currentUser?.id
       let companyId = currentUser?.companyId
-      
+
       // Fallback: try to get from localStorage if UserContext is not ready yet
       if (!userId) {
         const fallbackUser = localStorage.getItem('user')
@@ -336,7 +385,7 @@ export default function CompanySetupPage() {
           }
         }
       }
-      
+
       if (!userId) {
         console.error('Not authenticated during onboarding submission')
         toast.error('Please complete email verification before continuing')
@@ -351,7 +400,7 @@ export default function CompanySetupPage() {
 
       // Submit data to backend based on current step
       if (currentStep === 'details') {
-        
+
         // Submit business information with complete geocoding data
         await submitBusinessInfo({
           userId,
@@ -361,8 +410,8 @@ export default function CompanySetupPage() {
           industry: formData.industry === 'other' ? formData.customIndustry : formData.industry,
           employeeCount: parseInt(formData.companySize) || 1,
           // Only send website if user actually entered something
-          ...(formData.website && formData.website.trim() && formData.website.includes('.') 
-            ? { website: `https://${formData.website.replace(/^https?:\/\//, '')}` } 
+          ...(formData.website && formData.website.trim() && formData.website.includes('.')
+            ? { website: `https://${formData.website.replace(/^https?:\/\//, '')}` }
             : {}),
           // Legacy address field
           address: formData.formattedAddress || formData.address || 'Nigeria',
@@ -382,25 +431,33 @@ export default function CompanySetupPage() {
           placeId: formData.placeId || undefined,
           geocodingAccuracy: formData.geocodingAccuracy || undefined,
         })
-        
+
         // Upload logo if provided (only if it's a new File, not a URL string)
         if (formData.companyLogo && isFile(formData.companyLogo)) {
           console.log('📤 Uploading company logo...')
           const logoResult = await uploadLogo(companyId, userId, formData.companyLogo)
           // Update formData with the uploaded URL so it can be saved to progress
-          setFormData(prev => ({ ...prev, companyLogo: logoResult.data.logoUrl }))
-          console.log('✅ Logo uploaded:', logoResult.data.logoUrl)
-          
+          // Update formData with the uploaded URL - CRITICAL for persistence
+          const newLogoData = {
+            url: logoResult.data.logoUrl,
+            name: (formData.companyLogo as File).name,
+            size: (formData.companyLogo as File).size,
+            uploaded: true
+          };
+
+          setFormData(prev => ({ ...prev, companyLogo: newLogoData }))
+          console.log('✅ Logo uploaded and state updated:', logoResult.data.logoUrl)
+
           // CRITICAL FIX: Save progress immediately with the NEW logo URL and correct companyId
           // This ensures if the user leaves/refreshes, the logo is persisted
           await saveProgress({
             userId,
-            companyId: companyId, 
-            currentStep: 2, // Completed step 1 (details)
+            companyId: companyId,
+            currentStep: 2, // Moving to step 2 next
             completedSteps: [1],
             formData: {
               ...formData,
-              companyLogo: logoResult.data.logoUrl // Ensure we save the string URL, not the File object
+              companyLogo: newLogoData // Save object with URL
             }
           })
         }
@@ -419,13 +476,13 @@ export default function CompanySetupPage() {
         }
       } else if (currentStep === 'documents') {
         console.log('📄 Uploading documents for company:', companyId)
-        
+
         // Collect documents that need uploading (only new Files, not URL strings)
         const documentsToUpload: Array<{
           type: 'cac' | 'proof_of_address' | 'company_policy'
           file: File
         }> = []
-        
+
         if (formData.cacDocument && isFile(formData.cacDocument)) {
           documentsToUpload.push({ type: 'cac', file: formData.cacDocument })
         }
@@ -435,12 +492,12 @@ export default function CompanySetupPage() {
         if (formData.companyPolicies && isFile(formData.companyPolicies)) {
           documentsToUpload.push({ type: 'company_policy', file: formData.companyPolicies })
         }
-        
+
         // Upload all documents in parallel for faster processing
         if (documentsToUpload.length > 0) {
           const { uploadDocumentsBatch } = await import('@/utils/onboardingApi')
           const results = await uploadDocumentsBatch(companyId, documentsToUpload)
-          
+
           // Update formData with uploaded file metadata
           const updates: any = {}
           results.forEach(({ type, file }) => {
@@ -468,6 +525,19 @@ export default function CompanySetupPage() {
             }
           })
           setFormData(prev => ({ ...prev, ...updates }))
+
+          // AUTO-SAVE: Save progress immediately after successful upload
+          await saveProgress({
+            userId,
+            companyId,
+            currentStep: 4, // Moving to step 4 next
+            completedSteps: [1, 2, 3],
+            formData: {
+              ...formData,
+              ...updates
+            }
+          })
+
           toast.success(`${results.length} document(s) uploaded successfully!`)
           console.log('✅ All documents uploaded in parallel:', results)
         } else {
@@ -480,12 +550,25 @@ export default function CompanySetupPage() {
       const currentIndex = stepOrder.indexOf(currentStep)
       if (currentIndex < stepOrder.length - 1) {
         setCurrentStep(stepOrder[currentIndex + 1])
+
+        // Final save for the step transition (updates currentStep in backend)
+        await saveProgress({
+          userId,
+          companyId,
+          currentStep: currentIndex + 2, // 1-indexed, next step
+          completedSteps: [1, 2, 3, 4].slice(0, currentIndex + 1), // Simplistic logic, but works for linear flow
+          formData: {
+            ...formData,
+            // Include any updates that might have happened in this block
+            // (This is a simplified merge)
+          }
+        })
       }
     } catch (error: any) {
       console.error('Failed to proceed:', error)
       const errorMsg = error.message || 'Failed to save. Please try again.'
       setError(errorMsg)
-      
+
       // Map error types to actionable messages
       if (errorMsg.includes('validation') || errorMsg.includes('required')) {
         toast.error('Please check all required fields and try again.')
@@ -517,18 +600,18 @@ export default function CompanySetupPage() {
               </label>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center p-2 border border-border">
-                 {formData.companyLogo ? (
+                  {formData.companyLogo ? (
                     isFile(formData.companyLogo) ? (
-                      <img 
-                        src={URL.createObjectURL(formData.companyLogo)} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain rounded-lg" 
+                      <img
+                        src={URL.createObjectURL(formData.companyLogo)}
+                        alt="Logo"
+                        className="w-full h-full object-contain rounded-lg"
                       />
                     ) : typeof formData.companyLogo === 'string' ? (
-                      <img 
-                        src={formData.companyLogo} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain rounded-lg" 
+                      <img
+                        src={formData.companyLogo}
+                        alt="Logo"
+                        className="w-full h-full object-contain rounded-lg"
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-center">
@@ -691,7 +774,7 @@ export default function CompanySetupPage() {
               <p className="text-xs text-muted-foreground mb-2">
                 📍 Enter your company's head office address. We'll capture the exact coordinates for accurate attendance tracking.
               </p>
-              
+
               <AddressAutocomplete
                 value={formData.address}
                 cityValue={formData.city}
@@ -718,8 +801,8 @@ export default function CompanySetupPage() {
                     })
                   } else {
                     // Clear coordinates if user types manually (not from dropdown)
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       address: value,
                       latitude: null,
                       longitude: null,
@@ -731,7 +814,7 @@ export default function CompanySetupPage() {
                 placeholder="Start typing your business address..."
                 required
               />
-              
+
               {formData.latitude && formData.longitude && (
                 <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-xs text-green-700 flex items-center gap-2">
@@ -857,7 +940,7 @@ export default function CompanySetupPage() {
                   const age = today.getFullYear() - selectedDate.getFullYear();
                   const monthDiff = today.getMonth() - selectedDate.getMonth();
                   const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
-                  
+
                   if (actualAge < 18) {
                     toast.error('You must be at least 18 years old');
                     return;
@@ -899,8 +982,8 @@ export default function CompanySetupPage() {
                         {getFileName(formData.cacDocument)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {getFileSize(formData.cacDocument) > 0 
-                          ? (getFileSize(formData.cacDocument) / 1024).toFixed(0) + ' KB' 
+                        {getFileSize(formData.cacDocument) > 0
+                          ? (getFileSize(formData.cacDocument) / 1024).toFixed(0) + ' KB'
                           : 'Uploaded'}
                       </p>
                     </div>
@@ -969,8 +1052,8 @@ export default function CompanySetupPage() {
                         {getFileName(formData.proofOfAddress)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {getFileSize(formData.proofOfAddress) > 0 
-                          ? (getFileSize(formData.proofOfAddress) / 1024).toFixed(0) + ' KB' 
+                        {getFileSize(formData.proofOfAddress) > 0
+                          ? (getFileSize(formData.proofOfAddress) / 1024).toFixed(0) + ' KB'
                           : 'Uploaded'}
                       </p>
                     </div>
@@ -1039,8 +1122,8 @@ export default function CompanySetupPage() {
                         {getFileName(formData.companyPolicies)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {getFileSize(formData.companyPolicies) 
-                          ? (getFileSize(formData.companyPolicies) / 1024).toFixed(0) + 'KB' 
+                        {getFileSize(formData.companyPolicies)
+                          ? (getFileSize(formData.companyPolicies) / 1024).toFixed(0) + 'KB'
                           : 'File uploaded'}
                       </p>
                     </div>
@@ -1133,30 +1216,30 @@ export default function CompanySetupPage() {
                         // Handle File object
                         if (isFile(formData.companyLogo)) {
                           return (
-                            <img 
-                              src={URL.createObjectURL(formData.companyLogo)} 
-                              alt="Company Logo" 
-                              className="w-full h-full object-contain rounded-lg" 
+                            <img
+                              src={URL.createObjectURL(formData.companyLogo)}
+                              alt="Company Logo"
+                              className="w-full h-full object-contain rounded-lg"
                             />
                           )
                         }
                         // Handle string URL
                         if (typeof formData.companyLogo === 'string') {
                           return (
-                            <img 
-                              src={formData.companyLogo} 
-                              alt="Company Logo" 
-                              className="w-full h-full object-contain rounded-lg" 
+                            <img
+                              src={formData.companyLogo}
+                              alt="Company Logo"
+                              className="w-full h-full object-contain rounded-lg"
                             />
                           )
                         }
                         // Handle object with url property
                         if (typeof formData.companyLogo === 'object' && formData.companyLogo.url) {
                           return (
-                            <img 
-                              src={formData.companyLogo.url} 
-                              alt="Company Logo" 
-                              className="w-full h-full object-contain rounded-lg" 
+                            <img
+                              src={formData.companyLogo.url}
+                              alt="Company Logo"
+                              className="w-full h-full object-contain rounded-lg"
                             />
                           )
                         }
@@ -1375,7 +1458,7 @@ export default function CompanySetupPage() {
   const handleBack = () => {
     const stepOrder: Step[] = ['details', 'owner', 'documents', 'review', 'payment']
     const currentIndex = stepOrder.indexOf(currentStep)
-    
+
     if (currentIndex > 0) {
       setCurrentStep(stepOrder[currentIndex - 1])
       // Scroll to top for better UX
@@ -1388,7 +1471,7 @@ export default function CompanySetupPage() {
       // Get user data from secure context (httpOnly cookies)
       let userId = currentUser?.id
       let companyId = currentUser?.companyId
-      
+
       // Fallback: try to get from localStorage if UserContext is not ready yet
       if (!userId) {
         const fallbackUser = localStorage.getItem('user')
@@ -1403,53 +1486,53 @@ export default function CompanySetupPage() {
           }
         }
       }
-      
+
       if (!userId) {
         console.warn('No user data available to save progress - user might not be authenticated yet')
         // Don't show error toast during onboarding - this is expected for initial steps
         return
       }
-      
+
       console.log('💾 Saving progress with userId:', userId, 'companyId:', companyId)
-      
+
       // Only userId is required - companyId is optional during initial onboarding
       if (userId) {
         // Check if there's any meaningful data to save
-        const hasData = formData.companyName || 
-                       formData.tin || 
-                       formData.industry || 
-                       formData.companySize ||
-                       formData.address ||
-                       formData.ownerFirstName ||
-                       formData.ownerLastName
+        const hasData = formData.companyName ||
+          formData.tin ||
+          formData.industry ||
+          formData.companySize ||
+          formData.address ||
+          formData.ownerFirstName ||
+          formData.ownerLastName
 
         if (hasData) {
           // Determine current step based on what data exists
           let currentStepNum = 1 // Registration (implicit)
-          
+
           // Determine completed steps based on current UI step being saved
           // If we are saving 'details', then step 1 (Reg) is done. 
           // If we are saving 'owner', then step 2 (Details) is done.
           // Note: The backend expects the step number that was JUST COMPLETED.
-          
+
           if (currentStep === 'details') currentStepNum = 2 // Completed Details
           if (currentStep === 'owner') currentStepNum = 3   // Completed Owner
           if (currentStep === 'documents') {
-             // Only mark as complete if all docs are uploaded
-             const hasCac = !!formData.cacDocument;
-             const hasAddress = !!formData.proofOfAddress;
-             const hasPolicies = !!formData.companyPolicies;
-             
-             const hasAllDocs = hasCac && hasAddress && hasPolicies;
+            // Only mark as complete if all docs are uploaded
+            const hasCac = !!formData.cacDocument;
+            const hasAddress = !!formData.proofOfAddress;
+            const hasPolicies = !!formData.companyPolicies;
 
-             if (hasAllDocs) {
-                currentStepNum = 4 // Completed Documents
-             } else {
-                currentStepNum = 3 // Still on Documents (or completed previous step 2)
-             }
+            const hasAllDocs = hasCac && hasAddress && hasPolicies;
+
+            if (hasAllDocs) {
+              currentStepNum = 4 // Completed Documents
+            } else {
+              currentStepNum = 3 // Still on Documents (or completed previous step 2)
+            }
           }
           if (currentStep === 'review') currentStepNum = 5    // Completed Review
-          
+
           // Prepare formData for saving
           // Save uploaded file metadata (objects with url/filename) or URL strings
           // Don't save File objects (they need to be uploaded first)
@@ -1463,7 +1546,7 @@ export default function CompanySetupPage() {
             if (typeof doc === 'string') return doc
             return null
           }
-          
+
           const formDataToSave = {
             ...formData,
             cacDocument: processDocForSave(formData.cacDocument),
@@ -1479,7 +1562,7 @@ export default function CompanySetupPage() {
             completedSteps: Array.from({ length: currentStepNum - 1 }, (_, i) => i + 1),
             formData: formDataToSave,
           })
-          
+
           toast.success('Progress saved successfully!')
         } else {
           toast.info('Please fill in at least one field before saving')
