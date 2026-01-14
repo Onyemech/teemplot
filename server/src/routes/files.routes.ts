@@ -63,12 +63,14 @@ export default async function filesRoutes(fastify: FastifyInstance) {
       }
 
       // Validate hash format (SHA-256 = 64 hex characters)
+      /* 
       if (!/^[a-f0-9]{64}$/i.test(hash)) {
         return reply.code(400).send({
           success: false,
           message: 'Invalid hash format. Expected SHA-256 (64 hex characters)'
         });
       }
+      */
 
       const result = await fileService.checkFileExists({
         hash,

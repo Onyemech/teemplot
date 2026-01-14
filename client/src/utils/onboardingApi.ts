@@ -199,9 +199,12 @@ export const uploadDocument = async (
       formData.append('hash', hash)
       formData.append('document', file)
 
-      // Explicitly set Content-Type header to undefined to let browser set boundary
-      // or remove headers entirely as axios handles it with FormData
-      const uploadResponse = await withRetry(() => apiClient.post('/api/files/upload', formData));
+      // Explicitly set Content-Type header to multipart/form-data (axios will add boundary)
+      const uploadResponse = await withRetry(() => apiClient.post('/api/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      }));
 
       const uploadResult = uploadResponse.data;
 
