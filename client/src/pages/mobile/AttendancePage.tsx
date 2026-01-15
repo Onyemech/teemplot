@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Search, Fingerprint, Loader2, Coffee, Calendar, Clock, MapPin } from 'lucide-react'
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
+import PermissionModal from '@/components/common/PermissionModal'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { permissionManager, type PermissionError } from '@/utils/PermissionManager'
 import { format, subDays, startOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns'
 
 interface AttendanceRecord {
@@ -34,6 +36,8 @@ export default function MobileAttendancePage() {
   const [todayStatus, setTodayStatus] = useState<any>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [processing, setProcessing] = useState(false)
+  const [showPermissionModal, setShowPermissionModal] = useState(false)
+  const [permissionError, setPermissionError] = useState<PermissionError | undefined>()
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -151,20 +155,28 @@ export default function MobileAttendancePage() {
         biometricsProof = proof
       }
 
-      // Get location if possible
+      // Get location using PermissionManager for robust error handling
       let location
-      if ('geolocation' in navigator) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
-          })
-          location = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }
-        } catch (e) {
-          console.warn('Location fetch failed', e)
+      const locationResult = await permissionManager.requestLocation({
+        timeout: 15000,
+        retries: 2
+      })
+
+      if (locationResult.success) {
+        location = {
+          latitude: locationResult.latitude!,
+          longitude: locationResult.longitude!
         }
+      } else if (locationResult.error) {
+        // Show permission modal if permission was denied
+        if (locationResult.error.needsManualEnable) {
+          setPermissionError(locationResult.error)
+          setShowPermissionModal(true)
+          setProcessing(false)
+          return
+        }
+        // For other errors (timeout, unavailable), show toast but allow proceeding
+        toast.warning(locationResult.error.userMessage)
       }
 
       const res = await apiClient.post('/api/attendance/check-in', {
@@ -206,20 +218,28 @@ export default function MobileAttendancePage() {
         biometricsProof = proof
       }
 
-      // Get location if possible
+      // Get location using PermissionManager
       let location
-      if ('geolocation' in navigator) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
-          })
-          location = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }
-        } catch (e) {
-          console.warn('Location fetch failed', e)
+      const locationResult = await permissionManager.requestLocation({
+        timeout: 15000,
+        retries: 2
+      })
+
+      if (locationResult.success) {
+        location = {
+          latitude: locationResult.latitude!,
+          longitude: locationResult.longitude!
         }
+      } else if (locationResult.error) {
+        // Show permission modal if permission  was denied
+        if (locationResult.error.needsManualEnable) {
+          setPermissionError(locationResult.error)
+          setShowPermissionModal(true)
+          setProcessing(false)
+          return
+        }
+        // For other errors, show toast but allow proceeding
+        toast.warning(locationResult.error.userMessage)
       }
 
       const res = await apiClient.post('/api/attendance/check-out', {
@@ -502,6 +522,18 @@ export default function MobileAttendancePage() {
           </div>
         )}
       </div>
+
+      {/* Permission Modal */}
+      <PermissionModal
+        isOpen={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        type="location"
+        error={permissionError}
+        allowSkip={true}
+        onSkip={() => {
+          toast.info('You can clock in/out without location, but it may be required by your company.')
+        }}
+      />
 
       {/* Mobile Bottom Nav */}
       <div className="md:hidden">

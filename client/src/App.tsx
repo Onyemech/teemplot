@@ -20,6 +20,7 @@ import DashboardLayout from './layouts/DashboardLayout'
 import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
 import AttendanceSettingsPage from './pages/dashboard/AttendanceSettingsPage'
+import MultipleClockInPage from './pages/dashboard/MultipleClockInPage'
 import InboxPage from './pages/mobile/InboxPage'
 import SettingsPage from './pages/dashboard/SettingsPage'
 import LeaveDashboardPage from './pages/leave/LeaveDashboardPage'
@@ -110,6 +111,7 @@ function App() {
                 <Route path="attendance" element={<AttendanceOverviewPage />} />
                 <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />
                 <Route path="attendance/setup" element={<AttendanceSettingsPage />} />
+                <Route path="attendance/multiple-clockin" element={<MultipleClockInPage />} />
                 <Route path="leave" element={<LeaveDashboardPage />} />
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />

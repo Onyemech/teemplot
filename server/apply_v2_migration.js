@@ -10,15 +10,18 @@ const pool = new Pool({
 });
 
 async function applyMigration() {
-    const migrationPath = path.join(__dirname, 'migrations', 'v2_attendance_robustness.sql');
+    const migrationPath = path.join(__dirname, 'migrations', 'drop_unused_indexes.sql');
     const sql = fs.readFileSync(migrationPath, 'utf8');
 
     try {
-        console.log('Applying migration...');
+        console.log('Dropping unused indexes for performance optimization...');
+        console.log('This may take a few minutes...');
         await pool.query(sql);
-        console.log('Migration applied successfully!');
+        console.log('✅ Migration applied successfully!');
+        console.log('All unused indexes have been dropped.');
     } catch (err) {
-        console.error('Migration failed:', err);
+        console.error('❌ Migration failed:', err.message);
+        console.error('Full error:', err);
     } finally {
         await pool.end();
     }
