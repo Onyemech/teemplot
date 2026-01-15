@@ -203,7 +203,7 @@ export default function AttendanceGeneralSettings() {
               <p className="font-medium">Geofence Configuration</p>
               <p>
                 Current radius: {settings.geofence_radius_meters} meters.
-                Configure office locations in the "Multiple Clock-in Setup" tab.
+                Configure office locations in the "Multiple Clock-In" page (under Attendance menu).
               </p>
             </div>
           </div>

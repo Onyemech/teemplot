@@ -221,23 +221,20 @@ export default function EmployeeDashboard() {
 
   const handleLocationVerify = async (loc: { latitude: number; longitude: number }) => {
     try {
-      const response = await fetch('/api/attendance/verify-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ location: loc })
+      const response = await apiClient.post('/api/attendance/verify-location', {
+        location: loc
       });
-      const data = await response.json();
-      if (data.success) {
+
+      if (response.data.success) {
         setShowLocationVerification(false);
         // Refresh status
         fetchDashboardData();
       } else {
-        alert(data.message || 'Verification failed');
+        alert(response.data.message || 'Verification failed');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Verification failed');
+      alert(err.response?.data?.message || 'Verification failed');
     }
   };
 

@@ -39,7 +39,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\/api\/(?!notifications\/stream).*/,
+            // Cache API requests excluding SSE endpoints
+            urlPattern: /^https:\/\/.*\/api\/(?!(notifications\/stream|employee-invitations\/counter-updates)).*/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -49,6 +50,10 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
+              },
+              // Don't cache POST/PUT/DELETE/PATCH
+              matchOptions: {
+                ignoreSearch: false
               }
             }
           }

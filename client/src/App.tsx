@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
-import PWAUpdateNotification from './components/PWAUpdateNotification'
+import ServiceWorkerErrorHandler from './components/pwa/ServiceWorkerErrorHandler'
+import ReloadPrompt from './components/pwa/ReloadPrompt'
 import OnboardingGuard from './components/OnboardingGuard'
 import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
@@ -53,7 +54,8 @@ function App() {
       <ToastProvider position="top-right">
         <UserProvider>
           <NotificationProvider>
-            <PWAUpdateNotification />
+            <ServiceWorkerErrorHandler />
+            <ReloadPrompt />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={
