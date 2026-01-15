@@ -40,8 +40,44 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await server.register(cors, {
-    origin: config_env.frontendUrl,
+    // Unified robust CORS configuration
+    origin: (origin: string | undefined, callback: (err: Error | null, allow: boolean | string) => void) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Check against allowed origins
+      const allowedOrigins = [
+        config_env.frontendUrl,
+        'http://localhost:5173',
+        'http://localhost:5000',
+        'https://teemplot.com',
+        'https://www.teemplot.com',
+        'https://api.teemplot.com'
+      ];
+
+      // In development, might want to be permissive or check specifically
+      if (config_env.isDevelopment || allowedOrigins.includes(origin)) {
+        // Return exact origin to satisfy credentials: true
+        callback(null, origin);
+      } else {
+        // Log warning but strict block in production
+        if (config_env.isProduction) {
+          // Check for subdomain matches if needed, otherwise block
+          callback(new Error('Not allowed by CORS'), false);
+        } else {
+          callback(null, origin);
+        }
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    // Explicitly allow Cache-Control for SSE
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // cache preflight for 24 hours
   });
 
   await server.register(rateLimit, {
