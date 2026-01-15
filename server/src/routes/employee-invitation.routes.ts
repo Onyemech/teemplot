@@ -30,6 +30,35 @@ const AcceptInvitationSchema = z.object({
 });
 
 export async function employeeInvitationRoutes(fastify: FastifyInstance) {
+  // Helper function to get CORS headers
+  const getCorsHeaders = (origin: string | undefined): Record<string, string> => {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://teemplot.com',
+      'https://www.teemplot.com',
+      'https://teemplot.vercel.app'
+    ];
+
+    const corsHeaders: Record<string, string> = {};
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+      corsHeaders['Access-Control-Allow-Origin'] = origin;
+      corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+      corsHeaders['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS';
+      corsHeaders['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Requested-With';
+      corsHeaders['Access-Control-Max-Age'] = '86400'; // 24 hours
+    }
+    return corsHeaders;
+  };
+
+  // OPTIONS handler for CORS preflight on counter-updates
+  fastify.options('/counter-updates', async (request, reply) => {
+    const origin = request.headers.origin;
+    const corsHeaders = getCorsHeaders(origin);
+
+    reply.code(204).headers(corsHeaders).send();
+  });
+
   // Real-time counter updates via Server-Sent Events
   fastify.get('/counter-updates', {
     preHandler: [fastify.authenticate, requireOnboarding],
@@ -37,22 +66,10 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
     try {
       const { companyId } = request.user;
 
-      // Handle CORS manually for hijacked response
+      // Get CORS headers for hijacked response
       const origin = request.headers.origin;
-      const allowedOrigins = [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'https://teemplot.com',
-        'https://www.teemplot.com',
-        'https://teemplot.vercel.app'
-      ];
+      const corsHeaders = getCorsHeaders(origin);
 
-      const corsHeaders: Record<string, string> = {};
-      if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
-        corsHeaders['Access-Control-Allow-Origin'] = origin;
-        corsHeaders['Access-Control-Allow-Credentials'] = 'true';
-      }
-      
       // Send initial counter data
       const limits = await employeeInvitationService.verifyPlanLimits(companyId);
       const initialData = {
@@ -95,7 +112,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
             planType: updatedLimits.currentPlan,
             pendingInvitations: updatedLimits.pendingInvitations
           };
-          
+
           reply.raw.write(`data: ${JSON.stringify(updateData)}\n\n`);
         } catch (error) {
           console.error('Error fetching counter updates:', error);
@@ -164,7 +181,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       console.error('Invitation error:', error);
-      
+
       // Handle specific error codes with proper HTTP status codes
       if (error.code === 'EMPLOYEE_LIMIT_REACHED') {
         return reply.code(400).send({
@@ -199,7 +216,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
           troubleshooting: error.details?.troubleshooting,
         });
       }
-      
+
       // Generic error response
       return reply.code(error.statusCode || 400).send({
         success: false,
@@ -214,7 +231,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
   fastify.get('/invitation/:token', async (request, reply) => {
     try {
       const { token } = request.params as { token: string };
-      
+
       const invitation = await employeeInvitationService.getInvitationByToken(token);
 
       if (!invitation) {
@@ -256,7 +273,7 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
   fastify.post('/accept', async (request, reply) => {
     try {
       const data = AcceptInvitationSchema.parse(request.body);
-      
+
       const result = await employeeInvitationService.acceptInvitation(data);
 
       return reply.code(200).send({

@@ -18,10 +18,35 @@ class RealtimeService {
     const user = request.user as { userId: string };
     const clientId = randomUUID();
 
-    // Set headers for SSE
-    reply.raw.setHeader('Content-Type', 'text/event-stream');
-    reply.raw.setHeader('Cache-Control', 'no-cache');
-    reply.raw.setHeader('Connection', 'keep-alive');
+    // Get CORS headers
+    const origin = request.headers.origin;
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://teemplot.com',
+      'https://www.teemplot.com',
+      'https://teemplot.vercel.app'
+    ];
+
+    // Set headers for SSE with CORS
+    const headers: Record<string, string> = {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    };
+
+    // Add CORS headers if origin is allowed
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Access-Control-Allow-Credentials'] = 'true';
+      headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Requested-With';
+    }
+
+    // Set all headers
+    Object.entries(headers).forEach(([key, value]) => {
+      reply.raw.setHeader(key, value);
+    });
 
     // Add client to map
     this.clients.set(clientId, {

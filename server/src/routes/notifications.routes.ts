@@ -4,6 +4,31 @@ import { realtimeService } from '../services/RealtimeService';
 import { z } from 'zod';
 
 export async function notificationRoutes(fastify: FastifyInstance) {
+  // OPTIONS handler for CORS preflight on stream endpoint
+  fastify.options('/stream', async (request, reply) => {
+    const origin = request.headers.origin;
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://teemplot.com',
+      'https://www.teemplot.com',
+      'https://teemplot.vercel.app'
+    ];
+
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+      reply
+        .code(204)
+        .header('Access-Control-Allow-Origin', origin)
+        .header('Access-Control-Allow-Credentials', 'true')
+        .header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+        .header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Requested-With')
+        .header('Access-Control-Max-Age', '86400')
+        .send();
+    } else {
+      reply.code(403).send({ success: false, message: 'CORS not allowed' });
+    }
+  });
+
   // SSE Endpoint
   fastify.get('/stream', {
     onRequest: [fastify.authenticate],
