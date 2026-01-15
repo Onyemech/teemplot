@@ -49,6 +49,15 @@ export async function authRoutes(server: FastifyInstance) {
       role: user.role,
     });
 
+    // Set accessToken cookie for SSE/Browser-native requests
+    reply.setCookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config_env.isProduction,
+      sameSite: 'strict', // Consider 'lax' if cross-subdomain issues arise
+      path: '/',
+      maxAge: 15 * 60 * 1000,
+    });
+
     return reply.code(201).send({
       user: {
         id: user.id,
@@ -90,6 +99,15 @@ export async function authRoutes(server: FastifyInstance) {
       sameSite: 'strict',
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // Set accessToken cookie for SSE/Browser-native requests
+    reply.setCookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config_env.isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 15 * 60 * 1000, // 15 minutes matches config_env.jwt.accessExpiresIn usually
     });
 
     return reply.send({
@@ -170,7 +188,7 @@ export async function authRoutes(server: FastifyInstance) {
       if (userId) {
         const user = await userRepo.findById(userId);
         if (!user) {
-          return reply.code(404).send({ 
+          return reply.code(404).send({
             success: false,
             message: 'User not found'
           });
@@ -193,7 +211,7 @@ export async function authRoutes(server: FastifyInstance) {
       if (superAdminId) {
         const admin = await superAdminRepo.findById(superAdminId);
         if (!admin) {
-          return reply.code(404).send({ 
+          return reply.code(404).send({
             success: false,
             message: 'Admin not found'
           });
@@ -211,7 +229,7 @@ export async function authRoutes(server: FastifyInstance) {
         });
       }
 
-      return reply.code(401).send({ 
+      return reply.code(401).send({
         success: false,
         message: 'Unauthorized'
       });

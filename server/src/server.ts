@@ -111,6 +111,15 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(taskRoutes, { prefix: '/api/tasks' });
   await server.register(notificationRoutes, { prefix: '/api/notifications' });
   await server.register(dashboardRoutes, { prefix: '/api/dashboard' });
+
+  // DEBUG: List all routes to diagnose 404s
+  server.get('/debug/routes', async (request, reply) => {
+    return {
+      routes: server.printRoutes(),
+      env: config_env.nodeEnv
+    };
+  });
+
   await server.register(healthRoutes); // Health check routes don't need prefix
 
   server.setErrorHandler((error: any, request, reply) => {
