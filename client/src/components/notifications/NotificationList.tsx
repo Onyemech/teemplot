@@ -79,9 +79,9 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
               >
                 <div className="flex gap-3">
                   <div className={`mt-1 flex-shrink-0 ${!notification.is_read ? 'text-primary' : 'text-gray-400'}`}>
-                    {notification.data?.companyLogo && user?.company?.logoUrl ? (
+                    {notification.data?.companyLogo && user?.companyLogo ? (
                       <img
-                        src={user.company.logoUrl}
+                        src={user.companyLogo}
                         alt="Logo"
                         className="w-8 h-8 rounded-full object-cover border border-gray-200"
                       />

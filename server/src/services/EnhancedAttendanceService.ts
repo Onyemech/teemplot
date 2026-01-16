@@ -123,6 +123,13 @@ class EnhancedAttendanceService {
         }
       }
 
+      // Get user settings (Remote Clock-in permission)
+      const userResult = await query(
+        'SELECT allow_remote_clockin FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      const userSettings = userResult.rows[0];
+
       let isWithinGeofence = true;
       let distanceMeters: number | null = null;
       let locationId: string | null = null;
@@ -143,13 +150,19 @@ class EnhancedAttendanceService {
           locationName = geofenceResult.rows[0].location_name;
         }
 
-        // Enforce geofence for manual check-ins if required
-        if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence) {
+        // Enforce geofence for manual check-ins ONLY IF remote clock-in is NOT allowed
+        const remoteAllowed = userSettings?.allow_remote_clockin === true;
+
+        if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence && !remoteAllowed) {
           throw new Error(
             `You must be within the geofence to check in. ` +
             `Distance: ${distanceMeters !== null && !isNaN(distanceMeters) ? Math.round(distanceMeters) + 'm' : 'Unknown'}`
           );
         }
+
+        // If remote is allowed and they are outside, we still record the distance but set isWithinGeofence to true for record keeping?
+        // Actually, let's keep isWithinGeofence as the physical reality, but the enforcement is what changes.
+        // The attendance record field 'is_within_geofence' should show if they WERE physically within.
       }
 
       // Create attendance record

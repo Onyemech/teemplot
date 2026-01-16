@@ -13,7 +13,6 @@ import {
 import { useUser } from '@/contexts/UserContext';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
-import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
 import { permissionManager, type PermissionError } from '@/utils/PermissionManager';
 import PermissionModal from '@/components/common/PermissionModal';
@@ -43,7 +42,6 @@ export default function EmployeeDashboard() {
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricAction, setBiometricAction] = useState<'in' | 'out'>('in');
   const [biometricRequired, setBiometricRequired] = useState(false);
-  const [showLocationVerification, setShowLocationVerification] = useState(false);
   const [showLocationVerification, setShowLocationVerification] = useState(false);
   const [biometricProof, setBiometricProof] = useState<string | null>(null);
 

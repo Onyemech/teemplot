@@ -18,6 +18,7 @@ import {
   Lock,
   Calendar,
   TrendingUp,
+  Globe,
   X
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
@@ -60,6 +61,7 @@ export const navigationConfig: NavItemConfig[] = [
       { label: 'Manage Invites', href: '/dashboard/attendance/invites', icon: UserPlus, feature: 'attendance', adminOnly: true },
       { label: 'Attendance Setup', href: '/dashboard/attendance/setup', icon: Settings, feature: 'attendance', adminOnly: true },
       { label: 'Multiple Clock-In', href: '/dashboard/attendance/multiple-clockin', icon: ClipboardList, feature: 'attendance', adminOnly: true },
+      { label: 'Remote Clocking', href: '/dashboard/attendance/remote-clockin', icon: Globe, feature: 'attendance', adminOnly: true },
     ],
   },
   {
@@ -207,6 +209,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/attendance/invites',
       '/dashboard/attendance/setup',
       '/dashboard/attendance/multiple-clockin',
+      '/dashboard/attendance/remote-clockin',
       '/dashboard/employees',
       '/dashboard/settings',
       '/dashboard/settings/billing',
