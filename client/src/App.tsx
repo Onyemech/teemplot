@@ -118,6 +118,7 @@ function App() {
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
                 <Route path="leave/calendar" element={<LeaveCalendarPage />} />
+                <Route path="tasks" element={<Navigate to="/dashboard/tasks/status" replace />} />
                 <Route path="tasks/assign" element={<TaskAssignPage />} />
                 <Route path="tasks/complete" element={<TaskCompletePage />} />
                 <Route path="tasks/verify" element={<TaskVerifyPage />} />

@@ -61,6 +61,7 @@ export async function buildApp() {
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:', process.env.CLIENT_URL || 'https://teemplot.com'],
       },
     },
   });

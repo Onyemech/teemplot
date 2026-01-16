@@ -14,7 +14,6 @@ import { useUser } from '@/contexts/UserContext';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
-import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -62,10 +61,8 @@ export default function EmployeeDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch attendance status
-      const attendanceResponse = await fetch(buildApiUrl('/attendance/status'), {
-        credentials: 'include' // Use httpOnly cookies
-      });
-      const attendanceData = await attendanceResponse.json();
+      const attendanceResponse = await apiClient.get('/api/attendance/status');
+      const attendanceData = attendanceResponse.data;
 
       if (attendanceData.success) {
         setAttendanceStatus(attendanceData.data);
@@ -75,10 +72,8 @@ export default function EmployeeDashboard() {
       }
 
       // Fetch employee stats
-      const statsResponse = await fetch(buildApiUrl('/dashboard/employee-stats'), {
-        credentials: 'include'
-      });
-      const statsData = await statsResponse.json();
+      const statsResponse = await apiClient.get('/api/dashboard/employee-stats');
+      const statsData = statsResponse.data;
 
       if (statsData.success) {
         setStats(statsData.data);
@@ -182,16 +177,9 @@ export default function EmployeeDashboard() {
         body.biometricsProof = biometricsProof;
       }
 
-      const response = await fetch('/api/attendance/check-in', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use httpOnly cookies
-        body: JSON.stringify(body)
-      });
+      const response = await apiClient.post('/api/attendance/check-in', body);
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         setAttendanceStatus(data.data);
@@ -199,9 +187,9 @@ export default function EmployeeDashboard() {
       } else {
         alert(data.message || 'Failed to clock in');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Clock in error:', error);
-      alert('Failed to clock in. Please try again.');
+      alert(error.response?.data?.message || 'Failed to clock in. Please try again.');
     } finally {
       setClockingIn(false);
       setBiometricProof(null); // Reset proof
@@ -266,16 +254,9 @@ export default function EmployeeDashboard() {
         body.biometricsProof = proof;
       }
 
-      const response = await fetch('/api/attendance/check-out', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Use httpOnly cookies
-        body: JSON.stringify(body)
-      });
+      const response = await apiClient.post('/api/attendance/check-out', body);
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         setAttendanceStatus(data.data);
@@ -284,9 +265,9 @@ export default function EmployeeDashboard() {
       } else {
         alert(data.message || 'Failed to clock out');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Clock out error:', error);
-      alert('Failed to clock out. Please try again.');
+      alert(error.response?.data?.message || 'Failed to clock out. Please try again.');
     } finally {
       setClockingIn(false);
       setBiometricProof(null); // Reset proof

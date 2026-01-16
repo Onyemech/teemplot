@@ -21,10 +21,10 @@ export default function TaskStatusPage() {
     setLoading(true)
     try {
       const params: any = { status: filter === 'all' ? undefined : filter }
-      
+
       // If viewing "my tasks", we filter by assignedTo = current user (handled by backend if role=employee, but for admins we need to be explicit or rely on backend default)
       // Actually backend `getTasks` filters by `assignedTo` if passed.
-      
+
       if (view === 'my_tasks') {
         params.assignedTo = user?.id
       }
@@ -32,18 +32,18 @@ export default function TaskStatusPage() {
       // But `getAwaitingReview` gets tasks created by user.
       // We might need to enhance backend `getTasks` to filter by `createdBy`.
       // For now, let's stick to what we have.
-      
+
       const res = await apiClient.get('/api/tasks', { params })
       if (res.data.success) {
         let fetchedTasks = res.data.data.tasks
-        
+
         // Client-side filtering for views not fully supported by backend params yet
         if (view === 'my_tasks') {
-           fetchedTasks = fetchedTasks.filter((t: any) => t.assigned_to === user?.id)
+          fetchedTasks = fetchedTasks.filter((t: any) => t.assigned_to === user?.id)
         } else if (view === 'created_by_me') {
-           fetchedTasks = fetchedTasks.filter((t: any) => t.created_by === user?.id)
+          fetchedTasks = fetchedTasks.filter((t: any) => t.created_by === user?.id)
         }
-        
+
         setTasks(fetchedTasks)
       }
     } catch (e) {
@@ -82,7 +82,7 @@ export default function TaskStatusPage() {
           <h1 className="text-2xl font-bold text-gray-900">Tasks Overview</h1>
           <p className="text-gray-500">Manage and track your tasks</p>
         </div>
-        
+
         {(user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager') && (
           <Button onClick={() => navigate('/dashboard/tasks/assign')}>
             + Assign Task
@@ -94,18 +94,16 @@ export default function TaskStatusPage() {
         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
           <button
             onClick={() => setView('my_tasks')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              view === 'my_tasks' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${view === 'my_tasks' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             My Tasks
           </button>
           {(user?.role !== 'employee') && (
             <button
               onClick={() => setView('created_by_me')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                view === 'created_by_me' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${view === 'created_by_me' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
+                }`}
             >
               Created by Me
             </button>
@@ -113,18 +111,18 @@ export default function TaskStatusPage() {
         </div>
 
         <div className="w-full md:w-64">
-           <Select
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { label: 'All Statuses', value: 'all' },
-                { label: 'Pending', value: 'pending' },
-                { label: 'In Progress', value: 'in_progress' },
-                { label: 'Awaiting Review', value: 'awaiting_review' },
-                { label: 'Completed', value: 'completed' },
-              ]}
-              placeholder="Filter by status"
-           />
+          <Select
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { label: 'All Statuses', value: 'all' },
+              { label: 'Pending', value: 'pending' },
+              { label: 'In Progress', value: 'in_progress' },
+              { label: 'Awaiting Review', value: 'awaiting_review' },
+              { label: 'Completed', value: 'completed' },
+            ]}
+            placeholder="Filter by status"
+          />
         </div>
       </div>
 
@@ -148,14 +146,14 @@ export default function TaskStatusPage() {
                         {task.status.replace('_', ' ').toUpperCase()}
                       </span>
                       <div className="flex items-center gap-1 text-sm text-gray-500">
-                         {getPriorityIcon(task.priority)}
-                         <span className="capitalize">{task.priority}</span>
+                        {getPriorityIcon(task.priority)}
+                        <span className="capitalize">{task.priority}</span>
                       </div>
                     </div>
-                    
+
                     <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{task.description}</p>
-                    
+
                     <div className="flex items-center gap-4 text-sm text-gray-500 pt-2">
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
@@ -171,29 +169,27 @@ export default function TaskStatusPage() {
                   <div className="flex md:flex-col gap-2 justify-center min-w-[140px]">
                     {/* Actions based on role and status */}
                     {task.assigned_to === user?.id && task.status !== 'completed' && task.status !== 'awaiting_review' && (
-                       <Button 
-                         variant="primary" 
-                         size="sm"
-                         onClick={() => navigate('/dashboard/tasks/complete')} // Ideally pass ID
-                       >
-                         Mark Complete
-                       </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate('/dashboard/tasks/complete')} // Ideally pass ID
+                      >
+                        Mark Complete
+                      </Button>
                     )}
-                    
+
                     {/* Review Action - if user created it (or owner) and it's awaiting review */}
                     {(user?.role === 'owner' || task.created_by === user?.id) && task.status === 'awaiting_review' && (
-                       <Button 
-                         variant="outline" 
-                         size="sm"
-                         onClick={() => navigate('/dashboard/tasks/verify')} // Ideally pass ID
-                       >
-                         Review Task
-                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate('/dashboard/tasks/verify')} // Ideally pass ID
+                      >
+                        Review Task
+                      </Button>
                     )}
-                    
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/dashboard/tasks/${task.id}`)}>
-                      View Details
-                    </Button>
+
+                    {/* View Details button removed as the page does not exist yet */}
                   </div>
                 </div>
               </Card>
