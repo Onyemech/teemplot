@@ -57,7 +57,48 @@ export default function TaskVerifyPage() {
       {tasks.map((t) => (
         <div key={t.id} className="border border-[#e0e0e0] rounded-lg p-4 mb-4">
           <p className="text-sm text-[#212121] font-semibold">{t.title}</p>
-          <p className="text-sm text-[#757575] mt-1">{t.description}</p>
+          <p className="text-sm text-[#757575] mt-1 mb-2">{t.description}</p>
+
+          {/* Task Metadata / Proof */}
+          <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Completed By:</span>
+              <span className="font-medium">{t.assigned_to_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Actual Hours:</span>
+              <span className="font-medium">{t.actual_hours || '-'} hrs</span>
+            </div>
+
+            {/* Notes */}
+            {t.metadata?.completion_notes && (
+              <div className="pt-2 border-t border-gray-200">
+                <span className="text-gray-500 block text-xs mb-1">Completion Notes:</span>
+                <p className="text-gray-800 bg-white p-2 rounded border border-gray-100">{t.metadata.completion_notes}</p>
+              </div>
+            )}
+
+            {/* Attachments */}
+            {t.metadata?.attachments && t.metadata.attachments.length > 0 && (
+              <div className="pt-2 border-t border-gray-200">
+                <span className="text-gray-500 block text-xs mb-1">Proof of Work:</span>
+                <div className="flex flex-wrap gap-2">
+                  {t.metadata.attachments.map((file: any, i: number) => (
+                    <a
+                      key={i}
+                      href={file.secure_url || file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 bg-white border border-gray-200 px-2 py-1.5 rounded text-xs text-blue-600 hover:text-blue-800 hover:border-blue-300 transition-colors"
+                    >
+                      📄 {file.original_filename || 'Attachment'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="mt-3">
             <label className="text-sm text-[#212121]">Review Notes</label>
             <textarea

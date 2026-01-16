@@ -8,8 +8,11 @@ interface NotificationListProps {
   onClose: () => void;
 }
 
+import { useUser } from '@/contexts/UserContext';
+
 export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) => {
   const { notifications, unreadCount, markAllAsRead, markAsRead, isLoading } = useNotifications();
+  const { user } = useUser();
   const navigate = useNavigate();
 
   const handleNotificationClick = (notification: Notification) => {
@@ -17,22 +20,22 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     onClose();
 
     if (notification.data?.url) {
-        navigate(notification.data.url);
+      navigate(notification.data.url);
     } else if (notification.type === 'attendance' || notification.type === 'early_departure' || notification.type === 'geofence_violation') {
-        navigate('/dashboard/attendance');
+      navigate('/dashboard/attendance');
     } else if (notification.type === 'leave') {
-        navigate('/dashboard/leave/requests');
+      navigate('/dashboard/leave/requests');
     } else if (notification.type === 'task') {
-        navigate('/dashboard/tasks/status');
+      navigate('/dashboard/tasks/status');
     } else if (notification.type === 'invitation') {
-        navigate('/dashboard/attendance/invites');
+      navigate('/dashboard/attendance/invites');
     }
   };
 
   const getIcon = (type: string) => {
     switch (type) {
       case 'success': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'warning': 
+      case 'warning':
       case 'early_departure':
       case 'geofence_violation':
         return <AlertTriangle className="w-4 h-4 text-orange-500" />;
@@ -71,13 +74,20 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
               <div
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  !notification.is_read ? 'bg-blue-50/30' : ''
-                }`}
+                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${!notification.is_read ? 'bg-blue-50/30' : ''
+                  }`}
               >
                 <div className="flex gap-3">
                   <div className={`mt-1 flex-shrink-0 ${!notification.is_read ? 'text-primary' : 'text-gray-400'}`}>
-                    {getIcon(notification.type)}
+                    {notification.data?.companyLogo && user?.company?.logoUrl ? (
+                      <img
+                        src={user.company.logoUrl}
+                        alt="Logo"
+                        className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                      />
+                    ) : (
+                      getIcon(notification.type)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${!notification.is_read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
@@ -101,10 +111,10 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )}
       </div>
-      
+
       <div className="p-3 border-t border-gray-100 bg-gray-50 text-center rounded-b-lg">
-        <button 
-          onClick={() => {/* Navigate to full list if implemented */}}
+        <button
+          onClick={() => {/* Navigate to full list if implemented */ }}
           className="text-xs font-medium text-gray-600 hover:text-primary transition-colors"
         >
           View all notifications

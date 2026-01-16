@@ -25,6 +25,7 @@ interface UpdateTaskData {
 interface MarkCompleteData {
   actualHours?: number;
   completionNotes?: string;
+  attachments?: any[];
 }
 
 interface ReviewTaskData {
@@ -92,8 +93,8 @@ export class TaskService {
     const assigneeRole = String(assignee.role || '').toLowerCase();
     const canAssign =
       role === 'owner' ? ['admin', 'manager', 'employee'].includes(assigneeRole) :
-      role === 'admin' ? ['manager', 'employee'].includes(assigneeRole) :
-      (role === 'manager' || role === 'department_head') ? assigneeRole === 'employee' : false;
+        role === 'admin' ? ['manager', 'employee'].includes(assigneeRole) :
+          (role === 'manager' || role === 'department_head') ? assigneeRole === 'employee' : false;
     if (!canAssign) {
       throw new Error('Insufficient permission to assign to this role');
     }
@@ -168,7 +169,7 @@ export class TaskService {
     `;
 
     const result = await this.db.query(query, [companyId, departmentId]);
-    
+
     // Map to frontend format
     return result.rows.map((row: any) => ({
       id: row.id,
@@ -237,7 +238,7 @@ export class TaskService {
 
     let countQuery = 'SELECT COUNT(*) FROM tasks WHERE company_id = $1';
     const countParams: any[] = [companyId];
-    
+
     if (role === 'employee') {
       countQuery += ' AND assigned_to = $2';
       countParams.push(userId);
@@ -334,7 +335,7 @@ export class TaskService {
 
   async markTaskComplete(taskId: string, data: MarkCompleteData, user: UserContext): Promise<any> {
     const { companyId, userId } = user;
-    const { actualHours, completionNotes } = data;
+    const { actualHours, completionNotes, attachments } = data;
 
     const taskResult = await this.db.query(
       'SELECT * FROM tasks WHERE id = $1 AND company_id = $2',
@@ -351,6 +352,12 @@ export class TaskService {
       throw new Error('Only the assigned user can mark this task as complete');
     }
 
+    // Build metadata object with completion notes and attachments
+    const newMetadata = {
+      completion_notes: completionNotes,
+      attachments: attachments || []
+    };
+
     const result = await this.db.query(
       `UPDATE tasks 
        SET status = 'awaiting_review',
@@ -358,10 +365,10 @@ export class TaskService {
            marked_complete_at = NOW(),
            marked_complete_by = $1,
            actual_hours = $2,
-           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('completion_notes', $3)
+           metadata = COALESCE(metadata, '{}'::jsonb) || $3
        WHERE id = $4 AND company_id = $5
        RETURNING *`,
-      [userId, actualHours, completionNotes, taskId, companyId]
+      [userId, actualHours, JSON.stringify(newMetadata), taskId, companyId]
     );
 
     await this.db.query(
@@ -391,7 +398,7 @@ export class TaskService {
     }
 
     const task = taskResult.rows[0];
-    
+
     // Allow owners to review any task, others only if they created it
     if (role !== 'owner' && task.created_by !== userId) {
       throw new Error('Only the original assigner (or owner) can review this task');

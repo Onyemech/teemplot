@@ -69,7 +69,11 @@ export async function buildApp() {
   // Intelligent CORS configuration
   await app.register(cors, {
     origin: (origin, callback) => {
-      const allowedOrigins = config_env.allowedOrigins;
+      const allowedOrigins = [
+        ...config_env.allowedOrigins,
+        'https://app.teemplot.com',
+        'https://api.teemplot.com'
+      ];
 
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) {
@@ -78,25 +82,17 @@ export async function buildApp() {
       }
 
       // Check if origin is allowed
-      if (allowedOrigins.includes(origin)) {
-        // Always return the exact origin for credentials validation, not "true"
+      if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+        // Always return the exact origin for credentials validation
         callback(null, origin);
       } else {
-        // Double check against wildcards if necessary, but strictly:
-        if (process.env.NODE_ENV === 'development') {
-          // In development, explicitly return the origin instead of true/wildcard
-          // to satisfy 'credentials: true' requirements for SSE/CORS
-          callback(null, origin);
-        } else {
-          logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
-          callback(new Error('Not allowed by CORS'), false);
-        }
+        logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
+        callback(new Error('Not allowed by CORS'), false);
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    // Add Cache-Control explicitly requested by EventSource
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With', 'X-CSRF-Token'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400, // 24 hours
   });

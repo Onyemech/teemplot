@@ -35,27 +35,31 @@ async function buildServerlessApp() {
       const allowedOrigins = [
         'https://teemplot.com',
         'https://www.teemplot.com',
+        'https://app.teemplot.com',
+        'https://api.teemplot.com',
         'https://teemplot.vercel.app',
         'https://teemplot-frontend.vercel.app',
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:5000',
       ];
-      
+
       if (!origin) {
         callback(null, true);
         return;
       }
 
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
+      if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+        // Reflect origin for credentials support
+        callback(null, origin);
       } else {
-        console.log('[CORS] Origin not allowed:', origin);
+        console.warn('[CORS] Origin not allowed:', origin);
         callback(new Error('Not allowed by CORS'), false);
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With', 'X-CSRF-Token'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400,
   });
@@ -89,8 +93,8 @@ async function buildServerlessApp() {
 
   // Health check (both with and without /api prefix)
   fastify.get('/health', async () => {
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: 'Server is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'production',
@@ -99,8 +103,8 @@ async function buildServerlessApp() {
   });
 
   fastify.get('/api/health', async () => {
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: 'Server is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'production',
@@ -120,7 +124,7 @@ async function buildServerlessApp() {
   await fastify.register(companyRoutes, { prefix: '/api/company' });
   await fastify.register(filesRoutes, { prefix: '/api/files' });
   await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
-  
+
   // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('../src/routes/employee-invitation.routes');
   await fastify.register(employeeInvitationRoutes, { prefix: '/api/employee-invitations' });
@@ -163,13 +167,13 @@ async function handler(req: any, res: any) {
     app.server.emit('request', req, res);
   } catch (error) {
     console.error('[Serverless] Function error:', error);
-    
+
     // Make sure response hasn't been sent
     if (!res.headersSent) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ 
-        success: false, 
+      res.end(JSON.stringify({
+        success: false,
         message: 'Internal server error',
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined

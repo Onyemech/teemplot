@@ -18,12 +18,12 @@ SET search_path = '';
 ALTER FUNCTION public.refresh_timezone_cache() 
 SET search_path = '';
 
--- 3. check_geofence
-ALTER FUNCTION public.check_geofence(user_lat DOUBLE PRECISION, user_lng DOUBLE PRECISION, location_id UUID) 
+-- 3. check_geofence (V2 Signature)
+ALTER FUNCTION public.check_geofence(p_company_id UUID, p_latitude NUMERIC, p_longitude NUMERIC) 
 SET search_path = '';
 
--- 4. calculate_attendance_metrics
-ALTER FUNCTION public.calculate_attendance_metrics(company_uuid UUID, start_date DATE, end_date DATE) 
+-- 4. calculate_attendance_metrics (Trigger version)
+ALTER FUNCTION public.calculate_attendance_metrics() 
 SET search_path = '';
 
 -- 5. get_company_employee_counts
@@ -31,7 +31,7 @@ ALTER FUNCTION public.get_company_employee_counts(company_uuid UUID)
 SET search_path = '';
 
 -- 6. update_company_invitation_counter
-ALTER FUNCTION public.update_company_invitation_counter() 
+ALTER FUNCTION public.update_company_invitation_counter(company_uuid UUID, delta INTEGER) 
 SET search_path = '';
 
 -- 7. get_invitation_statistics

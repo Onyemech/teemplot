@@ -13,7 +13,10 @@ import {
 import { useUser } from '@/contexts/UserContext';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
+import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
+import { permissionManager, type PermissionError } from '@/utils/PermissionManager';
+import PermissionModal from '@/components/common/PermissionModal';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -41,7 +44,12 @@ export default function EmployeeDashboard() {
   const [biometricAction, setBiometricAction] = useState<'in' | 'out'>('in');
   const [biometricRequired, setBiometricRequired] = useState(false);
   const [showLocationVerification, setShowLocationVerification] = useState(false);
+  const [showLocationVerification, setShowLocationVerification] = useState(false);
   const [biometricProof, setBiometricProof] = useState<string | null>(null);
+
+  // Permission States
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [permissionError, setPermissionError] = useState<PermissionError | undefined>();
 
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser();
@@ -96,19 +104,21 @@ export default function EmployeeDashboard() {
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
+  const getCurrentLocation = async () => {
+    const result = await permissionManager.requestLocation({
+      timeout: 10000,
+      retries: 1
+    });
+
+    if (result.success) {
+      setLocation({
+        latitude: result.latitude!,
+        longitude: result.longitude!
+      });
+    } else {
+      console.warn('Location retrieval failed:', result.error);
+      // We don't necessarily show the modal here on initial load, 
+      // but we should if the user tries to clock in/out (handled there).
     }
   };
 
@@ -154,9 +164,26 @@ export default function EmployeeDashboard() {
   };
 
   const handleClockIn = async () => {
+    // If we don't have location yet, try to get it again explicitly
     if (!location) {
-      alert('Please enable location services to clock in');
-      return;
+      const result = await permissionManager.requestLocation({ retries: 2 });
+
+      if (result.success) {
+        setLocation({
+          latitude: result.latitude!,
+          longitude: result.longitude!
+        });
+        // Continue flow
+      } else {
+        // Show permission modal logic
+        if (result.error?.needsManualEnable) {
+          setPermissionError(result.error);
+          setShowPermissionModal(true);
+          return;
+        }
+        alert(result.error?.userMessage || 'Location required to clock in');
+        return;
+      }
     }
 
     // Check if biometrics are required by company settings
@@ -238,8 +265,18 @@ export default function EmployeeDashboard() {
 
   const confirmClockOut = async (passedProof?: string) => {
     if (!location) {
-      alert('Please enable location services to clock out');
-      return;
+      const result = await permissionManager.requestLocation({ retries: 2 });
+      if (result.success) {
+        setLocation({ latitude: result.latitude!, longitude: result.longitude! });
+      } else {
+        if (result.error?.needsManualEnable) {
+          setPermissionError(result.error);
+          setShowPermissionModal(true);
+          return;
+        }
+        alert(result.error?.userMessage || 'Location required to clock out');
+        return;
+      }
     }
 
     const proof = passedProof || biometricProof;
@@ -578,6 +615,13 @@ export default function EmployeeDashboard() {
       <LocationVerificationModal
         isOpen={showLocationVerification}
         onVerify={handleLocationVerify}
+      />
+
+      <PermissionModal
+        isOpen={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        type="location"
+        error={permissionError}
       />
     </div>
   );

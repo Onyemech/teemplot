@@ -19,6 +19,7 @@ export default function TaskAssignPage() {
     assignedTo: '',
     priority: 'medium',
     dueDate: '',
+    dueTime: '',
     estimatedHours: 1
   })
 
@@ -44,7 +45,24 @@ export default function TaskAssignPage() {
     }
     setLoading(true)
     try {
-      const res = await apiClient.post('/api/tasks', form)
+      // Combine date and time
+      let finalDueDate = form.dueDate
+      if (form.dueDate && form.dueTime) {
+        finalDueDate = `${form.dueDate}T${form.dueTime}:00`
+      } else if (form.dueDate) {
+        // Default to end of day if only date provided? Or keep as date only if backend supports it.
+        // For robustness with timestamptz, let's append generic EOD or current time if missing.
+        // Actually, let's just send the date string, backend likely handles it, or append T23:59:59
+        // Better: T17:00:00 (5 PM)
+        finalDueDate = `${form.dueDate}T17:00:00`
+      }
+
+      const payload = {
+        ...form,
+        dueDate: finalDueDate
+      }
+
+      const res = await apiClient.post('/api/tasks', payload)
       if (res.data.success) {
         toast.success(res.data.message || 'Task assigned')
         navigate('/dashboard/tasks/status')
@@ -77,7 +95,7 @@ export default function TaskAssignPage() {
             icon={<Type className="w-5 h-5" />}
             fullWidth
           />
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
             <textarea
@@ -114,13 +132,22 @@ export default function TaskAssignPage() {
               value={form.priority}
               onChange={val => setForm({ ...form, priority: val })}
             />
-
             <Input
               type="date"
               label="Due Date"
+              required
               value={form.dueDate}
               onChange={e => setForm({ ...form, dueDate: e.target.value })}
               icon={<Calendar className="w-5 h-5" />}
+              fullWidth
+            />
+
+            <Input
+              type="time"
+              label="Due Time"
+              value={form.dueTime}
+              onChange={e => setForm({ ...form, dueTime: e.target.value })}
+              icon={<Clock className="w-5 h-5" />}
               fullWidth
             />
 

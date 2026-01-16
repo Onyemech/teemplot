@@ -9,11 +9,11 @@ const getDatabaseUrl = (): string => {
   if (isDevelopment && process.env.DEV_DATABASE_URL) {
     return process.env.DEV_DATABASE_URL;
   }
-  
+
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
-  
+
   return process.env.DATABASE_URL;
 };
 
@@ -62,7 +62,8 @@ pool.on('connect', (client) => {
 
 pool.on('error', (err) => {
   logger.error({ err }, 'Unexpected database error');
-  process.exit(-1);
+  // In serverless environments, we should not exit the process as it's managed by the infra
+  // process.exit(-1);
 });
 
 export const query = async (text: string, params?: any[]) => {
@@ -70,11 +71,11 @@ export const query = async (text: string, params?: any[]) => {
   try {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
-    
+
     if (isDevelopment) {
       logger.debug({ text, duration, rows: result.rowCount }, 'Executed query');
     }
-    
+
     return result;
   } catch (error) {
     logger.error({ text, error }, 'Query error');
@@ -88,7 +89,7 @@ export const transaction = async <T>(
   callback: (client: any) => Promise<T>
 ): Promise<T> => {
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
     const result = await callback(client);

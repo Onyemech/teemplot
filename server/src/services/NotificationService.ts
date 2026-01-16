@@ -107,7 +107,7 @@ export class NotificationService {
     // Get user's company_id
     const userQuery = `SELECT company_id FROM users WHERE id = $1`;
     const userResult = await pool.query(userQuery, [notification.userId]);
-    
+
     if (userResult.rows.length === 0) {
       logger.error({ userId: notification.userId });
       return;
@@ -163,7 +163,7 @@ export class NotificationService {
    */
   async getNotifications(userId: string, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
-    
+
     const query = `
       SELECT id, title, body, type, data, is_read, created_at
       FROM notifications
@@ -425,6 +425,56 @@ export class NotificationService {
       logger.info(`Geofence violation notifications sent for user ${data.userId}`);
     } catch (error) {
       logger.error({ error }, 'Failed to send geofence violation notifications');
+    }
+  }
+
+  /**
+   * Send task due notification
+   */
+  async notifyTaskDue(data: {
+    userId: string;
+    taskTitle: string;
+    taskId: string;
+    dueDate: Date;
+    companyName: string;
+    companyId: string;
+  }): Promise<void> {
+    try {
+      const formattedDate = new Date(data.dueDate).toLocaleString();
+
+      // Send Push/In-App
+      await this.sendPushNotification({
+        userId: data.userId,
+        title: 'Task Due Soon',
+        body: `Task "${data.taskTitle}" is due at ${formattedDate}`,
+        data: {
+          type: 'task',
+          taskId: data.taskId,
+          url: '/dashboard/tasks/status',
+          companyLogo: true // Signal frontend to try and fetch company logo
+        }
+      });
+
+      // Optional: Send Email
+      // Get user email
+      const userRes = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [data.userId]);
+      if (userRes.rows.length > 0) {
+        const user = userRes.rows[0];
+
+        await this.sendEmail({
+          to: user.email,
+          subject: `Task Due: ${data.taskTitle}`,
+          html: `
+            <h3>Task Reminder</h3>
+            <p>Hi ${user.first_name},</p>
+            <p>The task <strong>${data.taskTitle}</strong> is due at ${formattedDate}.</p>
+            <p><a href="${process.env.FRONTEND_URL}/dashboard/tasks/status">View Task</a></p>
+          `
+        });
+      }
+
+    } catch (error) {
+      logger.error({ error, ...data }, 'Failed to send task due notification');
     }
   }
 }
