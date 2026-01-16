@@ -215,6 +215,14 @@ export async function employeeInvitationRoutes(fastify: FastifyInstance) {
           details: error.details,
           troubleshooting: error.details?.troubleshooting,
         });
+      } else if (error.code === 'DUPLICATE_INVITATION') {
+        return reply.code(400).send({
+          success: false,
+          code: 'DUPLICATE_INVITATION',
+          message: error.message,
+          details: error.details,
+          troubleshooting: error.details?.troubleshooting,
+        });
       }
 
       // Generic error response

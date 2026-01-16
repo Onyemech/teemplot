@@ -124,12 +124,10 @@ export const config_env = {
   nodeEnv: env.NODE_ENV,
   port: parseInt(env.PORT),
 
-  // Intelligent URLs
   frontendUrl: getFrontendUrl(),
   backendUrl: getBackendUrl(),
   allowedOrigins: getAllowedOrigins(),
 
-  // Database configuration
   databaseType: env.DATABASE_TYPE,
   supabase: {
     url: env.SUPABASE_URL || '',
@@ -177,5 +175,6 @@ export const config_env = {
   superAdmin: {
     email: env.SUPER_ADMIN_EMAIL || '',
     password: env.SUPER_ADMIN_PASSWORD || '',
-  },
-};
+   },
+
+}

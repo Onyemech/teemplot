@@ -852,6 +852,11 @@ class EnhancedAttendanceService {
       // Get data with optimized subqueries for breaks to avoid N+1
       let queryStr = `
         SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position,
+        CASE 
+          WHEN ar.is_within_geofence THEN 'onsite'
+          WHEN ar.clock_in_location IS NOT NULL THEN 'remote'
+          ELSE 'onsite'
+        END as location_type,
         (
           SELECT SUM(duration_minutes) 
           FROM attendance_breaks 

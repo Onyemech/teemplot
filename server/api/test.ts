@@ -1,4 +1,3 @@
-// Simple test endpoint to verify Vercel serverless works
 export default async function handler(req: any, res: any) {
   res.status(200).json({
     success: true,
@@ -8,3 +7,4 @@ export default async function handler(req: any, res: any) {
     timestamp: new Date().toISOString()
   });
 }
+

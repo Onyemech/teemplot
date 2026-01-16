@@ -149,10 +149,10 @@ export default function InviteEmployeeModal({
       }
 
       await apiClient.post('/api/employee-invitations/invite', payload)
-      
+
       setShowSuccess(true)
       toast.success('Invitation sent successfully!')
-      
+
       // Wait for animation then close
       setTimeout(() => {
         setShowSuccess(false)
@@ -169,9 +169,9 @@ export default function InviteEmployeeModal({
       }, 2000)
     } catch (error: any) {
       console.error('Failed to send invitation:', error)
-      
+
       const errorData = error.response?.data
-      
+
       // Handle specific error codes with comprehensive troubleshooting
       if (errorData?.code === 'EMPLOYEE_LIMIT_REACHED') {
         const upgradeData = errorData.upgradeInfo
@@ -193,29 +193,33 @@ export default function InviteEmployeeModal({
             'Try refreshing the page and attempting again'
           ]
         })
-      } else if (errorData?.code === 'TRANSACTION_ROLLBACK') {
+      } else if (errorData?.code === 'DUPLICATE_INVITATION') {
+        const msg = 'An active invitation already exists for this email.';
         setInvitationError({
-          code: 'TRANSACTION_ROLLBACK',
-          message: 'Invitation failed due to system error. Transaction was safely rolled back.',
-          details: errorData.details,
+          code: 'DUPLICATE_INVITATION',
+          message: msg,
           troubleshooting: [
-            'This is a temporary system issue',
-            'Please try again in a few moments',
-            'If the issue persists, contact support with error code: TRANSACTION_ROLLBACK'
+            'Check the Pending Invitations tab',
+            'You can resend the existing invitation',
+            'Cancel the old invitation if you need to create a new one'
           ]
-        })
+        });
+        toast.error(msg);
       } else if (errorData?.code === 'DUPLICATE_EMAIL') {
+        const msg = 'This email address is already invited or registered.';
         setInvitationError({
           code: 'DUPLICATE_EMAIL',
-          message: 'This email address is already invited or registered.',
+          message: msg,
           details: errorData.details,
           troubleshooting: [
             'Check if the employee is already in your team',
             'Check pending invitations tab',
             'Use a different email address if this is a different person'
           ]
-        })
+        });
+        toast.error(msg);
       } else if (error.message === 'Invalid email format') {
+        // ... (existing code)
         setInvitationError({
           code: 'INVALID_EMAIL',
           message: 'Please enter a valid email address.',
@@ -225,10 +229,10 @@ export default function InviteEmployeeModal({
             'Example: john.doe@company.com'
           ]
         })
+        toast.error('Invalid email format');
       } else {
-        // Generic error with comprehensive troubleshooting
+        // ... (existing generic code)
         let cleanMessage = errorData?.message || 'Failed to send invitation. Please try again.';
-        // Clean up status codes from message if present
         cleanMessage = cleanMessage.replace(/(Error\s*)?\d{3}\s*:?\s*/gi, '').trim();
 
         setInvitationError({
@@ -243,6 +247,7 @@ export default function InviteEmployeeModal({
             'Contact support if the issue persists'
           ]
         })
+        toast.error(cleanMessage);
       }
     } finally {
       setLoading(false)
@@ -322,11 +327,10 @@ export default function InviteEmployeeModal({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-gray-900">Employee Slots</p>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                            realTimeCounter.planType === 'gold' ? 'bg-yellow-100 text-yellow-800' :
-                            realTimeCounter.planType === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${realTimeCounter.planType === 'gold' ? 'bg-yellow-100 text-yellow-800' :
+                              realTimeCounter.planType === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                                'bg-blue-100 text-blue-800'
+                            }`}>
                             {realTimeCounter.planType}
                           </span>
                         </div>

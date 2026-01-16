@@ -32,8 +32,8 @@ export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
   const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [clockingIn, setClockingIn] = useState(false);
+  const [loading, setLoading] = useState(true); // Initial data load
+  const [loadingAction, setLoadingAction] = useState<string | null>(null); // 'clockIn', 'clockOut', 'startBreak', 'endBreak'
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showEarlyClockOutModal, setShowEarlyClockOutModal] = useState(false);
@@ -52,6 +52,9 @@ export default function EmployeeDashboard() {
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser();
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
+
+  // Helper to check if any action is in progress
+  const isActionLoading = !!loadingAction;
 
   useEffect(() => {
     fetchDashboardData();
@@ -195,7 +198,8 @@ export default function EmployeeDashboard() {
   };
 
   const performClockIn = async (biometricsProof?: string) => {
-    setClockingIn(true);
+    if (loadingAction) return; // Deduplicate
+    setLoadingAction('clockIn');
     try {
       const body: any = { location };
       if (biometricsProof) {
@@ -216,7 +220,7 @@ export default function EmployeeDashboard() {
       console.error('Clock in error:', error);
       alert(error.response?.data?.message || 'Failed to clock in. Please try again.');
     } finally {
-      setClockingIn(false);
+      setLoadingAction(null);
       setBiometricProof(null); // Reset proof
     }
   };
@@ -262,6 +266,8 @@ export default function EmployeeDashboard() {
   };
 
   const confirmClockOut = async (passedProof?: string) => {
+    if (loadingAction) return; // Deduplicate
+
     if (!location) {
       const result = await permissionManager.requestLocation({ retries: 2 });
       if (result.success) {
@@ -279,7 +285,7 @@ export default function EmployeeDashboard() {
 
     const proof = passedProof || biometricProof;
 
-    setClockingIn(true);
+    setLoadingAction('clockOut');
     try {
       const body: any = {
         location,
@@ -304,17 +310,18 @@ export default function EmployeeDashboard() {
       console.error('Clock out error:', error);
       alert(error.response?.data?.message || 'Failed to clock out. Please try again.');
     } finally {
-      setClockingIn(false);
+      setLoadingAction(null);
       setBiometricProof(null); // Reset proof
     }
   };
 
   const handleStartBreak = async () => {
+    if (loadingAction) return;
     if (!attendanceStatus?.isClockedIn) {
       alert('You must be clocked in to take a break');
       return;
     }
-    setLoading(true);
+    setLoadingAction('startBreak');
     try {
       const res = await apiClient.post('/api/attendance/break/start');
       if (res.data.success) {
@@ -326,12 +333,13 @@ export default function EmployeeDashboard() {
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to start break');
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
   const handleEndBreak = async () => {
-    setLoading(true);
+    if (loadingAction) return;
+    setLoadingAction('endBreak');
     try {
       const res = await apiClient.post('/api/attendance/break/end');
       if (res.data.success) {
@@ -343,7 +351,7 @@ export default function EmployeeDashboard() {
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to end break');
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -404,6 +412,16 @@ export default function EmployeeDashboard() {
               {attendanceStatus?.status === 'on_break' ? 'End Break' : 'Take Break'}
             </span>
           </div>
+
+          {attendanceStatus?.isClockedIn && (
+            <div className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-100 rounded-full shadow-sm whitespace-nowrap min-w-fit">
+              <div className={`h-2 w-2 rounded-full ${attendanceStatus.isWithinGeofence ? 'bg-green-500' : 'bg-purple-500'}`}></div>
+              <span className="text-sm font-semibold text-gray-700">
+                {attendanceStatus.isWithinGeofence ? 'On-site' : 'Remote'}
+              </span>
+            </div>
+          )}
+
           <div onClick={() => attendanceStatus?.isClockedIn && !attendanceStatus?.clockOutTime && initiateClockOut()} className={`flex items-center space-x-2 px-4 py-2 bg-white border border-gray-100 rounded-full shadow-sm whitespace-nowrap min-w-fit ${attendanceStatus?.isClockedIn && !attendanceStatus?.clockOutTime ? 'cursor-pointer active:scale-95' : ''}`}>
             <LogOut className="h-4 w-4 text-red-500" />
             <span className="text-sm font-semibold text-gray-700">
@@ -480,30 +498,38 @@ export default function EmployeeDashboard() {
         <div className="flex space-x-4">
           <button
             onClick={attendanceStatus?.status === 'on_break' ? handleEndBreak : handleStartBreak}
-            className="flex-1 bg-[#0F5D5D] text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-teal-900/20 hover:bg-[#0a4545] active:bg-[#083838] transition-all flex items-center justify-center space-x-2"
+            disabled={isActionLoading}
+            className={`flex-1 bg-[#0F5D5D] text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-teal-900/20 hover:bg-[#0a4545] active:bg-[#083838] transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed`}
           >
-            <Coffee className="h-5 w-5" />
-            <span>{attendanceStatus?.status === 'on_break' ? 'End Break' : 'Take Break'}</span>
+            {loadingAction === 'startBreak' || loadingAction === 'endBreak' ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <Coffee className="h-5 w-5" />
+            )}
+            <span>
+              {attendanceStatus?.status === 'on_break'
+                ? (loadingAction === 'endBreak' ? 'Ending...' : 'End Break')
+                : (loadingAction === 'startBreak' ? 'Starting...' : 'Take Break')}
+            </span>
           </button>
           <button
             onClick={attendanceStatus?.isClockedIn ? initiateClockOut : handleClockIn}
-            disabled={clockingIn}
-            className={`flex-1 bg-white border-2 font-bold py-3.5 px-4 rounded-xl shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all flex items-center justify-center space-x-2 ${attendanceStatus?.isClockedIn
+            disabled={isActionLoading}
+            className={`flex-1 bg-white border-2 font-bold py-3.5 px-4 rounded-xl shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed ${attendanceStatus?.isClockedIn
               ? 'border-red-100 text-red-500'
               : 'border-green-100 text-green-600'
               }`}
           >
-            {attendanceStatus?.isClockedIn ? (
-              <>
-                <LogOut className="h-5 w-5" />
-                <span>Clock Out</span>
-              </>
+            {(loadingAction === 'clockIn' || loadingAction === 'clockOut') ? (
+              <div className={`animate-spin rounded-full h-5 w-5 border-b-2 ${attendanceStatus?.isClockedIn ? 'border-red-500' : 'border-green-600'}`}></div>
             ) : (
-              <>
-                <Clock className="h-5 w-5" />
-                <span>Clock In</span>
-              </>
+              attendanceStatus?.isClockedIn ? <LogOut className="h-5 w-5" /> : <Clock className="h-5 w-5" />
             )}
+            <span>
+              {attendanceStatus?.isClockedIn
+                ? (loadingAction === 'clockOut' ? 'Clocking Out...' : 'Clock Out')
+                : (loadingAction === 'clockIn' ? 'Clocking In...' : 'Clock In')}
+            </span>
           </button>
         </div>
       </div>

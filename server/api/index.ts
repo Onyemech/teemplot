@@ -5,7 +5,6 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 
-// Import routes
 import { authRoutes } from '../src/routes/auth.routes';
 import { onboardingRoutes } from '../src/routes/onboarding.routes';
 import attendanceRoutes from '../src/routes/attendance.routes';
@@ -24,12 +23,10 @@ async function buildServerlessApp() {
   const fastify = Fastify({
     logger: {
       level: 'info',
-      // Simple JSON logging for serverless (no transports)
     },
     trustProxy: true,
   });
 
-  // Register plugins with proper CORS
   await fastify.register(cors, {
     origin: (origin, callback) => {
       const allowedOrigins = [
@@ -50,7 +47,6 @@ async function buildServerlessApp() {
       }
 
       if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-        // Reflect origin for credentials support
         callback(null, origin);
       } else {
         console.warn('[CORS] Origin not allowed:', origin);
@@ -112,7 +108,6 @@ async function buildServerlessApp() {
     };
   });
 
-  // Register routes with /api prefix
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(onboardingRoutes, { prefix: '/api/onboarding' });
   await fastify.register(attendanceRoutes, { prefix: '/api/attendance' });

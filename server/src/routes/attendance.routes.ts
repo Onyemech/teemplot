@@ -103,7 +103,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
         const date = new Date(record.clock_in_time).toLocaleDateString();
         const clockIn = new Date(record.clock_in_time).toLocaleTimeString();
         const clockOut = record.clock_out_time ? new Date(record.clock_out_time).toLocaleTimeString() : '--:--';
-        const location = record.clock_in_location ? 'Onsite' : 'Remote'; // Simplified logic
+        const location = record.is_within_geofence ? 'Onsite' : (record.clock_in_location ? 'Remote' : 'Unknown');
 
         return [
           `"${record.first_name} ${record.last_name}"`,

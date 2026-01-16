@@ -38,7 +38,7 @@ export class HealthCheckService {
 
   async performHealthCheck(): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+
     const [databaseHealth, emailHealth, convexHealth] = await Promise.allSettled([
       this.checkDatabaseHealth(),
       this.checkEmailHealth(),
@@ -99,7 +99,7 @@ export class HealthCheckService {
           };
         }
       } catch (error: any) {
-      logger.error('Sync validation failed during health check:', error);
+        logger.error('Sync validation failed during health check:', error);
         syncValidation = {
           isConsistent: false,
           discrepancyCount: -1,
@@ -120,13 +120,13 @@ export class HealthCheckService {
 
   private async checkDatabaseHealth(): Promise<ServiceHealth> {
     const startTime = Date.now();
-    
+
     try {
       const db = DatabaseFactory.getPrimaryDatabase();
-      
+
       // Test database connection with a simple query
       const result = await db.query('SELECT 1 as test');
-      
+
       if (result.rows.length === 0) {
         throw new Error('Database query returned no results');
       }
@@ -140,7 +140,7 @@ export class HealthCheckService {
       };
     } catch (error: any) {
       logger.error('Database health check failed:', error);
-      
+
       return {
         status: 'unhealthy',
         error: error.message,
@@ -151,7 +151,7 @@ export class HealthCheckService {
 
   private async checkEmailHealth(): Promise<ServiceHealth> {
     const startTime = Date.now();
-    
+
     try {
       // Check if email service is configured
       if (!process.env.SMTP_HOST || !process.env.SMTP_PORT) {
@@ -170,14 +170,14 @@ export class HealthCheckService {
         secure: process.env.SMTP_SECURE === 'true',
         auth: process.env.SMTP_USER ? {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
+          pass: process.env.SMTP_PASSWORD
         } : undefined,
         connectionTimeout: 5000, // 5 second timeout
       });
 
       // Verify connection without sending actual email
       await transporter.verify();
-      
+
       const responseTime = Date.now() - startTime;
 
       return {
@@ -187,7 +187,7 @@ export class HealthCheckService {
       };
     } catch (error: any) {
       logger.error('Email health check failed:', error);
-      
+
       return {
         status: 'unhealthy',
         error: error.message,
@@ -198,7 +198,7 @@ export class HealthCheckService {
 
   private async checkConvexHealth(): Promise<ServiceHealth> {
     const startTime = Date.now();
-    
+
     try {
       if (!process.env.CONVEX_DEPLOYMENT_URL) {
         return {
@@ -235,7 +235,7 @@ export class HealthCheckService {
       };
     } catch (error: any) {
       logger.error('Convex health check failed:', error);
-      
+
       return {
         status: 'unhealthy',
         error: error.message,
