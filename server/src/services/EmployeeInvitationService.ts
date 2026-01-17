@@ -301,7 +301,7 @@ export class EmployeeInvitationService {
         data.firstName.trim(),
         data.lastName.trim(),
         data.role,
-        data.position || 'Software Engineer',
+        data.position || null,
         invitationToken,
         'pending',
         expiresAt.toISOString(),

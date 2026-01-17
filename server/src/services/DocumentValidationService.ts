@@ -31,6 +31,64 @@ export interface DocumentAnalysis {
 
 export class DocumentValidationService {
   /**
+   * Fuzzy address matching
+   * Checks if two addresses are similar by comparing numbers and keywords
+   */
+  public verifyAddressMatch(address1: string, address2: string): { isMatch: boolean; score: number } {
+    if (!address1 || !address2) return { isMatch: false, score: 0 };
+
+    // Normalize: lowercase, remove special chars (keep numbers and spaces)
+    const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const a1 = normalize(address1);
+    const a2 = normalize(address2);
+
+    // 1. Extract and compare numbers (critical for addresses)
+    const getNumbers = (str: string): string[] => str.match(/\d+/g) || [];
+    const nums1 = getNumbers(a1);
+    const nums2 = getNumbers(a2);
+
+    // If both have numbers, at least one significant number should match (e.g. house number)
+    // We'll calculate a number match score
+    let numberScore = 0;
+    if (nums1.length > 0 && nums2.length > 0) {
+      const intersection = nums1.filter(n => nums2.includes(n));
+      // If we match the street number (usually the first number), that's a strong signal
+      if (intersection.length > 0) {
+        numberScore = 1.0;
+      } else {
+        // Mismatch in numbers is a strong negative signal for addresses
+        numberScore = 0;
+      }
+    } else {
+      // If one or both don't have numbers, ignore number scoring
+      numberScore = 0.5;
+    }
+
+    // 2. Token overlap (keywords)
+    const getTokens = (str: string) => str.split(' ').filter(t => t.length > 2); // Ignore short words
+    const tokens1 = getTokens(a1);
+    const tokens2 = getTokens(a2);
+
+    if (tokens1.length === 0 || tokens2.length === 0) return { isMatch: false, score: 0 };
+
+    const intersection = tokens1.filter(t => tokens2.some(t2 => t2.includes(t) || t.includes(t2)));
+    const uniqueTokens = new Set([...tokens1, ...tokens2]);
+
+    // Jaccard similarity-ish
+    const tokenScore = intersection.length / Math.min(tokens1.length, tokens2.length);
+
+    // Weighted final score
+    // Numbers are very important for addresses, so give them weight if they exist
+    const finalScore = (numberScore * 0.4) + (tokenScore * 0.6);
+
+    // Threshold: Relaxed (0.3) to allow for "partial matches" as requested
+    return {
+      isMatch: finalScore >= 0.3,
+      score: finalScore
+    };
+  }
+
+  /**
    * Validate CAC (Corporate Affairs Commission) Document
    */
   private validateCACDocument(analysis: DocumentAnalysis): DocumentValidationResult {
@@ -45,40 +103,14 @@ export class DocumentValidationService {
       confidence -= 50;
     }
 
-    // Check file size (should be reasonable for a scanned document)
-    if (analysis.fileSize < 10000) { // Less than 10KB
+    // Check file size (Relaxed to 1KB)
+    if (analysis.fileSize < 1024) {
       issues.push('File size too small - likely not a real document');
       corrections.push('Upload a complete scanned or photographed CAC certificate');
       confidence -= 40;
     }
 
-    if (analysis.fileSize > 10 * 1024 * 1024) { // More than 10MB
-      issues.push('File size too large');
-      corrections.push('Compress the file or ensure it\'s a single document');
-      confidence -= 20;
-    }
-
-    // Check filename patterns
-    const suspiciousPatterns = [
-      /test/i, /dummy/i, /sample/i, /fake/i, /temp/i, 
-      /placeholder/i, /example/i, /demo/i, /untitled/i
-    ];
-
-    if (suspiciousPatterns.some(pattern => pattern.test(analysis.fileName))) {
-      issues.push('Filename suggests this is a test or placeholder document');
-      corrections.push('Upload your actual CAC certificate from Corporate Affairs Commission');
-      confidence -= 60;
-    }
-
-    // Expected CAC document characteristics
-    const expectedElements = [
-      'Should contain company registration number',
-      'Should show Corporate Affairs Commission header/logo',
-      'Should include company name and registration date',
-      'Should have official stamps or seals',
-      'Should show registered address',
-      'Should include directors\' names'
-    ];
+    // (Removed strict filename check)
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
     const requiresManualReview = status === 'suspicious' || confidence < 70;
@@ -118,34 +150,14 @@ export class DocumentValidationService {
       confidence -= 50;
     }
 
-    // Check file size
-    if (analysis.fileSize < 10000) {
+    // Check file size (Relaxed to 1KB)
+    if (analysis.fileSize < 1024) {
       issues.push('File size too small - likely not a real document');
       corrections.push('Upload a complete utility bill, bank statement, or official letter');
       confidence -= 40;
     }
 
-    // Check filename patterns
-    const suspiciousPatterns = [
-      /test/i, /dummy/i, /sample/i, /fake/i, /temp/i, 
-      /placeholder/i, /example/i, /demo/i
-    ];
-
-    if (suspiciousPatterns.some(pattern => pattern.test(analysis.fileName))) {
-      issues.push('Filename suggests this is a test or placeholder document');
-      corrections.push('Upload an actual utility bill, bank statement, or government-issued document');
-      confidence -= 60;
-    }
-
-    // Expected proof of address characteristics
-    const expectedElements = [
-      'Should be a utility bill, bank statement, or government letter',
-      'Should show company name and address clearly',
-      'Should be dated within the last 3 months',
-      'Should have issuer\'s logo/header (utility company, bank, etc.)',
-      'Should include account/reference numbers',
-      'Should not be handwritten'
-    ];
+    // (Removed strict filename check)
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
     const requiresManualReview = status === 'suspicious' || confidence < 70;
@@ -185,34 +197,14 @@ export class DocumentValidationService {
       confidence -= 30;
     }
 
-    // Check file size (policies should have substantial content)
-    if (analysis.fileSize < 20000) { // Less than 20KB
+    // Check file size (Relaxed to 1KB)
+    if (analysis.fileSize < 1024) {
       issues.push('File size too small - company policies typically contain multiple pages');
       corrections.push('Upload a complete company policy document with all sections');
       confidence -= 40;
     }
 
-    // Check filename patterns
-    const suspiciousPatterns = [
-      /test/i, /dummy/i, /sample/i, /fake/i, /temp/i, 
-      /placeholder/i, /example/i, /demo/i
-    ];
-
-    if (suspiciousPatterns.some(pattern => pattern.test(analysis.fileName))) {
-      issues.push('Filename suggests this is a test or placeholder document');
-      corrections.push('Upload your actual company policy document');
-      confidence -= 60;
-    }
-
-    // Expected company policy characteristics
-    const expectedElements = [
-      'Should contain company name and logo',
-      'Should include policy sections (HR, attendance, leave, conduct, etc.)',
-      'Should have table of contents or section headers',
-      'Should be professionally formatted',
-      'Should include effective date',
-      'May include signatures or approval stamps'
-    ];
+    // (Removed strict filename check)
 
     const status = confidence >= 70 ? 'valid' : confidence >= 40 ? 'suspicious' : 'invalid';
     const requiresManualReview = status === 'suspicious' || confidence < 70;
@@ -271,7 +263,7 @@ export class DocumentValidationService {
       return result;
     } catch (error: any) {
       logger.error({ err: error, documentType: analysis.documentType }, 'Document validation failed');
-      
+
       return {
         isValid: false,
         status: 'invalid',
@@ -291,7 +283,7 @@ export class DocumentValidationService {
    */
   private generateExplanation(docType: string, status: string, issues: string[]): string {
     if (status === 'valid') {
-      return `${docType} appears to be authentic and properly formatted. The document structure, file size, and naming suggest this is a legitimate business document.`;
+      return `${docType} appears to be authentic.`;
     }
 
     if (status === 'suspicious') {
