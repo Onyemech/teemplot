@@ -46,8 +46,9 @@ export default function TaskStatusPage() {
 
         setTasks(fetchedTasks)
       }
-    } catch (e) {
-      toast.error('Failed to load tasks')
+    } catch (e: any) {
+      console.error('Fetch tasks error:', e)
+      toast.error(e.response?.data?.message || 'Failed to load tasks')
     } finally {
       setLoading(false)
     }
@@ -83,7 +84,7 @@ export default function TaskStatusPage() {
           <p className="text-gray-500">Manage and track your tasks</p>
         </div>
 
-        {(user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager') && (
+        {(user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'department_head') && (
           <Button onClick={() => navigate('/dashboard/tasks/assign')}>
             + Assign Task
           </Button>

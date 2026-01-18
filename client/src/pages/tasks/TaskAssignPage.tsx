@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, User, Flag, Type } from 'lucide-react'
+import { useUser } from '@/contexts/UserContext'
 
 export default function TaskAssignPage() {
   const toast = useToast()
@@ -23,13 +24,20 @@ export default function TaskAssignPage() {
     estimatedHours: 1
   })
 
+  const { user } = useUser()
+
   useEffect(() => {
+    if (user && user.role === 'employee') {
+      toast.error('Unauthorized access')
+      navigate('/dashboard/tasks/status')
+      return
+    }
     fetchAssignableUsers()
-  }, [])
+  }, [user])
 
   const fetchAssignableUsers = async () => {
     try {
-      const res = await apiClient.get('/api/employees/list')
+      const res = await apiClient.get('/api/employees')
       if (res.data.success) {
         setUsers(res.data.data)
       }

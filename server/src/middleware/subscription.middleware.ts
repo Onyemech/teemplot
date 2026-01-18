@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
 
-type Feature = 
+type Feature =
   | 'attendance'
   | 'leave'
   | 'employees'
@@ -30,7 +30,7 @@ const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
     'wallet',
     'audit_logs'
   ],
-  silver: ['attendance', 'leave', 'departments', 'employees'],
+  silver: ['attendance', 'leave', 'departments', 'employees', 'tasks', 'audit_logs'],
   gold: [
     'attendance',
     'leave',
@@ -50,7 +50,7 @@ export function requireFeature(feature: Feature) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const user = request.user as any;
-      
+
       if (!user || !user.companyId) {
         return reply.code(401).send({
           success: false,
@@ -129,7 +129,7 @@ export function requireFeature(feature: Feature) {
 export async function checkEmployeeLimit(request: FastifyRequest, reply: FastifyReply) {
   try {
     const user = request.user as any;
-    
+
     if (!user || !user.companyId) {
       return reply.code(401).send({
         success: false,

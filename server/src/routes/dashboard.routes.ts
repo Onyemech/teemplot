@@ -90,9 +90,12 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
     preHandler: [requireOnboarding]
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      // Return empty array for now to fix 404. 
-      // Ideally, aggregate from attendance, tasks, and leave logs.
-      const activity: any[] = [];
+      const companyId = (request.user as any).companyId;
+      const { auditService } = await import('../services/AuditService');
+
+      // Fetch actual audit logs
+      const activity = await auditService.getCompanyAuditLogs(companyId, 10);
+
       return reply.code(200).send({ success: true, data: activity });
     } catch (error: any) {
       fastify.log.error('Error fetching recent activity:', error);
