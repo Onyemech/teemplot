@@ -4,7 +4,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
 
-export default function TaxAssignmentDetailPage() {
+export default function TaskAssignmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const toast = useToast()
   const [assignment, setAssignment] = useState<any | null>(null)
@@ -12,12 +12,12 @@ export default function TaxAssignmentDetailPage() {
 
   const fetchAssignment = async () => {
     try {
-      const res = await apiClient.get(`/api/tax/assignments/${id}`)
+      const res = await apiClient.get(`/api/task-assignments/assignments/${id}`)
       if (res.data.success) {
         setAssignment(res.data.data)
       }
     } catch (e) {
-      toast.error('Failed to load tax assignment')
+      toast.error('Failed to load task assignment')
     } finally {
       setLoading(false)
     }
@@ -29,7 +29,7 @@ export default function TaxAssignmentDetailPage() {
 
   const review = async (approved: boolean) => {
     try {
-      const res = await apiClient.post(`/api/tax/assignments/${id}/review`, { approved })
+      const res = await apiClient.post(`/api/task-assignments/assignments/${id}/review`, { approved })
       if (res.data.success) {
         toast.success(res.data.message)
         fetchAssignment()
@@ -44,19 +44,19 @@ export default function TaxAssignmentDetailPage() {
 
   return (
     <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-[#212121] mb-4">Tax Assignment Details</h2>
+      <h2 className="text-lg font-semibold text-[#212121] mb-4">Task Profile Details</h2>
       <div className="space-y-4">
         <div>
-          <p className="text-sm text-[#757575]">Tax Code</p>
-          <p className="text-sm text-[#212121]">{assignment.tax_code}</p>
+          <p className="text-sm text-[#757575]">Task Code/Role</p>
+          <p className="text-sm text-[#212121]">{assignment.task_code}</p>
         </div>
         <div>
-          <p className="text-sm text-[#757575]">Rate</p>
-          <p className="text-sm text-[#212121]">{assignment.rate}%</p>
+          <p className="text-sm text-[#757575]">Weight/Rate</p>
+          <p className="text-sm text-[#212121]">{assignment.rate}</p>
         </div>
         <div>
           <p className="text-sm text-[#757575]">Status</p>
-          <p className="text-sm text-[#212121]">{assignment.status}</p>
+          <p className="text-sm text-[#212121] uppercase">{assignment.status}</p>
         </div>
         <div>
           <p className="text-sm text-[#757575]">Notes</p>

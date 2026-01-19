@@ -64,7 +64,7 @@ class EnhancedAttendanceService {
         `SELECT auto_clockin_enabled, require_geofence_for_clockin, 
                 office_latitude, office_longitude, geofence_radius_meters,
                 timezone, work_start_time, grace_period_minutes,
-                biometrics_required
+                biometrics_required, allow_remote_clockin
          FROM companies WHERE id = $1`,
         [companyId]
       );
@@ -151,7 +151,9 @@ class EnhancedAttendanceService {
         }
 
         // Enforce geofence for manual check-ins ONLY IF remote clock-in is NOT allowed
-        const remoteAllowed = userSettings?.allow_remote_clockin === true;
+        const globalRemoteAllowed = company.allow_remote_clockin === true;
+        const userRemoteAllowed = userSettings?.allow_remote_clockin === true;
+        const remoteAllowed = globalRemoteAllowed || userRemoteAllowed;
 
         if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence && !remoteAllowed) {
           throw new Error(
@@ -820,7 +822,7 @@ class EnhancedAttendanceService {
 
       if (filters.department) {
         paramCount++;
-        conditions.push(`u.department = $${paramCount}`);
+        conditions.push(`d.name = $${paramCount}`);
         params.push(filters.department);
       }
 
@@ -843,6 +845,7 @@ class EnhancedAttendanceService {
         `SELECT COUNT(*) 
          FROM attendance_records ar
          JOIN users u ON ar.user_id = u.id
+         LEFT JOIN departments d ON u.department_id = d.id
          WHERE ${whereClause}`,
         params
       );
@@ -851,7 +854,8 @@ class EnhancedAttendanceService {
 
       // Get data with optimized subqueries for breaks to avoid N+1
       let queryStr = `
-        SELECT ar.*, u.first_name, u.last_name, u.email, u.department, u.position,
+        SELECT ar.*, u.first_name, u.last_name, u.email, u.position,
+        d.name as department,
         CASE 
           WHEN ar.is_within_geofence THEN 'onsite'
           WHEN ar.clock_in_location IS NOT NULL THEN 'remote'
@@ -874,6 +878,7 @@ class EnhancedAttendanceService {
         ) as breaks_json
         FROM attendance_records ar
         JOIN users u ON ar.user_id = u.id
+        LEFT JOIN departments d ON u.department_id = d.id
         WHERE ${whereClause}
         ORDER BY ar.clock_in_time DESC
       `;

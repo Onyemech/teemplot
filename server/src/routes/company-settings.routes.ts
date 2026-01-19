@@ -32,7 +32,8 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
 
           language,
           breaks_enabled,
-          max_break_duration_minutes
+          max_break_duration_minutes,
+          allow_remote_clockin
         FROM companies 
         WHERE id = $1`,
         [request.user.companyId]
@@ -161,12 +162,14 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
         autoCheckinEnabled,
         autoCheckoutEnabled,
         geofenceRadiusMeters,
-        requireGeofenceForCheckin
+        requireGeofenceForCheckin,
+        allowRemoteClockin
       } = request.body as {
         autoCheckinEnabled?: boolean;
         autoCheckoutEnabled?: boolean;
         geofenceRadiusMeters?: number;
         requireGeofenceForCheckin?: boolean;
+        allowRemoteClockin?: boolean;
       };
 
       const updates: string[] = [];
@@ -193,6 +196,11 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
         updates.push(`require_geofence_for_clockin = $${paramIndex++}`);
       }
 
+      if (typeof allowRemoteClockin === 'boolean') {
+        params.push(allowRemoteClockin);
+        updates.push(`allow_remote_clockin = $${paramIndex++}`);
+      }
+
       if (updates.length === 0) {
         return reply.code(400).send({
           success: false,
@@ -208,7 +216,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING auto_clockin_enabled, auto_clockout_enabled, 
-                   geofence_radius_meters, require_geofence_for_clockin`,
+                  geofence_radius_meters, require_geofence_for_clockin, allow_remote_clockin`,
         params
       );
 

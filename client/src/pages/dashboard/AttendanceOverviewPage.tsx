@@ -40,12 +40,16 @@ interface AttendanceStats {
   presentToday: number
   lateToday: number
   absentToday: number
+  onSiteToday: number
+  remoteToday: number
+  overtimeToday: number
 }
 
 interface AttendanceRecord {
   id: string
   employeeId: string
   employeeName: string
+  employeeEmail?: string
   employeeAvatar?: string
   department: string
   clockInTime: string | null
@@ -74,7 +78,8 @@ export default function AttendanceOverviewPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsPerPage] = useState(10)
-  const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [recordsLoading, setRecordsLoading] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
   // Data State
@@ -88,7 +93,10 @@ export default function AttendanceOverviewPage() {
     onLeave: 0,
     presentToday: 0,
     lateToday: 0,
-    absentToday: 0
+    absentToday: 0,
+    onSiteToday: 0,
+    remoteToday: 0,
+    overtimeToday: 0
   })
   const [records, setRecords] = useState<AttendanceRecord[]>([])
 
@@ -109,30 +117,51 @@ export default function AttendanceOverviewPage() {
       navigate('/dashboard')
       return
     }
-    fetchData()
+    // Fetch stats only once
+    fetchStats()
+  }, [])
+
+  // Fetch records when date changes
+  useEffect(() => {
+    if (hasAccess('attendance')) {
+      fetchRecords()
+    }
   }, [selectedDate])
 
-  const fetchData = async () => {
+  const fetchStats = async () => {
     try {
-      setLoading(true)
+      setStatsLoading(true)
 
       // Fetch Dashboard Stats
       const statsRes = await apiClient.get('/api/dashboard/stats')
       if (statsRes.data.success) {
         const d = statsRes.data.data
         setStats({
-          totalEmployees: d.employeeStats?.total || 0,
-          totalClockIn: d.attendanceStats?.presentToday || 0,
-          earlyClockIn: 0, // Not currently provided by API
-          lateClockIn: d.attendanceStats?.lateToday || 0,
-          absent: d.attendanceStats?.absentToday || 0,
-          earlyDeparture: 0, // Not currently provided
-          onLeave: 0, // Not currently provided
-          presentToday: d.attendanceStats?.presentToday || 0,
-          lateToday: d.attendanceStats?.lateToday || 0,
-          absentToday: d.attendanceStats?.absentToday || 0,
+          totalEmployees: d.totalEmployees || 0,
+          totalClockIn: d.presentToday || 0,
+          earlyClockIn: 0,
+          lateClockIn: d.lateToday || 0,
+          absent: d.absentToday || 0,
+          earlyDeparture: 0,
+          onLeave: d.onLeave || 0,
+          presentToday: d.presentToday || 0,
+          lateToday: d.lateToday || 0,
+          absentToday: d.absentToday || 0,
+          onSiteToday: d.onSiteToday || 0,
+          remoteToday: d.remoteToday || 0,
+          overtimeToday: d.overtimeTodayCount || 0,
         })
       }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  const fetchRecords = async () => {
+    try {
+      setRecordsLoading(true)
 
       // Fetch Attendance Records
       const params = new URLSearchParams()
@@ -147,6 +176,7 @@ export default function AttendanceOverviewPage() {
           id: r.id,
           employeeId: r.user_id,
           employeeName: `${r.first_name || 'Unknown'} ${r.last_name || ''}`,
+          employeeEmail: r.email,
           department: r.department || 'General',
           clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
           clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
@@ -156,18 +186,17 @@ export default function AttendanceOverviewPage() {
           date: r.clock_in_time ? format(new Date(r.clock_in_time), 'yyyy-MM-dd') : '-',
           device: r.check_in_method || 'Manual',
           ipAddress: r.ip_address || 'Unknown IP',
-          workHours: 'Configurable',
+          workHours: '8h 0m',
           overtime: r.overtime_minutes ? `${Math.floor(r.overtime_minutes / 60)}h ${r.overtime_minutes % 60}m` : '0h 0m',
           lateBy: r.minutes_late ? `${r.minutes_late} mins` : '0 mins',
           breakDuration: r.total_break_minutes ? `${Math.floor(r.total_break_minutes)} mins` : '0 mins'
         }))
         setRecords(mappedRecords)
       }
-
     } catch (error) {
-      console.error('Failed to fetch attendance data:', error)
+      console.error('Failed to fetch attendance records:', error)
     } finally {
-      setLoading(false)
+      setRecordsLoading(false)
     }
   }
 
@@ -353,7 +382,7 @@ export default function AttendanceOverviewPage() {
     }
   }
 
-  if (loading) {
+  if (statsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
@@ -409,6 +438,9 @@ export default function AttendanceOverviewPage() {
             late={stats.lateToday}
             absent={stats.absentToday}
             onLeave={stats.onLeave}
+            onSite={stats.onSiteToday}
+            remote={stats.remoteToday}
+            overtime={stats.overtimeToday}
           />
         </div>
 
@@ -445,9 +477,9 @@ export default function AttendanceOverviewPage() {
             iconColorClass="text-purple-600"
           />
           <StatCard
-            label="Avg. Work Hours"
-            value="8h 12m"
-            icon={ClockIcon}
+            label="Overtime Today"
+            value={stats.overtimeToday}
+            icon={Zap}
             iconColorClass="text-blue-600"
           />
         </div>
@@ -485,9 +517,14 @@ export default function AttendanceOverviewPage() {
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
-        {paginatedRecords.length === 0 ? (
+        {recordsLoading ? (
+          <div className="text-center py-10 bg-white rounded-xl">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F5D5D] mx-auto"></div>
+            <p className="text-sm text-gray-500 mt-3">Loading attendance records...</p>
+          </div>
+        ) : paginatedRecords.length === 0 ? (
           <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
-            <p className="text-gray-500">No attendance records found</p>
+            <p className="text-gray-500">No attendance records found for {format(selectedDate, 'MMM dd, yyyy')}</p>
           </div>
         ) : (
           paginatedRecords.map((record) => (
@@ -532,7 +569,11 @@ export default function AttendanceOverviewPage() {
               {/* Expanded Details Mobile */}
               {expandedRowId === record.id && (
                 <div className="px-4 pb-4 pt-0 bg-gray-50/50 border-t border-gray-100 space-y-3">
-                  <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div className="mb-3 pt-3">
+                    <span className="text-xs text-gray-500 block">Email</span>
+                    <span className="text-sm font-medium text-gray-900">{record.employeeEmail || 'N/A'}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <span className="text-xs text-gray-500 block">Work Hours</span>
                       <span className="text-sm font-medium text-gray-900">{record.workHours}</span>
@@ -580,10 +621,19 @@ export default function AttendanceOverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedRecords.length === 0 ? (
+              {recordsLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
-                    No attendance records found
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F5D5D]"></div>
+                      <p className="text-sm text-gray-500">Loading attendance records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-sm">
+                    <p>No attendance records found for {format(selectedDate, 'MMM dd, yyyy')}</p>
                   </td>
                 </tr>
               ) : (
@@ -642,12 +692,16 @@ export default function AttendanceOverviewPage() {
                     {/* Expanded Row Desktop */}
                     {expandedRowId === record.id && (
                       <tr className="bg-gray-50/50">
-                        <td colSpan={7} className="px-6 py-4">
+                        <td colSpan={8} className="px-6 py-4">
                           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                             <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                               <Info className="w-4 h-4 text-primary" />
                               Attendance Details
                             </h4>
+                            <div className="mb-4 pb-4 border-b border-gray-100">
+                              <p className="text-xs text-gray-500 mb-1">Employee Email</p>
+                              <p className="text-sm font-medium text-gray-900">{record.employeeEmail || 'N/A'}</p>
+                            </div>
                             <div className="grid grid-cols-4 gap-6">
                               <div>
                                 <p className="text-xs text-gray-500 mb-1">Scheduled Work Hours</p>

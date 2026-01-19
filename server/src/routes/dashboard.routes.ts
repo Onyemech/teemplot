@@ -94,7 +94,26 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       const { auditService } = await import('../services/AuditService');
 
       // Fetch actual audit logs
-      const activity = await auditService.getCompanyAuditLogs(companyId, 10);
+      const logs = await auditService.getCompanyAuditLogs(companyId, 15);
+
+      const activity = logs.map(log => {
+        let type: 'attendance' | 'task' | 'leave' | 'alert' = 'alert';
+        if (log.entityType === 'attendance') type = 'attendance';
+        else if (log.entityType === 'task') type = 'task';
+        else if (log.entityType === 'leave') type = 'leave';
+
+        let actionDisplay = log.action.replace(/_/g, ' ');
+        // Capitalize first letter
+        actionDisplay = actionDisplay.charAt(0).toUpperCase() + actionDisplay.slice(1);
+
+        return {
+          id: log.id,
+          type,
+          message: `${log.actor.name} ${actionDisplay} ${log.entityType}`,
+          timestamp: new Date(log.createdAt).toLocaleString(),
+          user: log.actor.name
+        };
+      });
 
       return reply.code(200).send({ success: true, data: activity });
     } catch (error: any) {

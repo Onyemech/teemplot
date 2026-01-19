@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
-    Clock,
-    CheckSquare,
-    AlertTriangle
-  } from 'lucide-react';
-  // import { useUser } from '@/contexts/UserContext';
+  Clock,
+  CheckSquare,
+  AlertTriangle
+} from 'lucide-react';
+// import { useUser } from '@/contexts/UserContext';
 import DepartmentTaskOverview from '@/components/dashboard/DepartmentTaskOverview';
 import StatCard from '@/components/dashboard/StatCard';
 import { UserRoles } from '@/constants/roles';
+import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface DashboardStats {
   teamMembers: number;
@@ -32,14 +33,20 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      // Mock stats for now - replace with API call
-      // const response = await fetch('/api/dashboard/admin-stats');
-      setStats({
-        teamMembers: 12,
-        activeTasks: 8,
-        pendingReviews: 3,
-        attendanceRate: 95
+      const response = await fetch(buildApiUrl('/dashboard/stats'), {
+        credentials: 'include'
       });
+      const data = await response.json();
+
+      if (data.success) {
+        const d = data.data;
+        setStats({
+          teamMembers: d.totalEmployees || 0,
+          activeTasks: d.pendingTasks || 0,
+          pendingReviews: (d.pendingTaskReviews || 0) + (d.pendingLeaveRequests || 0),
+          attendanceRate: d.averageAttendanceRate || 0
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {

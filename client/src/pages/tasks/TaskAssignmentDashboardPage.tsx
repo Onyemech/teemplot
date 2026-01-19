@@ -3,13 +3,13 @@ import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
 
-export default function TaxDashboardPage() {
+export default function TaskAssignmentDashboardPage() {
   const toast = useToast()
   const [assignments, setAssignments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
     userId: '',
-    taxCode: '',
+    taskCode: '',
     rate: 0,
     notes: ''
   })
@@ -17,12 +17,12 @@ export default function TaxDashboardPage() {
 
   const fetchAssignments = async () => {
     try {
-      const res = await apiClient.get('/api/tax/assignments')
+      const res = await apiClient.get('/api/task-assignments/assignments')
       if (res.data.success) {
         setAssignments(res.data.data)
       }
     } catch (e) {
-      toast.error('Failed to load tax assignments')
+      toast.error('Failed to load task assignments')
     } finally {
       setLoading(false)
     }
@@ -30,12 +30,12 @@ export default function TaxDashboardPage() {
 
   const fetchCodes = async () => {
     try {
-      const res = await apiClient.get('/api/tax/codes')
+      const res = await apiClient.get('/api/task-assignments/codes')
       if (res.data.success) {
         setCodes(res.data.data)
       }
     } catch (e) {
-      toast.error('Failed to load tax codes')
+      toast.error('Failed to load task codes')
     }
   }
 
@@ -45,19 +45,19 @@ export default function TaxDashboardPage() {
   }, [])
 
   const submit = async () => {
-    if (!form.taxCode || form.rate <= 0) {
-      toast.error('Tax code and rate are required')
+    if (!form.taskCode || form.rate <= 0) {
+      toast.error('Task code and rate are required')
       return
     }
     try {
-      const res = await apiClient.post('/api/tax/assign', form)
+      const res = await apiClient.post('/api/task-assignments/assign', form)
       if (res.data.success) {
-        toast.success(res.data.message || 'Tax assignment created')
-        setForm({ userId: '', taxCode: '', rate: 0, notes: '' })
+        toast.success(res.data.message || 'Task assignment created')
+        setForm({ userId: '', taskCode: '', rate: 0, notes: '' })
         fetchAssignments()
       }
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Failed to assign tax')
+      toast.error(e.response?.data?.message || 'Failed to assign task')
     }
   }
 
@@ -66,7 +66,7 @@ export default function TaxDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-[#212121] mb-4">Assign Tax</h2>
+        <h2 className="text-lg font-semibold text-[#212121] mb-4">Assign Task Profile</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-[#212121] mb-1 block">User (optional)</label>
@@ -78,10 +78,10 @@ export default function TaxDashboardPage() {
             />
           </div>
           <div>
-            <label className="text-sm text-[#212121] mb-1 block">Tax Code</label>
+            <label className="text-sm text-[#212121] mb-1 block">Task Role/Code</label>
             <select
-              value={form.taxCode}
-              onChange={e => setForm({ ...form, taxCode: e.target.value })}
+              value={form.taskCode}
+              onChange={e => setForm({ ...form, taskCode: e.target.value })}
               className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
             >
               <option value="">Select code</option>
@@ -93,14 +93,14 @@ export default function TaxDashboardPage() {
             </select>
           </div>
           <div>
-            <label className="text-sm text-[#212121] mb-1 block">Rate (%)</label>
+            <label className="text-sm text-[#212121] mb-1 block">Task Weight/Rate</label>
             <input
               type="number"
               step={0.01}
               value={form.rate}
               onChange={e => setForm({ ...form, rate: parseFloat(e.target.value) || 0 })}
               className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-              placeholder="e.g. 7.5"
+              placeholder="e.g. 1.5"
             />
           </div>
           <div>
@@ -114,30 +114,30 @@ export default function TaxDashboardPage() {
           </div>
         </div>
         <div className="mt-4">
-          <Button variant="primary" onClick={submit}>Assign Tax</Button>
+          <Button variant="primary" onClick={submit}>Assign Profile</Button>
         </div>
       </div>
 
       <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-[#212121] mb-4">Tax Assignments</h2>
+        <h2 className="text-lg font-semibold text-[#212121] mb-4">Active Assignments</h2>
         <div className="divide-y divide-[#e0e0e0]">
           {assignments.map((a) => (
             <div key={a.id} className="py-3 flex items-center justify-between">
               <div>
                 <p className="text-sm text-[#212121]">
-                  {a.tax_code} • {a.rate}% • {a.status}
+                  {a.task_code} • Weight: {a.rate} • {a.status}
                 </p>
                 <p className="text-xs text-[#757575]">
                   {a.user_id ? `User: ${a.user_id}` : 'Company-wide'}
                 </p>
               </div>
-              <a href={`/dashboard/tax/assignments/${a.id}`} className="text-[#0F5D5D] text-sm">
+              <a href={`/dashboard/tasks/assignments/${a.id}`} className="text-[#0F5D5D] text-sm">
                 Review
               </a>
             </div>
           ))}
           {assignments.length === 0 && (
-            <p className="text-sm text-[#757575]">No assignments</p>
+            <p className="text-sm text-[#757575]">No active profiles</p>
           )}
         </div>
       </div>

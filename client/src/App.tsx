@@ -33,6 +33,8 @@ import TaskAssignPage from './pages/tasks/TaskAssignPage'
 import TaskCompletePage from './pages/tasks/TaskCompletePage'
 import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
 import TaskStatusPage from './pages/tasks/TaskStatusPage'
+import TaskAssignmentDashboardPage from './pages/tasks/TaskAssignmentDashboardPage'
+import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
 
 import './utils/debugAuth'
 
@@ -125,6 +127,8 @@ function App() {
                 <Route path="tasks/complete" element={<TaskCompletePage />} />
                 <Route path="tasks/verify" element={<TaskVerifyPage />} />
                 <Route path="tasks/status" element={<TaskStatusPage />} />
+                <Route path="tasks/assignments" element={<TaskAssignmentDashboardPage />} />
+                <Route path="tasks/assignments/:id" element={<TaskAssignmentDetailPage />} />
                 <Route path="inbox" element={<InboxPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

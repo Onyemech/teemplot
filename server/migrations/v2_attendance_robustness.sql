@@ -104,6 +104,12 @@ BEGIN
     IF (TG_OP = 'UPDATE' AND NEW.clock_out_time IS NOT NULL AND OLD.clock_out_time IS NULL) THEN
         v_local_time := (NEW.clock_out_time AT TIME ZONE v_timezone)::TIME;
         
+        -- Calculate Duration
+        NEW.duration_minutes := (EXTRACT(EPOCH FROM (NEW.clock_out_time - NEW.clock_in_time)) / 60)::INTEGER;
+        
+        -- Calculate Overtime (Worked past work_end_time)
+        NEW.overtime_minutes := GREATEST(0, (EXTRACT(EPOCH FROM (v_local_time - v_work_end)) / 60)::INTEGER);
+        
         NEW.minutes_early := GREATEST(0, (EXTRACT(EPOCH FROM (v_work_end - v_local_time)) / 60)::INTEGER);
         NEW.is_early_departure := (NEW.minutes_early > v_threshold);
         
@@ -125,6 +131,7 @@ EXECUTE FUNCTION calculate_attendance_metrics();
 
 -- Add missing columns if they don't exist (safety)
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS duration_minutes INTEGER;
+ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS overtime_minutes INTEGER;
 ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS total_break_minutes INTEGER;
 
 COMMIT;

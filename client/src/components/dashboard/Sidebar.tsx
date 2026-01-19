@@ -19,6 +19,7 @@ import {
   Calendar,
   TrendingUp,
   Globe,
+  CircleDollarSign,
   X
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
@@ -94,6 +95,7 @@ export const navigationConfig: NavItemConfig[] = [
       { label: 'Complete', href: '/dashboard/tasks/complete', icon: ClipboardList, feature: 'tasks' },
       { label: 'Verify', href: '/dashboard/tasks/verify', icon: ClipboardList, feature: 'tasks' },
       { label: 'Status', href: '/dashboard/tasks/status', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Rate Profiles', href: '/dashboard/tasks/assignments', icon: FileText, feature: 'tasks', adminOnly: true },
     ],
   },
   {
@@ -115,6 +117,11 @@ export const navigationConfig: NavItemConfig[] = [
     icon: Wallet,
     feature: 'wallet', // Gold only
     adminOnly: true,
+    submenu: [
+      { label: 'Balance', href: '/dashboard/wallet', icon: Wallet, feature: 'wallet' },
+      { label: 'Transactions', href: '/dashboard/wallet/transactions', icon: FileText, feature: 'wallet' },
+      { label: 'Payroll', href: '/dashboard/attendance/payroll', icon: CircleDollarSign, feature: 'wallet', adminOnly: true },
+    ],
   },
 ]
 
@@ -216,7 +223,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/leave',
       '/dashboard/leave/requests',
       '/dashboard/leave/calendar',
-      '/dashboard/tax',
+      '/dashboard/tasks/assignments',
       '/dashboard/tasks',
       '/dashboard/tasks/assign',
       '/dashboard/tasks/complete',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Fingerprint, MapPin, Loader2, CheckCircle, Coffee } from 'lucide-react';
+import { Clock, Fingerprint, MapPin, Loader2, CheckCircle, Coffee, Globe } from 'lucide-react';
 import WorkScheduleSettings from './WorkScheduleSettings';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
@@ -13,6 +13,7 @@ interface CompanySettings {
   biometric_timeout_minutes: number;
   breaks_enabled: boolean;
   max_break_duration_minutes: number;
+  allow_remote_clockin: boolean;
 }
 
 export default function AttendanceGeneralSettings() {
@@ -56,6 +57,7 @@ export default function AttendanceGeneralSettings() {
         autoCheckoutEnabled: newSettings.auto_clockout_enabled,
         geofenceRadiusMeters: newSettings.geofence_radius_meters,
         requireGeofenceForCheckin: newSettings.require_geofence_for_clockin,
+        allowRemoteClockin: newSettings.allow_remote_clockin,
       });
 
       if (response.data.success) {
@@ -206,6 +208,43 @@ export default function AttendanceGeneralSettings() {
                 Configure office locations in the "Multiple Clock-In" page (under Attendance menu).
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Remote Clocking Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 rounded-lg">
+              <Globe className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Remote Clocking</h3>
+              <p className="text-sm text-gray-500">Allow employees to clock in from outside the geofence</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <label className="text-base font-semibold text-gray-900">Allow Remote Clock-in (Global)</label>
+              <p className="text-sm text-gray-500 max-w-md">
+                When enabled, all employees can clock in from any location without geofence restrictions.
+                Individual permissions can still be managed in the Remote Clocking page.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.allow_remote_clockin}
+                onChange={(e) => updateAutoAttendance('allow_remote_clockin', e.target.checked)}
+                className="sr-only peer"
+                disabled={savingAuto}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
           </div>
         </div>
       </div>

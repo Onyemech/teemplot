@@ -179,21 +179,33 @@ export async function employeesRoutes(fastify: FastifyInstance) {
       const { id } = request.params as any;
       const { allowed } = request.body as any;
 
+      fastify.log.info({
+        adminId: user.userId,
+        adminRole: user.role,
+        employeeId: id,
+        allowed,
+        companyId: user.companyId
+      }, 'Attempting to update remote clockin permission');
+
       if (user.role !== 'owner' && user.role !== 'admin') {
-        return reply.code(403).send({ success: false, message: 'Forbidden' });
+        fastify.log.warn({ adminId: user.userId, adminRole: user.role }, 'Unauthorized attempt to update remote clockin permission');
+        return reply.code(403).send({ success: false, message: 'Forbidden: Insufficient permissions' });
       }
 
       const updateQuery = await db.query(
-        `UPDATE users 
+        `UPDATE users
          SET allow_remote_clockin = $1, updated_at = NOW()
          WHERE id = $2 AND company_id = $3 AND deleted_at IS NULL
-         RETURNING id`,
+         RETURNING id, first_name, last_name`,
         [allowed, id, user.companyId]
       );
 
       if (!updateQuery.rows[0]) {
-        return reply.code(404).send({ success: false, message: 'Employee not found' });
+        fastify.log.warn({ employeeId: id, companyId: user.companyId }, 'Employee not found for remote clockin update');
+        return reply.code(404).send({ success: false, message: 'Employee not found or unauthorized' });
       }
+
+      fastify.log.info({ employeeId: id, allowed }, 'Remote clockin permission updated successfully');
 
       return reply.send({ success: true, message: 'Permission updated successfully' });
     } catch (error: any) {

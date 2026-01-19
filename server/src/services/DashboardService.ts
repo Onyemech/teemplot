@@ -9,11 +9,11 @@ export class DashboardService {
         userId,
         companyId,
       ]);
-      
+
       if (!userQuery.rows[0]) {
         throw new Error('User not found');
       }
-      
+
       const { role } = userQuery.rows[0];
 
       // Get company details including limits
@@ -34,6 +34,7 @@ export class DashboardService {
       const statsQuery = `
         SELECT 
           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as total_employees,
+          (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL AND is_active = true) as active_employees,
           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending') as pending_invitations,
           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'accepted') as accepted_invitations,
           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'expired') as expired_invitations,
@@ -61,7 +62,27 @@ export class DashboardService {
            AND status = 'completed') as completed_tasks,
           (SELECT COUNT(*) FROM tasks 
            WHERE company_id = $1 
-           AND status = 'awaiting_review') as tasks_awaiting_review
+           AND status = 'awaiting_review') as tasks_awaiting_review,
+          (SELECT COUNT(*) FROM leave_requests
+           WHERE company_id = $1
+           AND status = 'approved'
+           AND CURRENT_DATE BETWEEN DATE(start_date) AND DATE(end_date)) as on_leave,
+          (SELECT COUNT(*) FROM leave_requests
+           WHERE company_id = $1
+           AND status = 'pending') as pending_leave_requests,
+          (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
+           WHERE company_id = $1 
+           AND DATE(clock_in_time) = CURRENT_DATE 
+           AND is_within_geofence = true) as on_site_today,
+          (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
+           WHERE company_id = $1 
+           AND DATE(clock_in_time) = CURRENT_DATE 
+           AND is_within_geofence = false 
+           AND clock_in_location IS NOT NULL) as remote_today,
+          (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
+           WHERE company_id = $1 
+           AND DATE(clock_in_time) = CURRENT_DATE 
+           AND overtime_minutes > 0) as overtime_today_count
       `;
 
       const result = await this.db.query(statsQuery, [companyId]);
@@ -81,33 +102,54 @@ export class DashboardService {
         daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       }
 
+      const attendanceRate = totalEmployees > 0
+        ? Math.round((Number(stats.present_today || 0) / totalEmployees) * 100)
+        : 0;
+
+      const taskTotal = Number(stats.pending_tasks || 0) + Number(stats.completed_tasks || 0) + Number(stats.tasks_awaiting_review || 0);
+      const taskCompletionRate = taskTotal > 0
+        ? Math.round((Number(stats.completed_tasks || 0) / taskTotal) * 100)
+        : 0;
+
       return {
         // Employee metrics
         totalEmployees,
+        activeEmployees: Number(stats.active_employees || 0),
         pendingInvitations,
         acceptedInvitations: Number(stats.accepted_invitations || 0),
         expiredInvitations: Number(stats.expired_invitations || 0),
+        onLeave: Number(stats.on_leave || 0),
         declaredLimit,
         actualLimit,
         employeeSlotsRemaining: Math.max(0, declaredLimit - totalEmployees - pendingInvitations),
         employeeLimitReached: (totalEmployees + pendingInvitations) >= declaredLimit,
-        
+
         // Attendance metrics
         presentToday: Number(stats.present_today || 0),
         lateToday: Number(stats.late_today || 0),
         absentToday: Number(stats.absent_today || 0),
-        
+        onSiteToday: Number(stats.on_site_today || 0),
+        remoteToday: Number(stats.remote_today || 0),
+        overtimeTodayCount: Number(stats.overtime_today_count || 0),
+        averageAttendanceRate: attendanceRate,
+
         // Task metrics
         pendingTasks: Number(stats.pending_tasks || 0),
         completedTasks: Number(stats.completed_tasks || 0),
         tasksAwaitingReview: Number(stats.tasks_awaiting_review || 0),
-        
+        pendingTaskReviews: Number(stats.tasks_awaiting_review || 0), // Alias for frontend
+        averageTaskCompletionRate: taskCompletionRate,
+
+        // Leave metrics
+        pendingLeaveRequests: Number(stats.pending_leave_requests || 0),
+
         // Subscription metrics
         subscriptionPlan: company?.plan || 'free',
         subscriptionStatus: company?.subscription_status || 'active',
         daysRemaining,
         subscriptionExpiringSoon: daysRemaining !== null && daysRemaining <= 14,
-        
+        trialDaysLeft: daysRemaining, // Alias for frontend
+
         // User role
         userRole: role,
       };
@@ -146,7 +188,7 @@ export class DashboardService {
       `;
 
       const result = await this.db.query(query, [userId, limit]);
-      
+
       return result.rows.map((order: any) => ({
         id: order.id,
         item_name: order.item_name || 'Order',

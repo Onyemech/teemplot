@@ -10,7 +10,7 @@ BEGIN;
 -- ============================================================================
 
 -- Add subscription management columns
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ DEFAULT NOW() + INTERVAL '365 days';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 days';
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS plan VARCHAR(20) DEFAULT 'free';
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS employee_limit INTEGER DEFAULT 5;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS add_on_seats INTEGER DEFAULT 0;

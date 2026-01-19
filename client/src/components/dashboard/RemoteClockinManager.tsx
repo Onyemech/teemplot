@@ -45,20 +45,24 @@ export default function RemoteClockinManager() {
             setProcessingId(employee.id);
             const newValue = !employee.allowRemoteClockin;
 
-            await apiClient.patch(`/api/employees/${employee.id}/remote-clockin`, {
+            const response = await apiClient.patch(`/api/employees/${employee.id}/remote-clockin`, {
                 allowed: newValue
             });
 
-            setEmployees(prev => prev.map(emp =>
-                emp.id === employee.id
-                    ? { ...emp, allowRemoteClockin: newValue }
-                    : emp
-            ));
-
-            success(`Updated remote permission for ${employee.firstName}`);
-        } catch (error) {
-            console.error('Failed to update permission:', error);
-            showError('Failed to update permission');
+            if (response.data.success) {
+                setEmployees(prev => prev.map(emp =>
+                    emp.id === employee.id
+                        ? { ...emp, allowRemoteClockin: newValue }
+                        : emp
+                ));
+                success(`Remote permission ${newValue ? 'granted to' : 'revoked from'} ${employee.firstName}`);
+            } else {
+                throw new Error(response.data.message || 'Failed to update permission');
+            }
+        } catch (err: any) {
+            console.error('Failed to update permission:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to update permission';
+            showError(`Update failed: ${errorMessage}`);
         } finally {
             setProcessingId(null);
         }
@@ -94,8 +98,8 @@ export default function RemoteClockinManager() {
                 onClick={() => togglePermission(employee)}
                 disabled={processingId === employee.id}
                 className={`p-1.5 rounded-full transition-colors ${type === 'standard'
-                        ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                        : 'text-indigo-600 hover:text-red-600 hover:bg-red-50'
+                    ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                    : 'text-indigo-600 hover:text-red-600 hover:bg-red-50'
                     }`}
                 title={type === 'standard' ? "Enable Remote Clock-in" : "Disable Remote Clock-in"}
             >

@@ -237,9 +237,9 @@ export async function buildApp() {
   const leaveRoutes = await import('./routes/leave.routes');
   await app.register(leaveRoutes.default, { prefix: `${apiPrefix}/leave` });
 
-  // Import and register tax routes
-  const taxRoutes = await import('./routes/tax.routes');
-  await app.register(taxRoutes.default, { prefix: `${apiPrefix}/tax` });
+  // Import and register task assignment routes
+  const taskAssignmentRoutes = await import('./routes/task-assignment.routes');
+  await app.register(taskAssignmentRoutes.default, { prefix: `${apiPrefix}/task-assignments` });
 
   // Import and register tasks routes
   const tasksRoutes = await import('./routes/tasks.routes');

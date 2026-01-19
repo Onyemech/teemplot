@@ -62,7 +62,7 @@ export default function OwnerDashboard() {
         credentials: 'include' // Use httpOnly cookies
       });
       const statsData = await statsResponse.json();
-      
+
       if (statsData.success) {
         setStats(statsData.data);
         setTrialDaysLeft(statsData.data.trialDaysLeft);
@@ -73,7 +73,7 @@ export default function OwnerDashboard() {
         credentials: 'include' // Use httpOnly cookies
       });
       const activityData = await activityResponse.json();
-      
+
       if (activityData.success) {
         setRecentActivity(activityData.data);
       }
@@ -91,28 +91,6 @@ export default function OwnerDashboard() {
       {/* Header - Removed duplicate mobile header since DashboardLayout now handles it */}
 
       <div className="space-y-6">
-        {/* Trial Banner */}
-        {trialDaysLeft !== null && trialDaysLeft > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <AlertTriangle className="h-5 w-5 text-blue-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-blue-900">
-                  Trial Period: {trialDaysLeft} days remaining
-                </p>
-                <p className="text-xs text-blue-700 mt-0.5">
-                  Upgrade to continue using all features
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('/subscription/upgrade')}
-              className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm"
-            >
-              Upgrade Now
-            </button>
-          </div>
-        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-4 md:gap-3 md:mb-8 [&>*:nth-last-child(1):nth-child(odd)]:col-span-2 md:[&>*:nth-last-child(1):nth-child(odd)]:col-span-1">
@@ -147,9 +125,35 @@ export default function OwnerDashboard() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Performance Metrics */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Subscription Quick View - Balanced at top of main area */}
+            <div className="bg-gradient-to-r from-[#0F5D5D] to-[#0a4545] rounded-xl shadow-lg p-5 text-white flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+              <div className="flex items-center gap-4 relative z-10 text-center md:text-left">
+                <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">
+                    {trialDaysLeft !== null && trialDaysLeft > 0 ? 'Trial Plan Active' : 'Gold Plan Active'}
+                  </h3>
+                  <p className="text-sm text-white/80">
+                    {trialDaysLeft !== null && trialDaysLeft > 0
+                      ? `${trialDaysLeft} days remaining in your trial`
+                      : 'You have full access to all enterprise features'
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/subscription')}
+                className="bg-white text-[#0F5D5D] px-6 py-2.5 rounded-lg hover:bg-white/90 text-sm font-bold transition-all shadow-md active:scale-95 relative z-10 whitespace-nowrap"
+              >
+                Manage Plan
+              </button>
+            </div>
 
 
             {/* Quick Actions */}
@@ -197,12 +201,11 @@ export default function OwnerDashboard() {
                 {recentActivity.length > 0 ? (
                   recentActivity.map((activity) => (
                     <div key={activity.id} className="flex items-start space-x-3 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                      <div className={`p-2 rounded-lg flex-shrink-0 ${
-                        activity.type === 'attendance' ? 'bg-green-100' :
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${activity.type === 'attendance' ? 'bg-green-100' :
                         activity.type === 'task' ? 'bg-purple-100' :
-                        activity.type === 'leave' ? 'bg-blue-100' :
-                        'bg-red-100'
-                      }`}>
+                          activity.type === 'leave' ? 'bg-blue-100' :
+                            'bg-red-100'
+                        }`}>
                         {activity.type === 'attendance' && <Clock className="h-4 w-4 text-green-600" />}
                         {activity.type === 'task' && <CheckSquare className="h-4 w-4 text-purple-600" />}
                         {activity.type === 'leave' && <Calendar className="h-4 w-4 text-blue-600" />}
@@ -221,8 +224,8 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
+          {/* Right Column - Sidebar Widgets */}
+          <div className="lg:col-span-1 space-y-6">
             {/* On Leave Today - Hidden on mobile as requested */}
             <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">On Leave Today</h3>
@@ -283,31 +286,6 @@ export default function OwnerDashboard() {
               </div>
             </div>
 
-            {/* Subscription Info */}
-            <div className="bg-gradient-to-br from-[#0F5D5D] to-[#0a4545] rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
-              {/* Decorative circle */}
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-              
-              <div className="flex items-center justify-between mb-4 relative z-10">
-                <h3 className="text-sm font-semibold opacity-90">Subscription</h3>
-                <DollarSign className="h-5 w-5 opacity-75" />
-              </div>
-              <p className="text-2xl font-bold mb-1 relative z-10">
-                {trialDaysLeft !== null && trialDaysLeft > 0 ? 'Trial Plan' : 'Gold Plan'}
-              </p>
-              <p className="text-sm text-white/80 mb-6 relative z-10">
-                {trialDaysLeft !== null && trialDaysLeft > 0 
-                  ? `${trialDaysLeft} days remaining`
-                  : 'Active subscription'
-                }
-              </p>
-              <button
-                onClick={() => navigate('/subscription')}
-                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white px-4 py-2.5 rounded-lg hover:bg-white/20 text-sm font-medium transition-colors relative z-10"
-              >
-                Manage Subscription
-              </button>
-            </div>
           </div>
         </div>
       </div>
