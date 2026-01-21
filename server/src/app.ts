@@ -97,30 +97,29 @@ export async function buildApp() {
     maxAge: 86400, // 24 hours
   });
 
-  await app.register(rateLimit, {
-    // Increase limit for development to prevent blocking during testing
-    max: parseInt(process.env.RATE_LIMIT_MAX || '10000'),
-    timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
-    errorResponseBuilder: (request, context) => {
-      // Check if context.after is already a string (e.g. "15 minutes")
-      // If it's a number (milliseconds), convert to minutes
-      let retryMsg;
-      if (typeof context.after === 'string') {
-        retryMsg = context.after;
-      } else {
-        const minutes = Math.ceil(Number(context.after) / 1000 / 60);
-        retryMsg = `${minutes} minute${minutes > 1 ? 's' : ''}`;
-      }
-
-      return {
-        statusCode: 429,
-        error: 'Too Many Requests',
-        message: `Too many attempts. Please try again in ${retryMsg}.`,
-        retryAfter: context.after,
-        success: false
-      };
-    }
-  });
+  // Rate limiting is now applied selectively to sensitive endpoints only (see auth routes)
+  // Global rate limiting was causing issues with normal operations
+  // await app.register(rateLimit, {
+  //   max: parseInt(process.env.RATE_LIMIT_MAX || '10000'),
+  //   timeWindow: process.env.RATE_LIMIT_WINDOW || '15 minutes',
+  //   errorResponseBuilder: (request, context) => {
+  //     let retryMsg;
+  //     if (typeof context.after === 'string') {
+  //       retryMsg = context.after;
+  //     } else {
+  //       const minutes = Math.ceil(Number(context.after) / 1000 / 60);
+  //       retryMsg = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+  //     }
+  //
+  //     return {
+  //       statusCode: 429,
+  //       error: 'Too Many Requests',
+  //       message: `Too many attempts. Please try again in ${retryMsg}.`,
+  //       retryAfter: context.after,
+  //       success: false
+  //     };
+  //   }
+  // });
 
   // Cookie plugin (must be registered before JWT)
   await app.register(require('@fastify/cookie'), {

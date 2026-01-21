@@ -97,7 +97,7 @@ export default function EmployeeManagementPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -188,11 +188,10 @@ export default function EmployeeManagementPage() {
                       {employee.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        employee.role === 'owner' ? 'bg-purple-100 text-purple-800' :
-                        employee.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${employee.role === 'owner' ? 'bg-purple-100 text-purple-800' :
+                          employee.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                        }`}>
                         {employee.role}
                       </span>
                     </td>

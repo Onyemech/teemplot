@@ -49,9 +49,9 @@ export default function BiometricSetupPage() {
       const response = await fetch(buildApiUrl('/webauthn/credentials'), {
         credentials: 'include',
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setCredentials(data.data);
       } else {
@@ -73,7 +73,7 @@ export default function BiometricSetupPage() {
 
     try {
       setRegistering(true);
-      
+
       // Step 1: Get registration options from server
       const optionsResponse = await fetch(buildApiUrl('/webauthn/register/options'), {
         method: 'POST',
@@ -118,10 +118,10 @@ export default function BiometricSetupPage() {
 
       toast.success('Biometric authentication registered successfully!');
       fetchUserCredentials(); // Refresh credentials list
-      
+
     } catch (err: any) {
       console.error('Biometric registration error:', err);
-      
+
       if (err.name === 'NotAllowedError') {
         toast.error('Biometric authentication was cancelled or denied');
       } else if (err.name === 'InvalidStateError') {
@@ -146,7 +146,7 @@ export default function BiometricSetupPage() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast.success('Credential removed successfully');
         fetchUserCredentials();
@@ -190,7 +190,7 @@ export default function BiometricSetupPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -212,7 +212,7 @@ export default function BiometricSetupPage() {
           {/* Registration Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Register New Biometric</h2>
-            
+
             {/* Device Type Selection */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">Choose Authentication Method</label>
@@ -221,11 +221,10 @@ export default function BiometricSetupPage() {
                   <button
                     key={option.value}
                     onClick={() => setSelectedDeviceType(option.value as any)}
-                    className={`p-4 border-2 rounded-lg text-left transition-all ${
-                      selectedDeviceType === option.value
+                    className={`p-4 border-2 rounded-lg text-left transition-all ${selectedDeviceType === option.value
                         ? 'border-[#0F5D5D] bg-[#0F5D5D]/5'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className="text-3xl mb-2">{option.icon}</div>
                     <div className="font-medium text-gray-900">{option.label}</div>
@@ -286,7 +285,7 @@ export default function BiometricSetupPage() {
           {/* Existing Credentials Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Your Biometric Credentials</h2>
-            
+
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-[#0F5D5D]" />

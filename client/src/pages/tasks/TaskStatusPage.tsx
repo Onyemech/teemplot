@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import { useUser } from '@/contexts/UserContext'
-import { Clock, AlertCircle, Calendar, User } from 'lucide-react'
+import { Clock, AlertCircle, Calendar, User, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export default function TaskStatusPage() {
@@ -17,21 +17,21 @@ export default function TaskStatusPage() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'my_tasks' | 'created_by_me' | 'department'>('my_tasks')
 
+  // Modal state
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<any>(null)
+  const [completing, setCompleting] = useState(false)
+  const [completionNotes, setCompletionNotes] = useState('')
+  const [actualHours, setActualHours] = useState(1)
+
   const fetchTasks = async () => {
     setLoading(true)
     try {
       const params: any = { status: filter === 'all' ? undefined : filter }
 
-      // If viewing "my tasks", we filter by assignedTo = current user (handled by backend if role=employee, but for admins we need to be explicit or rely on backend default)
-      // Actually backend `getTasks` filters by `assignedTo` if passed.
-
       if (view === 'my_tasks') {
         params.assignedTo = user?.id
       }
-      // "created_by_me" isn't directly supported by `getTasks` in TaskService.ts yet (it filters by assignedTo).
-      // But `getAwaitingReview` gets tasks created by user.
-      // We might need to enhance backend `getTasks` to filter by `createdBy`.
-      // For now, let's stick to what we have.
 
       const res = await apiClient.get('/api/tasks', { params })
       if (res.data.success) {
@@ -57,6 +57,32 @@ export default function TaskStatusPage() {
   useEffect(() => {
     fetchTasks()
   }, [filter, view])
+
+  const handleMarkComplete = async () => {
+    if (!selectedTask) return
+
+    setCompleting(true)
+    try {
+      const res = await apiClient.post(`/api/tasks/${selectedTask.id}/complete`, {
+        actualHours,
+        completionNotes,
+        attachments: []
+      })
+      if (res.data.success) {
+        toast.success('Task marked as complete!')
+        setShowCompleteModal(false)
+        setSelectedTask(null)
+        setCompletionNotes('')
+        setActualHours(1)
+        // Refresh tasks list
+        fetchTasks()
+      }
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to complete task')
+    } finally {
+      setCompleting(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -168,15 +194,32 @@ export default function TaskStatusPage() {
                   </div>
 
                   <div className="flex md:flex-col gap-2 justify-center min-w-[140px]">
-                    {/* Actions based on role and status */}
-                    {task.assigned_to === user?.id && task.status !== 'completed' && task.status !== 'awaiting_review' && (
+                    {/* Show Mark Complete only if user is assigned AND status is pending or in_progress */}
+                    {task.assigned_to === user?.id && (task.status === 'pending' || task.status === 'in_progress') && (
                       <Button
                         variant="primary"
                         size="sm"
-                        onClick={() => navigate('/dashboard/tasks/complete')} // Ideally pass ID
+                        onClick={() => {
+                          setSelectedTask(task)
+                          setShowCompleteModal(true)
+                        }}
                       >
                         Mark Complete
                       </Button>
+                    )}
+
+                    {/* Show status message for awaiting review */}
+                    {task.assigned_to === user?.id && task.status === 'awaiting_review' && (
+                      <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700 text-center">
+                        Awaiting manager review
+                      </div>
+                    )}
+
+                    {/* Show completed message */}
+                    {task.status === 'completed' && (
+                      <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 text-center">
+                        ✓ Completed
+                      </div>
                     )}
 
                     {/* Review Action - if user created it (or owner) and it's awaiting review */}
@@ -184,18 +227,93 @@ export default function TaskStatusPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate('/dashboard/tasks/verify')} // Ideally pass ID
+                        onClick={() => navigate('/dashboard/tasks/verify')}
                       >
                         Review Task
                       </Button>
                     )}
-
-                    {/* View Details button removed as the page does not exist yet */}
                   </div>
                 </div>
               </Card>
             ))
           )}
+        </div>
+      )}
+
+      {/* Complete Task Modal */}
+      {showCompleteModal && selectedTask && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-lg font-semibold text-gray-900">Complete Task</h3>
+              <button
+                onClick={() => {
+                  setShowCompleteModal(false)
+                  setSelectedTask(null)
+                  setCompletionNotes('')
+                  setActualHours(1)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <h4 className="font-medium text-gray-900 mb-1">{selectedTask.title}</h4>
+                <p className="text-sm text-gray-600">{selectedTask.description}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Completion Notes
+                </label>
+                <textarea
+                  value={completionNotes}
+                  onChange={(e) => setCompletionNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  rows={4}
+                  placeholder="Describe what was completed..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Actual Hours Worked
+                </label>
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={actualHours}
+                  onChange={(e) => setActualHours(parseFloat(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex gap-3 justify-end sticky bottom-0 bg-white">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCompleteModal(false)
+                  setSelectedTask(null)
+                  setCompletionNotes('')
+                  setActualHours(1)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleMarkComplete}
+                loading={completing}
+              >
+                Submit for Review
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

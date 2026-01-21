@@ -30,7 +30,7 @@ const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
     'wallet',
     'audit_logs'
   ],
-  silver: ['attendance', 'leave', 'departments', 'employees', 'tasks', 'audit_logs'],
+  silver: ['attendance', 'leave', 'departments', 'employees', 'audit_logs'],
   gold: [
     'attendance',
     'leave',

@@ -88,7 +88,7 @@ class EnhancedAttendanceService {
         throw new Error('Auto check-in is disabled for this company');
       }
 
-      // Check Working Days
+      // Check Working Days - STRICT ENFORCEMENT
       if (company.working_days) {
         const today = new Date().getDay(); // 0 = Sunday
         let isWorkingDay = false;
@@ -112,13 +112,15 @@ class EnhancedAttendanceService {
           }
 
           if (!isWorkingDay) {
-            // We allow it but log it/flag it? User wanted "robust".
-            // Strict enforcement:
-            // throw new Error('Not a working day');
-            // Soft enforcement (Allow Overtime):
-            logger.info({ userId, day: today }, 'Employee checking in on non-working day');
+            // Strict enforcement: Prevent clock-in on non-working days
+            throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
           }
-        } catch (e) {
+        } catch (e: any) {
+          // If it's our thrown error, re-throw it
+          if (e.message.includes('not a working day')) {
+            throw e;
+          }
+          // Otherwise log parsing error and allow
           logger.error({ error: e, workingDays: company.working_days }, 'Failed to parse working days');
         }
       }

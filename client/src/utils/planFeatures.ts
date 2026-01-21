@@ -4,7 +4,7 @@
 
 export type SubscriptionPlan = 'trial' | 'silver' | 'gold'
 
-export type Feature = 
+export type Feature =
   | 'attendance'
   | 'leave'
   | 'employees'
@@ -96,7 +96,7 @@ export function getFeatureDisplayName(feature: Feature): string {
 export function getMissingFeatures(currentPlan: SubscriptionPlan, targetPlan: SubscriptionPlan): Feature[] {
   const currentFeatures = PLAN_FEATURES[currentPlan].features
   const targetFeatures = PLAN_FEATURES[targetPlan].features
-  
+
   return targetFeatures.filter(feature => !currentFeatures.includes(feature))
 }
 

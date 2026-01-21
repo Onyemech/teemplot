@@ -287,7 +287,18 @@ export default function EmployeeDashboard() {
 
     setLoadingAction('clockOut');
     try {
+      // Get current attendance ID first
+      const currentRes = await apiClient.get('/api/attendance/current');
+      if (!currentRes.data.success || !currentRes.data.data) {
+        alert('No active attendance found. Please clock in first.');
+        setLoadingAction(null);
+        return;
+      }
+
+      const attendanceId = currentRes.data.data.id;
+
       const body: any = {
+        attendanceId,
         location,
         reason: earlyReason // Send reason if provided
       };

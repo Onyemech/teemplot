@@ -17,7 +17,7 @@ export default function TaskCompletePage() {
 
   const fetchMyTasks = async () => {
     try {
-      const res = await apiClient.get('/api/tasks?status=in_progress')
+      const res = await apiClient.get('/api/tasks?status=pending,in_progress')
       if (res.data.success) {
         setTasks(res.data.data.tasks)
       }

@@ -8,7 +8,7 @@ export default function AttendanceSettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'multi-clockin'>('general');
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Setup</h1>
@@ -54,7 +54,7 @@ export default function AttendanceSettingsPage() {
             <AttendanceGeneralSettings />
           </>
         )}
-        
+
         {activeTab === 'multi-clockin' && (
           <MultiClockinManager />
         )}

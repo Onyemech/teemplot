@@ -45,39 +45,45 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (eventSourceRef.current) return;
 
     const url = buildApiUrl(API_ENDPOINTS.NOTIFICATIONS.STREAM);
-    const eventSource = new EventSource(url, { withCredentials: true });
 
-    eventSource.onopen = () => {
-      console.log('SSE Connected');
-      setIsConnected(true);
-    };
+    try {
+      const eventSource = new EventSource(url, { withCredentials: true });
 
-    eventSource.onmessage = (event) => {
-      // Keep alive ping
-      if (event.data === ': keepalive') return;
-      
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'connected') return;
+      eventSource.onopen = () => {
+        console.log('✅ SSE Connected - Real-time notifications enabled');
+        setIsConnected(true);
+      };
 
-        handleNewNotification(data);
-      } catch (error) {
-        console.error('Error parsing SSE message:', error);
-      }
-    };
+      eventSource.onmessage = (event) => {
+        // Keep alive ping
+        if (event.data === ': keepalive') return;
 
-    eventSource.onerror = (error) => {
-      console.error('SSE Error:', error);
-      eventSource.close();
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'connected') return;
+
+          handleNewNotification(data);
+        } catch (error) {
+          console.error('Error parsing SSE message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.warn('⚠️ SSE Connection error - Real-time notifications disabled', error);
+        eventSource.close();
+        setIsConnected(false);
+        eventSourceRef.current = null;
+
+        // Don't retry on errors - silently fail
+        // The app will continue to work without real-time notifications
+        // User can still see notifications by refreshing or navigating to notification page
+      };
+
+      eventSourceRef.current = eventSource;
+    } catch (error) {
+      console.warn('⚠️ SSE initialization failed - Real-time notifications disabled', error);
       setIsConnected(false);
-      eventSourceRef.current = null;
-      // Retry connection after 5s
-      setTimeout(() => {
-        if (user) connectToSSE();
-      }, 5000);
-    };
-
-    eventSourceRef.current = eventSource;
+    }
   };
 
   const disconnectSSE = () => {
@@ -156,7 +162,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const markAsRead = async (id: string) => {
     try {
       await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id));
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
@@ -177,21 +183,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const handleToastClick = () => {
     if (!activeToast) return;
-    
+
     // Mark as read
     markAsRead(activeToast.id);
-    
+
     // Navigate based on type/data
     if (activeToast.data?.url) {
-        navigate(activeToast.data.url);
+      navigate(activeToast.data.url);
     } else if (activeToast.type === 'attendance' || activeToast.type === 'early_departure' || activeToast.type === 'geofence_violation') {
-        navigate('/dashboard/attendance');
+      navigate('/dashboard/attendance');
     } else if (activeToast.type === 'leave') {
-        navigate('/dashboard/leave/requests');
+      navigate('/dashboard/leave/requests');
     } else if (activeToast.type === 'task') {
-        navigate('/dashboard/tasks/status');
+      navigate('/dashboard/tasks/status');
     } else if (activeToast.type === 'invitation') {
-        navigate('/dashboard/attendance/invites');
+      navigate('/dashboard/attendance/invites');
     }
 
     setActiveToast(null);
@@ -209,8 +215,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }}>
       {children}
       {activeToast && (
-        <NotificationToast 
-          notification={activeToast} 
+        <NotificationToast
+          notification={activeToast}
           onClose={() => setActiveToast(null)}
           onClick={handleToastClick}
         />

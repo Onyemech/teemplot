@@ -91,11 +91,10 @@ export const navigationConfig: NavItemConfig[] = [
     icon: ClipboardList,
     feature: 'tasks', // Gold only
     submenu: [
-      { label: 'Assign', href: '/dashboard/tasks/assign', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Assign', href: '/dashboard/tasks/assign', icon: ClipboardList, feature: 'tasks', adminOnly: true },
+      { label: 'My Tasks', href: '/dashboard/tasks/status', icon: ClipboardList, feature: 'tasks' },
       { label: 'Complete', href: '/dashboard/tasks/complete', icon: ClipboardList, feature: 'tasks' },
-      { label: 'Verify', href: '/dashboard/tasks/verify', icon: ClipboardList, feature: 'tasks' },
-      { label: 'Status', href: '/dashboard/tasks/status', icon: ClipboardList, feature: 'tasks' },
-      { label: 'Rate Profiles', href: '/dashboard/tasks/assignments', icon: FileText, feature: 'tasks', adminOnly: true },
+      { label: 'Verify', href: '/dashboard/tasks/verify', icon: ClipboardList, feature: 'tasks', adminOnly: true },
     ],
   },
   {

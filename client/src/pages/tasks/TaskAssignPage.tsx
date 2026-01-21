@@ -39,7 +39,11 @@ export default function TaskAssignPage() {
     try {
       const res = await apiClient.get('/api/employees')
       if (res.data.success) {
-        setUsers(res.data.data)
+        // Filter out owners and admins - only show employees and department heads
+        const assignableUsers = res.data.data.filter((u: any) =>
+          u.role !== 'owner' && u.role !== 'admin'
+        )
+        setUsers(assignableUsers)
       }
     } catch (e) {
       toast.error('Failed to load users')
@@ -92,7 +96,7 @@ export default function TaskAssignPage() {
         </div>
       </div>
 
-      <Card className="max-w-3xl">
+      <Card>
         <div className="p-6 space-y-6">
           <Input
             label="Task Title"
@@ -119,7 +123,7 @@ export default function TaskAssignPage() {
               label="Assign To"
               required
               options={users.map(u => ({
-                label: `${u.first_name} ${u.last_name} (${u.role})`,
+                label: `${u.firstName || 'Unknown'} ${u.lastName || 'User'} (${u.role || 'employee'})`,
                 value: u.id,
                 icon: <User className="w-4 h-4" />
               }))}

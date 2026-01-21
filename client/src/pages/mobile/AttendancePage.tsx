@@ -31,11 +31,12 @@ export default function MobileAttendancePage() {
   // const { hasRole } = useUser()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState<'single' | 'multiple'>('single')
-  const [loading, setLoading] = useState(true)
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([])
   const [todayStatus, setTodayStatus] = useState<any>(null)
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
-  const [processing, setProcessing] = useState(false)
+  const [loadingAction, setLoadingAction] = useState<'checkIn' | 'checkOut' | 'startBreak' | 'endBreak' | null>(null)
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const [permissionError, setPermissionError] = useState<PermissionError | undefined>()
 
@@ -44,13 +45,17 @@ export default function MobileAttendancePage() {
   const [dateFilter, setDateFilter] = useState<'7days' | '30days' | 'month'>('7days')
 
   useEffect(() => {
-    fetchData()
+    fetchSettings()
+  }, [])
+
+  useEffect(() => {
+    fetchHistory()
   }, [activeTab, selectedDate, dateFilter])
 
-  const fetchData = async () => {
-    setLoading(true)
+  const fetchSettings = async () => {
+    setSettingsLoading(true)
     try {
-      // Fetch company settings (only once effectively, but ok to refresh)
+      // Fetch company settings
       const settingsRes = await apiClient.get('/api/company-settings')
       if (settingsRes.data.success) {
         setCompanySettings(settingsRes.data.data)
@@ -61,7 +66,17 @@ export default function MobileAttendancePage() {
       if (statusRes.data.success) {
         setTodayStatus(statusRes.data.data)
       }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error)
+      toast.error('Failed to load settings')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
 
+  const fetchHistory = async () => {
+    setHistoryLoading(true)
+    try {
       // Calculate Date Range based on params
       let startDate: Date
       let endDate: Date
@@ -97,12 +112,11 @@ export default function MobileAttendancePage() {
         }))
         setAttendanceHistory(mappedHistory)
       }
-
     } catch (error) {
-      console.error('Failed to fetch attendance data:', error)
-      toast.error('Failed to load attendance data')
+      console.error('Failed to fetch attendance history:', error)
+      toast.error('Failed to load attendance history')
     } finally {
-      setLoading(false)
+      setHistoryLoading(false)
     }
   }
 
@@ -142,14 +156,14 @@ export default function MobileAttendancePage() {
   }
 
   const handleCheckIn = async () => {
-    setProcessing(true)
+    setLoadingAction('checkIn')
     try {
       let biometricsProof: string | undefined
 
       if (companySettings?.biometrics_required) {
         const proof = await getBiometricProof()
         if (!proof) {
-          setProcessing(false)
+          setLoadingAction(null)
           return
         }
         biometricsProof = proof
@@ -172,7 +186,7 @@ export default function MobileAttendancePage() {
         if (locationResult.error.needsManualEnable) {
           setPermissionError(locationResult.error)
           setShowPermissionModal(true)
-          setProcessing(false)
+          setLoadingAction(null)
           return
         }
         // For other errors (timeout, unavailable), show toast but allow proceeding
@@ -186,23 +200,24 @@ export default function MobileAttendancePage() {
 
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchData() // Refresh
+        fetchSettings() // Refresh status
+        fetchHistory() // Refresh history
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Check-in failed')
     } finally {
-      setProcessing(false)
+      setLoadingAction(null)
     }
   }
 
   const handleCheckOut = async () => {
-    setProcessing(true)
+    setLoadingAction('checkOut')
     try {
       // We need the current attendance ID for check-out
       const currentRes = await apiClient.get('/api/attendance/current')
       if (!currentRes.data.success || !currentRes.data.data) {
         toast.error('No active attendance found')
-        setProcessing(false)
+        setLoadingAction(null)
         return
       }
 
@@ -212,7 +227,7 @@ export default function MobileAttendancePage() {
       if (companySettings?.biometrics_required) {
         const proof = await getBiometricProof()
         if (!proof) {
-          setProcessing(false)
+          setLoadingAction(null)
           return
         }
         biometricsProof = proof
@@ -235,7 +250,7 @@ export default function MobileAttendancePage() {
         if (locationResult.error.needsManualEnable) {
           setPermissionError(locationResult.error)
           setShowPermissionModal(true)
-          setProcessing(false)
+          setLoadingAction(null)
           return
         }
         // For other errors, show toast but allow proceeding
@@ -250,46 +265,47 @@ export default function MobileAttendancePage() {
 
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchData() // Refresh
+        fetchSettings() // Refresh status
+        fetchHistory() // Refresh history
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Check-out failed')
     } finally {
-      setProcessing(false)
+      setLoadingAction(null)
     }
   }
 
   const handleStartBreak = async () => {
-    setProcessing(true)
+    setLoadingAction('startBreak')
     try {
       const res = await apiClient.post('/api/attendance/break/start', {})
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchData()
+        fetchSettings()
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to start break')
     } finally {
-      setProcessing(false)
+      setLoadingAction(null)
     }
   }
 
   const handleEndBreak = async () => {
-    setProcessing(true)
+    setLoadingAction('endBreak')
     try {
       const res = await apiClient.post('/api/attendance/break/end', {})
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchData()
+        fetchSettings()
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to end break')
     } finally {
-      setProcessing(false)
+      setLoadingAction(null)
     }
   }
 
-  if (loading && !todayStatus) {
+  if (settingsLoading && !todayStatus) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F6F8F8]">
         <Loader2 className="w-8 h-8 animate-spin text-[#0F5D5D]" />
@@ -300,8 +316,8 @@ export default function MobileAttendancePage() {
   return (
     <div className="min-h-screen bg-[#F6F8F8] pb-24">
       {/* Header */}
-      <div className="bg-white px-6 pt-12 pb-4 sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white px-4 pt-8 pb-3 sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => navigate(-1)}
             className="p-2 -ml-2 rounded-full active:bg-gray-100 transition-colors"
@@ -315,58 +331,58 @@ export default function MobileAttendancePage() {
         </div>
 
         {/* Action Area */}
-        <div className="mb-6 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#0F5D5D] to-[#0a3f3f] rounded-2xl shadow-lg text-white">
-          <div className="text-center mb-4">
-            <p className="text-sm opacity-80 mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-            <h2 className="text-3xl font-bold">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</h2>
+        <div className="mb-4 flex flex-col items-center justify-center p-4 bg-gradient-to-br from-[#0F5D5D] to-[#0a3f3f] rounded-2xl shadow-lg text-white">
+          <div className="text-center mb-3">
+            <p className="text-xs opacity-80 mb-0.5">{new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            <h2 className="text-2xl font-bold">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</h2>
           </div>
 
           {todayStatus?.isClockedIn ? (
             <button
               onClick={handleCheckOut}
-              disabled={processing}
-              className="w-full py-3 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2"
+              disabled={loadingAction !== null}
+              className="w-full py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Fingerprint className="w-5 h-5" />}
+              {loadingAction === 'checkOut' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Fingerprint className="w-5 h-5" />}
               <span>Check Out</span>
             </button>
           ) : (
             <button
               onClick={handleCheckIn}
-              disabled={processing}
-              className="w-full py-3 bg-white text-[#0F5D5D] font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 active:bg-gray-100"
+              disabled={loadingAction !== null}
+              className="w-full py-2.5 bg-white text-[#0F5D5D] font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 active:bg-gray-100 disabled:opacity-50"
             >
-              {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Fingerprint className="w-5 h-5" />}
+              {loadingAction === 'checkIn' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Fingerprint className="w-5 h-5" />}
               <span>Check In</span>
             </button>
           )}
 
           {todayStatus?.isClockedIn && companySettings?.breaks_enabled && (
-            <div className="mt-3 w-full">
+            <div className="mt-2 w-full">
               {todayStatus?.status === 'on_break' ? (
                 <button
                   onClick={handleEndBreak}
-                  disabled={processing}
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2"
+                  disabled={loadingAction !== null}
+                  className="w-full py-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
-                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Coffee className="w-5 h-5" />}
-                  <span>End Break</span>
+                  {loadingAction === 'endBreak' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coffee className="w-4 h-4" />}
+                  <span className="text-sm">End Break</span>
                 </button>
               ) : (
                 <button
                   onClick={handleStartBreak}
-                  disabled={processing}
-                  className="w-full py-3 bg-[#E8F5E9] text-[#1B5E20] hover:bg-[#C8E6C9] font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2"
+                  disabled={loadingAction !== null}
+                  className="w-full py-2 bg-[#E8F5E9] text-[#1B5E20] hover:bg-[#C8E6C9] font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
-                  {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Coffee className="w-5 h-5" />}
-                  <span>Start Break</span>
+                  {loadingAction === 'startBreak' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coffee className="w-4 h-4" />}
+                  <span className="text-sm">Start Break</span>
                 </button>
               )}
             </div>
           )}
 
           {companySettings?.biometrics_required && (
-            <p className="mt-3 text-xs opacity-70 flex items-center">
+            <p className="mt-2 text-xs opacity-70 flex items-center">
               <Fingerprint className="w-3 h-3 mr-1" />
               Biometric verification required
             </p>
@@ -374,20 +390,20 @@ export default function MobileAttendancePage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="bg-[#E8F5E9] rounded-2xl p-4 flex flex-col items-center justify-center space-y-1">
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="bg-[#E8F5E9] rounded-2xl p-3 flex flex-col items-center justify-center space-y-1">
             <span className="text-2xl font-bold text-[#1B5E20]">
               {attendanceHistory.filter(r => r.status === 'Present').length}
             </span>
             <span className="text-[10px] font-medium text-[#2E7D32]">Present</span>
           </div>
-          <div className="bg-[#FFF3E0] rounded-2xl p-4 flex flex-col items-center justify-center space-y-1">
+          <div className="bg-[#FFF3E0] rounded-2xl p-3 flex flex-col items-center justify-center space-y-1">
             <span className="text-2xl font-bold text-[#E65100]">
               {attendanceHistory.filter(r => r.status === 'Late').length}
             </span>
             <span className="text-[10px] font-medium text-[#EF6C00]">Late</span>
           </div>
-          <div className="bg-[#FFEBEE] rounded-2xl p-4 flex flex-col items-center justify-center space-y-1">
+          <div className="bg-[#FFEBEE] rounded-2xl p-3 flex flex-col items-center justify-center space-y-1">
             <span className="text-2xl font-bold text-[#C62828]">
               {attendanceHistory.filter(r => r.status === 'Absent').length}
             </span>
@@ -464,7 +480,12 @@ export default function MobileAttendancePage() {
 
       {/* List Content */}
       <div className="px-6 pb-4 space-y-3">
-        {attendanceHistory.length > 0 ? (
+        {historyLoading ? (
+          <div className="text-center py-10 bg-white rounded-2xl">
+            <Loader2 className="w-6 h-6 animate-spin text-[#0F5D5D] mx-auto" />
+            <p className="text-sm text-gray-500 mt-2">Loading attendance...</p>
+          </div>
+        ) : attendanceHistory.length > 0 ? (
           attendanceHistory.map((record) => (
             <div key={record.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex justify-between items-start mb-3">

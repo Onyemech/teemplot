@@ -27,7 +27,7 @@ export default function CompanyLocationSettings() {
     radius: 100,
     city: ''
   });
-  
+
   const { success, error: showError } = useToast();
 
   useEffect(() => {
@@ -39,11 +39,15 @@ export default function CompanyLocationSettings() {
       setLoading(true);
       const response = await apiClient.get('/api/company-settings/location');
       if (response.data.success) {
-        setSettings(response.data.data);
+        setSettings({
+          ...response.data.data,
+          latitude: parseFloat(response.data.data.latitude || '0'),
+          longitude: parseFloat(response.data.data.longitude || '0')
+        });
         setFormData({
           address: response.data.data.address || '',
-          latitude: response.data.data.latitude || 0,
-          longitude: response.data.data.longitude || 0,
+          latitude: parseFloat(response.data.data.latitude || '0'),
+          longitude: parseFloat(response.data.data.longitude || '0'),
           radius: response.data.data.geofence_radius_meters || 100,
           city: ''
         });
@@ -92,7 +96,7 @@ export default function CompanyLocationSettings() {
     );
   }
 
-  const daysUntilUpdate = settings?.next_update_available_at 
+  const daysUntilUpdate = settings?.next_update_available_at
     ? Math.ceil((new Date(settings.next_update_available_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
@@ -128,7 +132,7 @@ export default function CompanyLocationSettings() {
             <div>
               <h4 className="text-sm font-semibold text-amber-900">Update Restricted</h4>
               <p className="text-sm text-amber-700 mt-1">
-                For security reasons, the company location can only be updated once every 7 days. 
+                For security reasons, the company location can only be updated once every 7 days.
                 Next update available in {daysUntilUpdate} days.
               </p>
             </div>
