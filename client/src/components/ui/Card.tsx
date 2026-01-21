@@ -11,6 +11,7 @@ export interface CardProps {
   selected?: boolean
   className?: string
   onClick?: () => void
+  id?: string
 }
 
 const Card: React.FC<CardProps> = ({
@@ -24,6 +25,7 @@ const Card: React.FC<CardProps> = ({
   selected = false,
   className = '',
   onClick,
+  id,
 }) => {
   // Padding styles
   const paddingStyles = {
@@ -46,7 +48,7 @@ const Card: React.FC<CardProps> = ({
   `
 
   return (
-    <div className={`${baseStyles} ${className}`} onClick={onClick}>
+    <div id={id} className={`${baseStyles} ${className}`} onClick={onClick}>
       {/* Header */}
       {(title || subtitle) && (
         <div className={`${paddingStyles[padding]} ${children || footer ? 'border-b border-border-light' : ''}`}>

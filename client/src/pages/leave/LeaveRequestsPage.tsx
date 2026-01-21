@@ -55,6 +55,27 @@ export default function LeaveRequestsPage() {
     }
   }
 
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('highlight')
+    if (id) {
+      setHighlightId(id)
+      // Wait for requests to load
+      if (!loading && requests.length > 0) {
+        setTimeout(() => {
+          const element = document.getElementById(`leave-request-${id}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            // Remove highlight after 5 seconds
+            setTimeout(() => setHighlightId(null), 5000)
+          }
+        }, 500)
+      }
+    }
+  }, [loading, requests])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,7 +83,7 @@ export default function LeaveRequestsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Leave Requests</h1>
           <p className="text-gray-500">Track and manage leave applications</p>
         </div>
-        
+
         <Button onClick={() => navigate('/dashboard/leave/request')}>
           + Request Leave
         </Button>
@@ -70,17 +91,17 @@ export default function LeaveRequestsPage() {
 
       <div className="flex items-center justify-end bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="w-full md:w-64">
-           <Select
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { label: 'All Requests', value: 'all' },
-                { label: 'Pending', value: 'pending' },
-                { label: 'Approved', value: 'approved' },
-                { label: 'Rejected', value: 'rejected' },
-              ]}
-              placeholder="Filter by status"
-           />
+          <Select
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { label: 'All Requests', value: 'all' },
+              { label: 'Pending', value: 'pending' },
+              { label: 'Approved', value: 'approved' },
+              { label: 'Rejected', value: 'rejected' },
+            ]}
+            placeholder="Filter by status"
+          />
         </div>
       </div>
 
@@ -96,8 +117,13 @@ export default function LeaveRequestsPage() {
             </div>
           ) : (
             requests.map((r) => (
-              <Card key={r.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={r.id}
+                id={`leave-request-${r.id}`}
+                className={`transition-all duration-500 ${highlightId === r.id ? 'ring-2 ring-primary-500 shadow-lg bg-primary-50' : 'hover:shadow-md'}`}
+              >
                 <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 justify-between">
+                  {/* ... existing card content ... */}
                   <div className="space-y-2 flex-1">
                     <div className="flex items-start justify-between md:justify-start gap-3">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border flex items-center gap-1 ${getStatusColor(r.status)}`}>
@@ -108,7 +134,7 @@ export default function LeaveRequestsPage() {
                         {r.leave_type.toUpperCase()}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 pt-1">
                       {r.user_name && (
                         <div className="flex items-center gap-1 text-sm font-semibold text-gray-900">
@@ -117,7 +143,7 @@ export default function LeaveRequestsPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
@@ -134,16 +160,16 @@ export default function LeaveRequestsPage() {
                     <Button variant="ghost" size="sm" onClick={() => navigate(`/dashboard/leave/requests/${r.id}`)}>
                       View Details
                     </Button>
-                    
+
                     {/* If manager/admin and status is pending, show Review button */}
-                    {(user?.role !== 'employee' && r.status === 'pending') && (
-                       <Button 
-                         variant="primary" 
-                         size="sm"
-                         onClick={() => navigate(`/dashboard/leave/requests/${r.id}`)}
-                       >
-                         Review
-                       </Button>
+                    {(user?.role !== 'employee' && (r.status === 'pending' || r.status === 'in_review')) && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate(`/dashboard/leave/requests/${r.id}`)}
+                      >
+                        Review
+                      </Button>
                     )}
                   </div>
                 </div>

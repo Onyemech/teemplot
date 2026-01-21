@@ -5,7 +5,7 @@ import { requireFeature } from '../middleware/subscription.middleware';
 
 export default async function leaveRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
-  
+
   // Request leave
   fastify.post('/request', {
     preHandler: [fastify.authenticate, requireFeature('leave')],
@@ -31,7 +31,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
       // Validate dates
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (start > end) {
         return reply.code(400).send({
           success: false,
@@ -49,9 +49,9 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
         'SELECT annual_leave_balance FROM users WHERE id = $1',
         [userId]
       );
-      
+
       const balance = userResult.rows[0]?.annual_leave_balance || 0;
-      
+
       if (leaveType === 'annual' && balance < totalDays) {
         return reply.code(400).send({
           success: false,
@@ -162,7 +162,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
         params.push(status);
         paramIndex++;
       }
-      
+
       // Filter by review stage
       if (reviewStage) {
         query += ` AND lr.review_stage = $${paramIndex}`;
@@ -270,8 +270,24 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
       if (leaveRequest.status !== 'pending' && leaveRequest.status !== 'in_review') {
         return reply.code(400).send({ success: false, message: 'Leave request is not in a reviewable state' });
       }
-      
+
       const stage = leaveRequest.review_stage || 'manager';
+      const notificationTitle = approved ? 'Leave Request Approved' : 'Leave Request Rejected';
+      const notificationMessage = approved
+        ? `Your leave request has been approved by ${role}.`
+        : `Your leave request has been rejected by ${role}. Notes: ${reviewNotes || 'No notes provided'}`;
+
+      const link = `/dashboard/leave/requests?highlight=${requestId}`;
+
+      // Helper to send notification
+      const sendNotification = async (targetUserId: string, title: string, message: string, link: string) => {
+        await db.query(
+          `INSERT INTO notifications (user_id, company_id, type, title, message, link, read)
+           VALUES ($1, $2, 'leave_update', $3, $4, $5, false)`,
+          [targetUserId, companyId, title, message, link]
+        );
+      };
+
       if (stage === 'manager') {
         if (role !== 'manager' && role !== 'department_head' && role !== 'admin' && role !== 'owner') {
           return reply.code(403).send({ success: false, message: 'Manager review required' });
@@ -291,6 +307,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          await sendNotification(leaveRequest.user_id, notificationTitle, notificationMessage, link);
           return reply.send({ success: true, message: 'Leave request rejected by manager' });
         } else {
           await db.query(
@@ -299,6 +316,8 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          // Notify user of progress
+          await sendNotification(leaveRequest.user_id, 'Leave Request Update', 'Your leave request has been approved by manager and sent to admin.', link);
           return reply.send({ success: true, message: 'Leave request escalated to admin' });
         }
       } else if (stage === 'admin') {
@@ -312,6 +331,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          await sendNotification(leaveRequest.user_id, notificationTitle, notificationMessage, link);
           return reply.send({ success: true, message: 'Leave request rejected by admin' });
         } else {
           await db.query(
@@ -320,6 +340,8 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          // Notify user of progress
+          await sendNotification(leaveRequest.user_id, 'Leave Request Update', 'Your leave request has been approved by admin and sent to owner.', link);
           return reply.send({ success: true, message: 'Leave request escalated to owner' });
         }
       } else if (stage === 'owner') {
@@ -333,6 +355,7 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          await sendNotification(leaveRequest.user_id, notificationTitle, notificationMessage, link);
           return reply.send({ success: true, message: 'Leave request rejected by owner' });
         } else {
           await db.query(
@@ -341,13 +364,14 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
              WHERE id = $3 AND company_id = $4`,
             [reviewNotes || null, userId, requestId, companyId]
           );
+          await sendNotification(leaveRequest.user_id, notificationTitle, notificationMessage, link);
           return reply.send({ success: true, message: 'Leave request approved' });
         }
       } else {
         return reply.code(400).send({ success: false, message: 'Invalid review stage' });
       }
 
-      
+
     } catch (error: any) {
       return reply.code(500).send({
         success: false,
