@@ -175,13 +175,13 @@ export default function CompanyLocationSettings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
               <div className="p-3 bg-gray-50 rounded-lg text-gray-500 font-mono text-sm border border-gray-200">
-                {editMode ? formData.latitude.toFixed(6) : settings?.latitude?.toFixed(6) || '0.000000'}
+                {editMode ? Number(formData.latitude).toFixed(6) : Number(settings?.latitude || 0).toFixed(6)}
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
               <div className="p-3 bg-gray-50 rounded-lg text-gray-500 font-mono text-sm border border-gray-200">
-                {editMode ? formData.longitude.toFixed(6) : settings?.longitude?.toFixed(6) || '0.000000'}
+                {editMode ? Number(formData.longitude).toFixed(6) : Number(settings?.longitude || 0).toFixed(6)}
               </div>
             </div>
           </div>

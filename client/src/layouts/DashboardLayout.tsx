@@ -7,6 +7,7 @@ import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
 import { apiClient } from '@/lib/api'
 import { useUser } from '@/contexts/UserContext'
 import BiometricSetupPrompt from '@/components/auth/BiometricSetupPrompt'
+import SupportWidget from '@/components/dashboard/SupportWidget'
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -77,6 +78,8 @@ export default function DashboardLayout() {
         onSuccess={() => setShowBiometricPrompt(false)}
         isMandatory={isMandatory}
       />
+
+      <SupportWidget />
     </div>
   )
 }
