@@ -7,7 +7,9 @@
 
 import { apiClient } from '@/lib/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.MODE === 'production'
+  ? 'https://api.teemplot.com'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
 
 /**
  * Build full API URL with /api prefix

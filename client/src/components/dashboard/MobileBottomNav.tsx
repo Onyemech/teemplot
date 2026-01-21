@@ -58,10 +58,7 @@ export default function MobileBottomNav() {
 
   const handleLogout = async () => {
     try {
-      await fetch(buildApiUrl('/auth/logout'), {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await apiClient.post('/api/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     }

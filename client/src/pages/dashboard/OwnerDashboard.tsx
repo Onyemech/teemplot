@@ -11,6 +11,7 @@ import {
   DollarSign
 } from 'lucide-react';
 // import { useUser } from '@/contexts/UserContext';
+import { apiClient } from '@/lib/api';
 import StatCard from '@/components/dashboard/StatCard';
 
 interface DashboardStats {
@@ -36,7 +37,6 @@ interface RecentActivity {
   user: string;
 }
 
-import { buildApiUrl } from '@/utils/apiHelpers';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -58,10 +58,8 @@ export default function OwnerDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch dashboard stats
-      const statsResponse = await fetch(buildApiUrl('/dashboard/stats'), {
-        credentials: 'include' // Use httpOnly cookies
-      });
-      const statsData = await statsResponse.json();
+      const statsResponse = await apiClient.get('/api/dashboard/stats');
+      const statsData = statsResponse.data;
 
       if (statsData.success) {
         setStats(statsData.data);
@@ -69,10 +67,8 @@ export default function OwnerDashboard() {
       }
 
       // Fetch recent activity
-      const activityResponse = await fetch(buildApiUrl('/dashboard/recent-activity'), {
-        credentials: 'include' // Use httpOnly cookies
-      });
-      const activityData = await activityResponse.json();
+      const activityResponse = await apiClient.get('/api/dashboard/recent-activity');
+      const activityData = activityResponse.data;
 
       if (activityData.success) {
         setRecentActivity(activityData.data);

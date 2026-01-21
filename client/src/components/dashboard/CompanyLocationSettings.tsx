@@ -77,7 +77,12 @@ export default function CompanyLocationSettings() {
 
       if (response.data.success) {
         success('Company location updated successfully');
-        setSettings(response.data.data);
+        const updatedData = response.data.data;
+        setSettings({
+          ...updatedData,
+          latitude: parseFloat(updatedData.latitude || '0'),
+          longitude: parseFloat(updatedData.longitude || '0')
+        });
         setEditMode(false);
       }
     } catch (error: any) {

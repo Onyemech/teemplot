@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Mail, UserPlus, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal';
-import { buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 
 interface Employee {
   id: string;
@@ -41,19 +41,15 @@ export default function EmployeeManagementPage() {
   const fetchData = async () => {
     try {
       // Fetch employees
-      const empResponse = await fetch(buildApiUrl('/employees'), {
-        credentials: 'include',
-      });
-      const empData = await empResponse.json();
+      const empResponse = await apiClient.get('/api/employees');
+      const empData = empResponse.data;
       if (empData.success) {
         setEmployees(empData.data);
       }
 
       // Fetch invitations
-      const invResponse = await fetch(buildApiUrl('/employee-invitations/list'), {
-        credentials: 'include',
-      });
-      const invData = await invResponse.json();
+      const invResponse = await apiClient.get('/api/employee-invitations/list');
+      const invData = invResponse.data;
       if (invData.success) {
         setInvitations(invData.data);
       }
@@ -69,21 +65,16 @@ export default function EmployeeManagementPage() {
     if (!confirm('Are you sure you want to cancel this invitation?')) return;
 
     try {
-      const response = await fetch(buildApiUrl(`/employee-invitations/${invitationId}`), {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await apiClient.delete(`/api/employee-invitations/${invitationId}`);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to cancel invitation');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to cancel invitation');
       }
 
       toast.success('Invitation cancelled');
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel invitation');
+      toast.error(error.response?.data?.message || error.message || 'Failed to cancel invitation');
     }
   };
 
@@ -189,8 +180,8 @@ export default function EmployeeManagementPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${employee.role === 'owner' ? 'bg-purple-100 text-purple-800' :
-                          employee.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
+                        employee.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
                         }`}>
                         {employee.role}
                       </span>

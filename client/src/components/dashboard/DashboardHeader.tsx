@@ -3,7 +3,7 @@ import { Search, ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '@/contexts/ToastContext'
 import { useUser } from '@/contexts/UserContext'
-import { buildApiUrl } from '@/utils/apiHelpers'
+import { apiClient } from '@/lib/api'
 import { NotificationBell } from '../notifications/NotificationBell'
 
 interface DashboardHeaderProps {
@@ -15,7 +15,7 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
   const toast = useToast()
   const { user: currentUser } = useUser()
   const [showUserMenu, setShowUserMenu] = useState(false)
-  
+
   // Get user data securely from context (uses httpOnly cookies)
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -23,10 +23,7 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
   const handleLogout = async () => {
     // Call logout endpoint to clear httpOnly cookies
     try {
-      await fetch(buildApiUrl('/auth/logout'), {
-        method: 'POST',
-        credentials: 'include'
-      })
+      await apiClient.post('/api/auth/logout')
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -36,18 +33,18 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
       <div className="flex items-center justify-between gap-4">
-        
+
         {/* Mobile Header: Simple & Clean */}
         <div className="flex items-center gap-3 md:hidden">
-            {/* User Avatar - Small */}
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                {userInitials}
-            </div>
-            <div>
-                 <h1 className="text-base font-bold text-gray-900 leading-tight truncate max-w-[150px]">
-                    {currentUser?.companyName || 'Teemplot'}
-                 </h1>
-            </div>
+          {/* User Avatar - Small */}
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+            {userInitials}
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-gray-900 leading-tight truncate max-w-[150px]">
+              {currentUser?.companyName || 'Teemplot'}
+            </h1>
+          </div>
         </div>
 
         {/* Desktop Search - Hidden on mobile */}
@@ -64,7 +61,7 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
 
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
-          
+
           <NotificationBell />
 
           {/* Desktop User Menu */}
@@ -83,8 +80,8 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
             {/* Dropdown Menu */}
             {showUserMenu && (
               <>
-                <div 
-                  className="fixed inset-0 z-10" 
+                <div
+                  className="fixed inset-0 z-10"
                   onClick={() => setShowUserMenu(false)}
                 ></div>
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">

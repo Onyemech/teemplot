@@ -7,10 +7,10 @@ import {
   AlertTriangle
 } from 'lucide-react';
 // import { useUser } from '@/contexts/UserContext';
+import { apiClient } from '@/lib/api';
 import DepartmentTaskOverview from '@/components/dashboard/DepartmentTaskOverview';
 import StatCard from '@/components/dashboard/StatCard';
 import { UserRoles } from '@/constants/roles';
-import { buildApiUrl } from '@/utils/apiHelpers';
 
 interface DashboardStats {
   teamMembers: number;
@@ -33,10 +33,8 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(buildApiUrl('/dashboard/stats'), {
-        credentials: 'include'
-      });
-      const data = await response.json();
+      const response = await apiClient.get('/api/dashboard/stats');
+      const data = response.data;
 
       if (data.success) {
         const d = data.data;
