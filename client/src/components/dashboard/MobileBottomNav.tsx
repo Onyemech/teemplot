@@ -4,7 +4,7 @@ import { Menu, X, ChevronRight, MoreHorizontal, LogOut, Settings } from 'lucide-
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { navigationConfig, reportingConfig, NavItemConfig } from './Sidebar';
-import { buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 
 export default function MobileBottomNav() {
   const { pathname } = useLocation();

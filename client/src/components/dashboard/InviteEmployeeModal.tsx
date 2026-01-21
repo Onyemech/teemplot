@@ -256,7 +256,7 @@ export default function InviteEmployeeModal({
 
   const handleUpgrade = async (additionalEmployees: number) => {
     try {
-      const response = await apiClient.post('/subscription/upgrade-employee-limit', {
+      const response = await apiClient.post('/api/subscription/upgrade-employee-limit', {
         additionalEmployees,
       })
 
@@ -328,8 +328,8 @@ export default function InviteEmployeeModal({
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-gray-900">Employee Slots</p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${realTimeCounter.planType === 'gold' ? 'bg-yellow-100 text-yellow-800' :
-                              realTimeCounter.planType === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                                'bg-blue-100 text-blue-800'
+                            realTimeCounter.planType === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                              'bg-blue-100 text-blue-800'
                             }`}>
                             {realTimeCounter.planType}
                           </span>

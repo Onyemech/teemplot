@@ -4,7 +4,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/contexts/ToastContext';
 import { startRegistration } from '@simplewebauthn/browser';
 import { Fingerprint, Loader2, CheckCircle, AlertCircle, Settings, Trash2 } from 'lucide-react';
-import { buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 
 interface BiometricCredential {
   id: string;
@@ -46,11 +46,8 @@ export default function BiometricSetupPage() {
   const fetchUserCredentials = async () => {
     try {
       setLoading(true);
-      const response = await fetch(buildApiUrl('/webauthn/credentials'), {
-        credentials: 'include',
-      });
-
-      const data = await response.json();
+      const response = await apiClient.get('/api/webauthn/credentials');
+      const data = response.data;
 
       if (data.success) {
         setCredentials(data.data);
@@ -75,19 +72,12 @@ export default function BiometricSetupPage() {
       setRegistering(true);
 
       // Step 1: Get registration options from server
-      const optionsResponse = await fetch(buildApiUrl('/webauthn/register/options'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          deviceName: deviceName.trim(),
-          deviceType: selectedDeviceType,
-        }),
+      const optionsResponse = await apiClient.post('/api/webauthn/register/options', {
+        deviceName: deviceName.trim(),
+        deviceType: selectedDeviceType,
       });
 
-      const optionsData = await optionsResponse.json();
+      const optionsData = optionsResponse.data;
 
       if (!optionsData.success) {
         throw new Error(optionsData.message || 'Failed to get registration options');
@@ -97,20 +87,13 @@ export default function BiometricSetupPage() {
       const attResp = await startRegistration(optionsData.data.options);
 
       // Step 3: Verify registration with server
-      const verifyResponse = await fetch(buildApiUrl('/webauthn/register/verify'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          credentialId: attResp.id,
-          response: attResp,
-          challengeId: optionsData.data.challengeId,
-        }),
+      const verifyResponse = await apiClient.post('/api/webauthn/register/verify', {
+        credentialId: attResp.id,
+        response: attResp,
+        challengeId: optionsData.data.challengeId,
       });
 
-      const verifyData = await verifyResponse.json();
+      const verifyData = verifyResponse.data;
 
       if (!verifyData.success) {
         throw new Error(verifyData.message || 'Registration verification failed');
@@ -140,12 +123,8 @@ export default function BiometricSetupPage() {
     if (!confirm('Are you sure you want to remove this biometric credential?')) return;
 
     try {
-      const response = await fetch(`/api/webauthn/credentials/${credentialId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      const data = await response.json();
+      const response = await apiClient.delete(`/api/webauthn/credentials/${credentialId}`);
+      const data = response.data;
 
       if (data.success) {
         toast.success('Credential removed successfully');
@@ -222,8 +201,8 @@ export default function BiometricSetupPage() {
                     key={option.value}
                     onClick={() => setSelectedDeviceType(option.value as any)}
                     className={`p-4 border-2 rounded-lg text-left transition-all ${selectedDeviceType === option.value
-                        ? 'border-[#0F5D5D] bg-[#0F5D5D]/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-[#0F5D5D] bg-[#0F5D5D]/5'
+                      : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
                     <div className="text-3xl mb-2">{option.icon}</div>

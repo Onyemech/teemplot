@@ -94,10 +94,9 @@ export default function SupportWidget() {
 
     const getAdminEmail = () => {
         if (user?.email) {
-            const domain = user.email.split('@')[1]
-            return `admin@${domain}`
+            return `admin@teemplot.com`
         }
-        return 'admin@company.com'
+        return 'admin@teemplot.com'
     }
 
     const handleWhatsApp = (number: string) => {

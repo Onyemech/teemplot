@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { Fingerprint, ScanFace, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
-import { buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 
 interface BiometricAuthProps {
   action: 'register' | 'authenticate';
@@ -69,19 +69,12 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
     try {
       // Step 1: Get registration options from server
-      const response = await fetch(buildApiUrl('/webauthn/register/options'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          deviceName: `${getDeviceName(deviceType)} - ${new Date().toLocaleDateString()}`,
-          deviceType,
-        }),
+      const response = await apiClient.post('/api/webauthn/register/options', {
+        deviceName: `${getDeviceName(deviceType)} - ${new Date().toLocaleDateString()}`,
+        deviceType,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to get registration options');
@@ -91,20 +84,13 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       const attResp = await startRegistration(data.data.options);
 
       // Step 3: Verify registration with server
-      const verifyResponse = await fetch(buildApiUrl('/webauthn/register/verify'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          credentialId: attResp.id,
-          registrationResponse: attResp,
-          deviceType
-        }),
+      const verifyResponse = await apiClient.post('/api/webauthn/register/verify', {
+        credentialId: attResp.id,
+        registrationResponse: attResp,
+        deviceType
       });
 
-      const verifyData = await verifyResponse.json();
+      const verifyData = verifyResponse.data;
 
       if (verifyData.success) {
         setSuccess(true);
@@ -135,18 +121,12 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
     try {
       // Step 1: Get authentication options from server
-      const response = await fetch(buildApiUrl('/webauthn/authenticate/options'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          deviceType,
-        }),
+      const response = await apiClient.post('/api/webauthn/authenticate/options', {
+        email,
+        deviceType,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to get authentication options');
@@ -156,20 +136,14 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       const asseResp = await startAuthentication(data.data.options);
 
       // Step 3: Verify authentication with server
-      const verifyResponse = await fetch(buildApiUrl('/webauthn/authenticate/verify'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          credentialId: asseResp.id,
-          response: asseResp,
-          challengeId: data.data.challengeId,
-        }),
+      const verifyResponse = await apiClient.post('/api/webauthn/authenticate/verify', {
+        email,
+        credentialId: asseResp.id,
+        response: asseResp,
+        challengeId: data.data.challengeId,
       });
 
-      const verifyData = await verifyResponse.json();
+      const verifyData = verifyResponse.data;
 
       if (!verifyData.success) {
         throw new Error(verifyData.message || 'Authentication verification failed');
@@ -177,14 +151,14 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
       setSuccess(true);
       toast.success('Biometric authentication successful!');
-      
+
       setTimeout(() => {
         onSuccess();
       }, 1500);
 
     } catch (err: any) {
       console.error('Biometric authentication error:', err);
-      
+
       if (err.name === 'NotAllowedError') {
         setError('Biometric authentication was cancelled or denied');
       } else if (err.name === 'NotSupportedError') {
@@ -207,12 +181,9 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
 
   const fetchUserCredentials = async () => {
     try {
-      const response = await fetch('/api/webauthn/credentials', {
-        credentials: 'include',
-      });
-      
-      const data = await response.json();
-      
+      const response = await apiClient.get('/api/webauthn/credentials');
+      const data = response.data;
+
       if (data.success) {
         setCredentials(data.data);
       }
@@ -237,8 +208,8 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
           {action === 'register' ? 'Registration Successful!' : 'Authentication Successful!'}
         </h3>
         <p className="text-gray-600">
-          {action === 'register' 
-            ? 'Your biometric authentication has been set up successfully.' 
+          {action === 'register'
+            ? 'Your biometric authentication has been set up successfully.'
             : 'You have been successfully authenticated.'}
         </p>
       </div>
@@ -250,13 +221,13 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       <div className="h-20 w-20 bg-teal-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
         {getDeviceIcon(deviceType)}
       </div>
-      
+
       <h3 className="text-xl font-bold text-gray-900 mb-2">
-        {action === 'register' 
+        {action === 'register'
           ? `Register ${getDeviceName(deviceType)}`
           : `Authenticate with ${getDeviceName(deviceType)}`}
       </h3>
-      
+
       <p className="text-gray-600 mb-8">
         {action === 'register'
           ? 'Place your finger on the sensor or look at the camera to register your biometric authentication.'
@@ -305,7 +276,7 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
           <>
             {getDeviceIcon(deviceType)}
             <span>
-              {action === 'register' 
+              {action === 'register'
                 ? `Register ${getDeviceName(deviceType)}`
                 : `Authenticate with ${getDeviceName(deviceType)}`}
             </span>

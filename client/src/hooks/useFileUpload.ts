@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { computeFileHash, validateFile, FileValidation } from '../utils/fileHash';
-import { buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 
 export interface UploadProgress {
   stage: 'hashing' | 'checking' | 'uploading' | 'attaching' | 'complete' | 'error';
@@ -47,7 +47,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       // Step 1: Validate file
       updateProgress('hashing', 0, 'Validating file...');
-      
+
       const validation: FileValidation = validateFile(file, {
         maxSize: options.maxSize,
         allowedTypes: options.allowedTypes,
@@ -65,41 +65,30 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       // Step 2: Compute file hash
       updateProgress('hashing', 10, 'Computing file hash...');
       const hash = await computeFileHash(file);
-      
+
       updateProgress('hashing', 30, 'Hash computed successfully');
 
       // Step 3: Check if file already exists
       updateProgress('checking', 40, 'Checking if file exists...');
-      
-      const checkResponse = await fetch(buildApiUrl('/files/check'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Use httpOnly cookies
-        body: JSON.stringify({
-          hash,
-          filename: file.name,
-          size: file.size,
-          mimeType: file.type
-        })
+
+      const checkResponse = await apiClient.post('/api/files/check', {
+        hash,
+        filename: file.name,
+        size: file.size,
+        mimeType: file.type
       });
 
-      if (!checkResponse.ok) {
-        throw new Error('Failed to check file existence');
-      }
-
-      const checkResult = await checkResponse.json();
+      const checkResult = checkResponse.data;
 
       // Step 4: If file exists, use existing file (deduplication)
       if (checkResult.data.exists) {
         updateProgress('complete', 100, 'File already exists - using existing file');
-        
+
         const existingFile: UploadedFile = {
           ...checkResult.data.file,
           deduplicated: true
         };
-        
+
         setUploadedFile(existingFile);
         options.onSuccess?.(existingFile);
         return existingFile;
@@ -112,17 +101,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       formData.append('document', file);
       formData.append('hash', hash);
 
-      const uploadResponse = await fetch(buildApiUrl('/files/upload'), {
-        method: 'POST',
-        credentials: 'include', // Use httpOnly cookies
-        body: formData
+      const uploadResponse = await apiClient.post('/api/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      const uploadResult = await uploadResponse.json();
+      const uploadResult = uploadResponse.data;
 
       if (!uploadResult.success) {
         throw new Error(uploadResult.message || 'Upload failed');
@@ -159,25 +144,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     try {
       updateProgress('attaching', 90, 'Attaching file to company...');
 
-      const response = await fetch(buildApiUrl('/files/attach-to-company'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Use httpOnly cookies
-        body: JSON.stringify({
-          fileId,
-          documentType,
-          purpose,
-          metadata
-        })
+      const response = await apiClient.post('/api/files/attach-to-company', {
+        fileId,
+        documentType,
+        purpose,
+        metadata
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to attach file to company');
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to attach file');
@@ -202,7 +176,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     metadata?: Record<string, any>
   ): Promise<boolean> => {
     const uploadedFile = await uploadFile(file);
-    
+
     if (!uploadedFile) {
       return false;
     }

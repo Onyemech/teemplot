@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { api, API_ENDPOINTS, buildApiUrl } from '@/utils/apiHelpers';
+import { API_ENDPOINTS, buildApiUrl } from '@/utils/apiHelpers';
+import { apiClient } from '@/lib/api';
 import { useUser } from './UserContext';
 import { Notification, NotificationToast } from '@/components/notifications/NotificationToast';
 import { useNavigate } from 'react-router-dom';
@@ -133,13 +134,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const fetchNotifications = async (page = 1) => {
     try {
       setIsLoading(true);
-      const res = await api.get<{ data: { items: Notification[] } }>(
-        `${API_ENDPOINTS.NOTIFICATIONS.LIST}?page=${page}`
-      );
+      const res = await apiClient.get(`/api/notifications?page=${page}`);
+      const data = res.data;
       if (page === 1) {
-        setNotifications(res.data.items);
+        setNotifications(data.data.items);
       } else {
-        setNotifications(prev => [...prev, ...res.data.items]);
+        setNotifications(prev => [...prev, ...data.data.items]);
       }
     } catch (error) {
       console.error('Failed to fetch notifications', error);
@@ -150,10 +150,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const fetchUnreadCount = async () => {
     try {
-      const res = await api.get<{ data: { count: number } }>(
-        API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT
-      );
-      setUnreadCount(res.data.count);
+      const res = await apiClient.get('/api/notifications/unread-count');
+      setUnreadCount(res.data.data.count);
     } catch (error) {
       console.error('Failed to fetch unread count', error);
     }
@@ -161,7 +159,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const markAsRead = async (id: string) => {
     try {
-      await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id));
+      await apiClient.patch(`/api/notifications/${id}/read`);
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
@@ -173,7 +171,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const markAllAsRead = async () => {
     try {
-      await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
+      await apiClient.patch('/api/notifications/read-all');
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (error) {
