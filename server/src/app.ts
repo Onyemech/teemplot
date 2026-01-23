@@ -180,6 +180,10 @@ export async function buildApp() {
 
   await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
 
+  // Import and register user routes
+  const { userRoutes } = await import('./routes/user.routes');
+  await app.register(userRoutes, { prefix: `${apiPrefix}/user` });
+
   // Import and register onboarding routes
   const { onboardingRoutes } = await import('./routes/onboarding.routes');
   await app.register(onboardingRoutes, { prefix: `${apiPrefix}/onboarding` });
@@ -247,6 +251,11 @@ export async function buildApp() {
   // Import and register notification routes
   const { notificationRoutes } = await import('./routes/notifications.routes');
   await app.register(notificationRoutes, { prefix: `${apiPrefix}/notifications` });
+
+  // Import and register device location routes
+  const locationRoutes = await import('./routes/location.routes');
+  await app.register(locationRoutes.default, { prefix: `${apiPrefix}/location` });
+
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {

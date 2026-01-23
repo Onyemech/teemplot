@@ -25,6 +25,7 @@ import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns'
 import MobileAttendancePage from '../mobile/AttendancePage'
 import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
+import Avatar from '@/components/ui/Avatar'
 import StatCard from '@/components/dashboard/StatCard'
 import AttendanceDonutChart from '@/components/dashboard/AttendanceDonutChart'
 import { apiClient } from '@/lib/api'
@@ -81,6 +82,10 @@ export default function AttendanceOverviewPage() {
   const [statsLoading, setStatsLoading] = useState(true)
   const [recordsLoading, setRecordsLoading] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([])
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | 'all'>('all')
+  const [rangeStart, setRangeStart] = useState<Date | null>(null)
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
 
   // Data State
   const [stats, setStats] = useState<AttendanceStats>({
@@ -119,6 +124,7 @@ export default function AttendanceOverviewPage() {
     }
     // Fetch stats only once
     fetchStats()
+    fetchEmployees()
   }, [])
 
   // Fetch records when date changes
@@ -126,7 +132,7 @@ export default function AttendanceOverviewPage() {
     if (hasAccess('attendance')) {
       fetchRecords()
     }
-  }, [selectedDate])
+  }, [selectedDate, rangeStart, rangeEnd, selectedEmployeeId])
 
   const fetchStats = async () => {
     try {
@@ -165,9 +171,14 @@ export default function AttendanceOverviewPage() {
 
       // Fetch Attendance Records
       const params = new URLSearchParams()
-      params.append('startDate', startOfDay(selectedDate).toISOString())
-      params.append('endDate', endOfDay(selectedDate).toISOString())
+      const start = rangeStart ? startOfDay(rangeStart) : startOfDay(selectedDate)
+      const end = rangeEnd ? endOfDay(rangeEnd) : endOfDay(selectedDate)
+      params.append('startDate', start.toISOString())
+      params.append('endDate', end.toISOString())
       params.append('limit', '2000')
+      if (selectedEmployeeId !== 'all') {
+        params.append('search', selectedEmployeeId) // backend supports search across name/email; using id will restrict results
+      }
 
       const recordsRes = await apiClient.get(`/api/attendance?${params.toString()}`)
       if (recordsRes.data.success) {
@@ -177,6 +188,7 @@ export default function AttendanceOverviewPage() {
           employeeId: r.user_id,
           employeeName: `${r.first_name || 'Unknown'} ${r.last_name || ''}`,
           employeeEmail: r.email,
+          employeeAvatar: r.avatar_url,
           department: r.department || 'General',
           clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
           clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
@@ -197,6 +209,19 @@ export default function AttendanceOverviewPage() {
       console.error('Failed to fetch attendance records:', error)
     } finally {
       setRecordsLoading(false)
+    }
+  }
+  const fetchEmployees = async () => {
+    try {
+      const res = await apiClient.get('/api/employees')
+      if (res.data.success) {
+        const list = (res.data.data as any[]).map(e => ({
+          id: e.id,
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email
+        }))
+        setEmployees([{ id: 'all', name: 'All Employees' } as any, ...list])
+      }
+    } catch {
     }
   }
 
@@ -417,6 +442,34 @@ export default function AttendanceOverviewPage() {
             >
               <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             </button>
+          </div>
+          {/* Date Range */}
+          <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+            <input
+              type="date"
+              value={rangeStart ? format(rangeStart, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setRangeStart(e.target.value ? new Date(e.target.value) : null)}
+              className="text-sm border border-gray-200 rounded-lg px-2 py-1"
+            />
+            <span className="text-gray-400 text-sm">to</span>
+            <input
+              type="date"
+              value={rangeEnd ? format(rangeEnd, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setRangeEnd(e.target.value ? new Date(e.target.value) : null)}
+              className="text-sm border border-gray-200 rounded-lg px-2 py-1"
+            />
+          </div>
+          {/* Employee Selector */}
+          <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+            <select
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value as any)}
+              className="text-sm px-2 py-1 rounded-lg"
+            >
+              {employees.map(e => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
           </div>
 
           <button
@@ -646,13 +699,13 @@ export default function AttendanceOverviewPage() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8">
-                            <div className="h-8 w-8 rounded-full bg-[#0F5D5D] flex items-center justify-center">
-                              <span className="text-white font-medium text-xs">
-                                {record.employeeName.split(' ').map(n => n[0]).join('')}
-                              </span>
-                            </div>
-                          </div>
+                          <Avatar 
+                            src={record.employeeAvatar} 
+                            firstName={record.employeeName.split(' ')[0]} 
+                            lastName={record.employeeName.split(' ')[1] || ''} 
+                            size="sm"
+                            isAdminView={user?.role === 'admin' || user?.role === 'owner'}
+                          />
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">{record.employeeName}</div>
                           </div>

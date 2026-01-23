@@ -146,13 +146,25 @@ export class AutoAttendanceService {
       const gracePeriodEnd = this.addMinutes(workStartTime, company.grace_period_minutes);
 
       if (currentTime >= workStartTime && currentTime <= gracePeriodEnd) {
-        // Get employees who haven't clocked in today
+        // Get employees who haven't clocked in today and have recent location
         const employeesQuery = `
-          SELECT u.id, u.company_id
+          WITH recent_location AS (
+            SELECT DISTINCT ON (ul.user_id)
+              ul.user_id,
+              ul.is_inside_geofence,
+              ul.permission_state,
+              ul.created_at
+            FROM user_locations ul
+            WHERE ul.company_id = $1
+              AND ul.created_at >= NOW() - INTERVAL '5 minutes'
+            ORDER BY ul.user_id, ul.created_at DESC
+          )
+          SELECT u.id, u.company_id, rl.is_inside_geofence, rl.permission_state
           FROM users u
           LEFT JOIN attendance_records ar ON 
             u.id = ar.user_id 
             AND DATE(ar.clock_in_time AT TIME ZONE $2) = CURRENT_DATE
+          LEFT JOIN recent_location rl ON rl.user_id = u.id
           WHERE u.company_id = $1
             AND u.is_active = true
             AND u.deleted_at IS NULL
@@ -161,13 +173,25 @@ export class AutoAttendanceService {
 
         const employees = await pool.query(employeesQuery, [company.id, company.timezone]);
 
-        // Clock in each employee
+        let autoCount = 0;
         for (const employee of employees.rows) {
+          const permissionGranted = employee.permission_state === 'granted';
+          const insideFence = employee.is_inside_geofence === true;
+
+          // Enforce geofence if required
+          if (company.require_geofence_for_clockin) {
+            if (!permissionGranted || !insideFence) continue;
+          } else {
+            // If geofence not required, still respect permission for privacy
+            if (!permissionGranted) continue;
+          }
+
           await this.createClockInRecord(employee.id, company.id, true);
+          autoCount++;
         }
 
-        if (employees.rows.length > 0) {
-          logger.info(`Auto clocked-in ${employees.rows.length} employees for company ${company.id}`);
+        if (autoCount > 0) {
+          logger.info(`Auto clocked-in ${autoCount} employees for company ${company.id}`);
         }
       }
     } catch (error) {
@@ -201,10 +225,22 @@ export class AutoAttendanceService {
       });
 
       if (currentTime >= company.work_end_time) {
-        // Get employees who are clocked in but haven't clocked out
+        // Get employees who are clocked in but haven't clocked out, and have left geofence recently
         const employeesQuery = `
-          SELECT ar.id, ar.user_id, ar.company_id
+          WITH recent_location AS (
+            SELECT DISTINCT ON (ul.user_id)
+              ul.user_id,
+              ul.is_inside_geofence,
+              ul.permission_state,
+              ul.created_at
+            FROM user_locations ul
+            WHERE ul.company_id = $1
+              AND ul.created_at >= NOW() - INTERVAL '10 minutes'
+            ORDER BY ul.user_id, ul.created_at DESC
+          )
+          SELECT ar.id, ar.user_id, ar.company_id, rl.is_inside_geofence, rl.permission_state
           FROM attendance_records ar
+          LEFT JOIN recent_location rl ON rl.user_id = ar.user_id
           WHERE ar.company_id = $1
             AND DATE(ar.clock_in_time AT TIME ZONE $2) = CURRENT_DATE
             AND ar.clock_out_time IS NULL
@@ -212,13 +248,21 @@ export class AutoAttendanceService {
 
         const employees = await pool.query(employeesQuery, [company.id, company.timezone]);
 
-        // Clock out each employee
+        let autoCount = 0;
         for (const record of employees.rows) {
+          const permissionGranted = record.permission_state === 'granted';
+          const insideFence = record.is_inside_geofence === true;
+
+          // Only auto clock-out when permission is granted and user is outside geofence
+          if (!permissionGranted) continue;
+          if (insideFence) continue;
+
           await this.updateClockOutRecord(record.id, true);
+          autoCount++;
         }
 
-        if (employees.rows.length > 0) {
-          logger.info(`Auto clocked-out ${employees.rows.length} employees for company ${company.id}`);
+        if (autoCount > 0) {
+          logger.info(`Auto clocked-out ${autoCount} employees for company ${company.id}`);
         }
       }
     } catch (error) {

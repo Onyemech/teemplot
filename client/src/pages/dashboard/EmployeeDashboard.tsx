@@ -11,6 +11,7 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import Avatar from '@/components/ui/Avatar';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
@@ -386,15 +387,13 @@ export default function EmployeeDashboard() {
             <h1 className="text-xl font-bold text-gray-900 mt-1">{userName}</h1>
           </div>
           {/* Avatar */}
-          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
-            {currentUser?.avatarUrl ? (
-              <img src={currentUser.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-[#0F5D5D] text-white font-bold text-lg">
-                {userName.charAt(0)}
-              </div>
-            )}
-          </div>
+          <Avatar 
+            src={currentUser?.avatarUrl} 
+            firstName={currentUser?.firstName || ''} 
+            lastName={currentUser?.lastName || ''} 
+            size="md"
+            editable={true}
+          />
         </div>
 
         {/* Stats Overview */}

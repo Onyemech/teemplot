@@ -35,6 +35,7 @@ import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
 import TaskStatusPage from './pages/tasks/TaskStatusPage'
 import TaskAssignmentDashboardPage from './pages/tasks/TaskAssignmentDashboardPage'
 import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
+import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
 
 import './utils/debugAuth'
 
@@ -122,7 +123,7 @@ function App() {
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
                 <Route path="leave/calendar" element={<LeaveCalendarPage />} />
-                <Route path="tasks" element={<Navigate to="/dashboard/tasks/status" replace />} />
+                <Route path="tasks" element={<TaskWorkspacePage />} />
                 <Route path="tasks/assign" element={<TaskAssignPage />} />
                 <Route path="tasks/complete" element={<TaskCompletePage />} />
                 <Route path="tasks/verify" element={<TaskVerifyPage />} />

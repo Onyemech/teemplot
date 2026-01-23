@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { UserPlus, Mail, Clock, CheckCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
+import { useUser } from '@/contexts/UserContext'
+import Avatar from '@/components/ui/Avatar'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
 import { format } from 'date-fns'
@@ -32,6 +34,7 @@ interface Invitation {
 
 export default function EmployeesPage({ initialTab = 'employees' }: { initialTab?: 'employees' | 'invitations' }) {
   const navigate = useNavigate()
+  const { user: currentUser } = useUser()
   const { hasAccess } = useFeatureAccess()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
@@ -162,19 +165,13 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                       className="flex items-center justify-between p-4 md:p-5 bg-white rounded-xl border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all duration-300"
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                        {employee.avatar ? (
-                          <img
-                            src={employee.avatar}
-                            alt={`${employee.firstName} ${employee.lastName}`}
-                            className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm flex-shrink-0">
-                            <span className="text-white font-semibold text-base md:text-lg">
-                              {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
-                            </span>
-                          </div>
-                        )}
+                        <Avatar 
+                          src={employee.avatar} 
+                          firstName={employee.firstName} 
+                          lastName={employee.lastName} 
+                          size="md"
+                          isAdminView={currentUser?.role === 'admin' || currentUser?.role === 'owner'}
+                        />
                         <div className="min-w-0 flex-1">
                           <h3 className="font-medium text-gray-900 truncate pr-2">
                             {employee.firstName} {employee.lastName}

@@ -91,10 +91,8 @@ export const navigationConfig: NavItemConfig[] = [
     icon: ClipboardList,
     feature: 'tasks', // Gold only
     submenu: [
-      { label: 'Assign', href: '/dashboard/tasks/assign', icon: ClipboardList, feature: 'tasks', adminOnly: true },
-      { label: 'My Tasks', href: '/dashboard/tasks/status', icon: ClipboardList, feature: 'tasks' },
-      { label: 'Complete', href: '/dashboard/tasks/complete', icon: ClipboardList, feature: 'tasks' },
-      { label: 'Verify', href: '/dashboard/tasks/verify', icon: ClipboardList, feature: 'tasks', adminOnly: true },
+      { label: 'Workspace', href: '/dashboard/tasks', icon: ClipboardList, feature: 'tasks' },
+      { label: 'Assignments', href: '/dashboard/tasks/assignments', icon: ClipboardList, feature: 'tasks', adminOnly: true },
     ],
   },
   {
@@ -222,12 +220,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/leave',
       '/dashboard/leave/requests',
       '/dashboard/leave/calendar',
-      '/dashboard/tasks/assignments',
       '/dashboard/tasks',
-      '/dashboard/tasks/assign',
-      '/dashboard/tasks/complete',
-      '/dashboard/tasks/verify',
-      '/dashboard/tasks/status',
+      '/dashboard/tasks/assignments',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 

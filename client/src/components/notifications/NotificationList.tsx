@@ -45,6 +45,14 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     }
   };
 
+  const getLogoSrc = (notification: Notification): string | null => {
+    const notifLogo = notification.data?.companyLogo as string | undefined
+    const userLogo = user?.companyLogo as string | undefined
+    if (notifLogo) return notifLogo
+    if (userLogo) return userLogo
+    return '/logo.png'
+  }
+
   return (
     <div className="w-80 max-h-[480px] flex flex-col bg-white rounded-lg shadow-xl border border-gray-200">
       <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -78,10 +86,10 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
                   }`}
               >
                 <div className="flex gap-3">
-                  <div className={`mt-1 flex-shrink-0 ${!notification.is_read ? 'text-primary' : 'text-gray-400'}`}>
-                    {notification.data?.companyLogo && user?.companyLogo ? (
+                  <div className="mt-1 flex-shrink-0">
+                    {getLogoSrc(notification) ? (
                       <img
-                        src={user.companyLogo}
+                        src={getLogoSrc(notification)!}
                         alt="Logo"
                         className="w-8 h-8 rounded-full object-cover border border-gray-200"
                       />

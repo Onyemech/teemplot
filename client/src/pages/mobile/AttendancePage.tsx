@@ -5,7 +5,7 @@ import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
 import PermissionModal from '@/components/common/PermissionModal'
 import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
-import { permissionManager, type PermissionError } from '@/utils/PermissionManager'
+import { permissionManager, type PermissionError, PermissionState } from '@/utils/PermissionManager'
 import { format, subDays, startOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns'
 
 interface AttendanceRecord {
@@ -119,6 +119,42 @@ export default function MobileAttendancePage() {
       setHistoryLoading(false)
     }
   }
+
+  // Background location heartbeat for auto attendance
+  useEffect(() => {
+    let interval: number | undefined
+
+    const sendHeartbeat = async () => {
+      try {
+        const perm = await permissionManager.checkLocationPermission()
+        if (perm !== PermissionState.GRANTED) {
+          return
+        }
+
+        const loc = await permissionManager.requestLocation({ timeout: 8000, retries: 0 })
+        if (!loc.success) {
+          return
+        }
+
+        await apiClient.post('/api/location/update', {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          accuracy: loc.accuracy,
+          permissionState: perm
+        })
+      } catch {
+        // Silently ignore heartbeat errors
+      }
+    }
+
+    // Send immediately and then every minute
+    sendHeartbeat()
+    interval = window.setInterval(sendHeartbeat, 60_000)
+
+    return () => {
+      if (interval) window.clearInterval(interval)
+    }
+  }, [])
 
   const getBiometricProof = async (): Promise<string | null> => {
     if (!window.PublicKeyCredential) {

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, Globe, User, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useUser } from '@/contexts/UserContext';
+import Avatar from '@/components/ui/Avatar';
 
 interface Employee {
     id: string;
@@ -15,6 +17,7 @@ interface Employee {
 }
 
 export default function RemoteClockinManager() {
+    const { user: currentUser } = useUser();
     const { success, error: showError } = useToast();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
@@ -81,13 +84,13 @@ export default function RemoteClockinManager() {
     const EmployeeCard = ({ employee, type }: { employee: Employee, type: 'standard' | 'remote' }) => (
         <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all mb-2 group">
             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-semibold text-xs">
-                    {employee.avatar ? (
-                        <img src={employee.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                        `${employee.firstName[0]}${employee.lastName[0]}`
-                    )}
-                </div>
+                <Avatar 
+                    src={employee.avatar} 
+                    firstName={employee.firstName} 
+                    lastName={employee.lastName} 
+                    size="sm"
+                    isAdminView={currentUser?.role === 'admin' || currentUser?.role === 'owner'}
+                />
                 <div>
                     <p className="text-sm font-medium text-gray-900">{employee.firstName} {employee.lastName}</p>
                     <p className="text-xs text-gray-500">{employee.position || employee.role}</p>
