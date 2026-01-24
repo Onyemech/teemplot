@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 
 const taskEvents = new EventEmitter();
 
-export default async function tasksRoutes(fastify: FastifyInstance) {
+export async function tasksRoutes(fastify: FastifyInstance) {
   
   // SSE endpoint
   fastify.get('/updates', {

@@ -4,7 +4,7 @@ import { requireOnboarding } from '../middleware/onboarding.middleware';
 
 const dashboardService = new DashboardService();
 
-export default async function dashboardRoutes(fastify: FastifyInstance) {
+export async function dashboardRoutes(fastify: FastifyInstance) {
   // Get dashboard statistics
   fastify.get('/stats', {
     onRequest: [fastify.authenticate],

@@ -7,14 +7,7 @@ import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { config_env } from './config/environment';
 import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
-import { authRoutes } from './presentation/routes/authRoutes';
-import { userRoutes } from './presentation/routes/userRoutes';
-import { companyRoutes } from './presentation/routes/companyRoutes';
-import { attendanceRoutes } from './presentation/routes/attendanceRoutes';
-
-import { taskRoutes } from './presentation/routes/taskRoutes';
-import { notificationRoutes } from './routes/notifications.routes';
-import dashboardRoutes from './routes/dashboard.routes';
+import { appRouter } from './routes';
 import { healthRoutes } from './routes/health.routes';
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -140,13 +133,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     };
   });
 
-  await server.register(authRoutes, { prefix: '/api/auth' });
-  await server.register(userRoutes, { prefix: '/api/users' });
-  await server.register(companyRoutes, { prefix: '/api/companies' });
-  await server.register(attendanceRoutes, { prefix: '/api/attendance' });
-  await server.register(taskRoutes, { prefix: '/api/tasks' });
-  await server.register(notificationRoutes, { prefix: '/api/notifications' });
-  await server.register(dashboardRoutes, { prefix: '/api/dashboard' });
+  await server.register(appRouter);
 
   // DEBUG: List all routes to diagnose 404s
   server.get('/debug/routes', async (request, reply) => {

@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
 
-export default async function taskAssignmentRoutes(fastify: FastifyInstance) {
+export async function taskAssignmentRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
 
   // Ensure table exists (backward compatible)

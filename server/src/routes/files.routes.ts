@@ -7,7 +7,7 @@ import multipart from '@fastify/multipart';
 import { fileService } from '../services/FileService';
 import { formatErrorResponse, getStatusCodeFromError } from '../middleware/error-formatter.middleware';
 
-export default async function filesRoutes(fastify: FastifyInstance) {
+export async function filesRoutes(fastify: FastifyInstance) {
 
   // Security: Prevent directory traversal attacks by sanitizing filenames
   function sanitizeFilename(filename: string): string {

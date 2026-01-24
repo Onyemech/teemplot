@@ -3,26 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
-import { authRoutes } from './routes/auth.routes';
-import { userRoutes } from './routes/user.routes';
-import { onboardingRoutes } from './routes/onboarding.routes';
-import { employeesRoutes } from './routes/employees.routes';
-import { employeeInvitationRoutes } from './routes/employee-invitation.routes';
-import { superAdminRoutes } from './routes/superadmin.routes';
-import filesRoutes from './routes/files.routes';
-import attendanceRoutes from './routes/attendance.routes';
-import companySettingsRoutes from './routes/company-settings.routes';
-import webAuthnRoutes from './routes/webauthn.routes';
-import adminAddressAuditRoutes from './routes/admin-address-audit.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import { companyRoutes } from './routes/company.routes';
-import { companyLocationsRoutes } from './routes/company-locations.routes';
-import { subscriptionRoutes } from './routes/subscription.routes';
-import leaveRoutes from './routes/leave.routes';
-import taskAssignmentRoutes from './routes/task-assignment.routes';
-import tasksRoutes from './routes/tasks.routes';
-import { notificationRoutes } from './routes/notifications.routes';
-import locationRoutes from './routes/location.routes';
+import { appRouter } from './routes';
 import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
 import { logger } from './utils/logger';
@@ -193,30 +174,8 @@ export async function buildApp() {
   app.get('/health', healthHandler);
   app.get('/api/health', healthHandler);
 
-  // Routes - Use /api prefix for all routes
-  // This works for both development (localhost:5000/api/...) and production (api.teemplot.com/api/...)
-  const apiPrefix = '/api';
-
-  await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
-  await app.register(userRoutes, { prefix: `${apiPrefix}/user` });
-  await app.register(onboardingRoutes, { prefix: `${apiPrefix}/onboarding` });
-  await app.register(employeesRoutes, { prefix: `${apiPrefix}/employees` });
-  await app.register(employeeInvitationRoutes, { prefix: `${apiPrefix}/employee-invitations` });
-  await app.register(superAdminRoutes, { prefix: `${apiPrefix}/superadmin` });
-  await app.register(filesRoutes, { prefix: `${apiPrefix}/files` });
-  await app.register(attendanceRoutes, { prefix: `${apiPrefix}/attendance` });
-  await app.register(companySettingsRoutes, { prefix: `${apiPrefix}/company-settings` });
-  await app.register(webAuthnRoutes, { prefix: `${apiPrefix}/webauthn` });
-  await app.register(adminAddressAuditRoutes, { prefix: `${apiPrefix}/admin/address-audit` });
-  await app.register(dashboardRoutes, { prefix: `${apiPrefix}/dashboard` });
-  await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
-  await app.register(companyLocationsRoutes, { prefix: `${apiPrefix}/company-locations` });
-  await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
-  await app.register(leaveRoutes, { prefix: `${apiPrefix}/leave` });
-  await app.register(taskAssignmentRoutes, { prefix: `${apiPrefix}/task-assignments` });
-  await app.register(tasksRoutes, { prefix: `${apiPrefix}/tasks` });
-  await app.register(notificationRoutes, { prefix: `${apiPrefix}/notifications` });
-  await app.register(locationRoutes, { prefix: `${apiPrefix}/location` });
+  // Routes - Use central router for all module routes
+  await app.register(appRouter);
 
 
   // Initialize auto attendance service
