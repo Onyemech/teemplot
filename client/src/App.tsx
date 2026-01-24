@@ -36,12 +36,14 @@ import TaskStatusPage from './pages/tasks/TaskStatusPage'
 import TaskAssignmentDashboardPage from './pages/tasks/TaskAssignmentDashboardPage'
 import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
 import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
+import TaskPolicySettingsPage from './pages/tasks/TaskPolicySettingsPage'
 
 import './utils/debugAuth'
 
 import GoogleCallbackPage from './pages/auth/GoogleCallbackPage'
 
 import PaymentCallbackPage from './pages/PaymentCallbackPage'
+import ManagePlanPage from './pages/dashboard/ManagePlanPage'
 
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
@@ -130,8 +132,10 @@ function App() {
                 <Route path="tasks/status" element={<TaskStatusPage />} />
                 <Route path="tasks/assignments" element={<TaskAssignmentDashboardPage />} />
                 <Route path="tasks/assignments/:id" element={<TaskAssignmentDetailPage />} />
+                <Route path="tasks/settings" element={<TaskPolicySettingsPage />} />
                 <Route path="inbox" element={<InboxPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings/billing" element={<ManagePlanPage />} />
               </Route>
 
               <Route path="/superadmin" element={<SuperAdminPage />} />

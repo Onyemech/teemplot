@@ -33,7 +33,7 @@ export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
   const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
-  const [loading, setLoading] = useState(true); // Initial data load
+  const [, setLoading] = useState(true); // Initial data load
   const [loadingAction, setLoadingAction] = useState<string | null>(null); // 'clockIn', 'clockOut', 'startBreak', 'endBreak'
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -369,13 +369,7 @@ export default function EmployeeDashboard() {
 
 
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
-      </div>
-    );
-  }
+  // For employees, we rely on the global LoadingOverlay; do not block UI with a full-screen spinner.
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-0">

@@ -28,6 +28,7 @@ import Button from '@/components/ui/Button'
 import Avatar from '@/components/ui/Avatar'
 import StatCard from '@/components/dashboard/StatCard'
 import AttendanceDonutChart from '@/components/dashboard/AttendanceDonutChart'
+import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
 import { apiClient } from '@/lib/api'
 
 interface AttendanceStats {
@@ -116,6 +117,7 @@ export default function AttendanceOverviewPage() {
   const [filterDepartment, setFilterDepartment] = useState('All Departments')
   const [filterStatus, setFilterStatus] = useState('All Statuses')
   const [filterLocation, setFilterLocation] = useState('All Locations')
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
 
   useEffect(() => {
     if (!hasAccess('attendance')) {
@@ -473,8 +475,8 @@ export default function AttendanceOverviewPage() {
           </div>
 
           <button
-            onClick={() => navigate('/dashboard/employees')}
-            className="w-full sm:w-auto bg-[#0F5D5D] hover:bg-[#0a4545] text-white px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
+            onClick={() => setIsInviteOpen(true)}
+            className="w-full sm:w-auto bg-[#0F5D5D] hover:bg-[#0a4545] text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             <span>Invite Employee</span>
@@ -922,6 +924,19 @@ export default function AttendanceOverviewPage() {
             <Button fullWidth onClick={() => setIsSuccessModalOpen(false)}>Close</Button>
           </div>
         </div>
+      )}
+
+      {/* Inline Invite Employee Modal */}
+      {isInviteOpen && (
+        <InviteEmployeeModal
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          onSuccess={() => {
+            setIsInviteOpen(false)
+            // Optionally refresh employees list
+            fetchEmployees()
+          }}
+        />
       )}
     </div>
   )

@@ -61,9 +61,16 @@ export default function OwnerDashboard() {
       const statsResponse = await apiClient.get('/api/dashboard/stats');
       const statsData = statsResponse.data;
 
-      if (statsData.success) {
+      if (statsData.success && statsData.data) {
         setStats(statsData.data);
-        setTrialDaysLeft(statsData.data.trialDaysLeft);
+        setTrialDaysLeft(
+          typeof statsData.data.trialDaysLeft === 'number'
+            ? statsData.data.trialDaysLeft
+            : null
+        );
+      } else {
+        setStats(null);
+        setTrialDaysLeft(null);
       }
 
       // Fetch recent activity
@@ -144,7 +151,7 @@ export default function OwnerDashboard() {
                 </div>
               </div>
               <button
-                onClick={() => navigate('/subscription')}
+                onClick={() => navigate('/dashboard/settings/billing')}
                 className="bg-white text-[#0F5D5D] px-6 py-2.5 rounded-lg hover:bg-white/90 text-sm font-bold transition-all shadow-md active:scale-95 relative z-10 whitespace-nowrap"
               >
                 Manage Plan

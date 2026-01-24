@@ -62,13 +62,35 @@ export default function TaskVerifyPage() {
           {/* Task Metadata / Proof */}
           <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm space-y-2">
             <div className="flex justify-between">
-              <span className="text-gray-500">Completed By:</span>
+              <span className="text-gray-500">Assigned To:</span>
               <span className="font-medium">{t.assigned_to_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Created By:</span>
+              <span className="font-medium">{t.created_by_name || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Created At:</span>
+              <span className="font-medium">{t.created_at ? new Date(t.created_at).toLocaleString() : '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Marked Complete At:</span>
+              <span className="font-medium">{t.marked_complete_at ? new Date(t.marked_complete_at).toLocaleString() : '-'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Actual Hours:</span>
               <span className="font-medium">{t.actual_hours || '-'} hrs</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Review Status:</span>
+              <span className="font-medium">{t.review_status || 'pending_review'}</span>
+            </div>
+            {t.rejection_reason && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Rejection Reason:</span>
+                <span className="font-medium">{t.rejection_reason}</span>
+              </div>
+            )}
 
             {/* Notes */}
             {t.metadata?.completion_notes && (

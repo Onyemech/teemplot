@@ -52,8 +52,18 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
       };
 
       const currentPlan = company.subscription_plan || 'silver_monthly';
-      const pricePerEmployee = planPrices[currentPlan] || 1200;
-      const totalAmount = additionalEmployees * pricePerEmployee; // Already in kobo
+      const pricePerEmployee = planPrices[currentPlan] || 1200; // NGN
+      // Proration based on remaining days in current period
+      const periodEnd = company.current_period_end ? new Date(company.current_period_end) : null;
+      const now = new Date();
+      const periodDays = currentPlan.includes('yearly') ? 365 : 30;
+      let remainingRatio = 1;
+      if (periodEnd && periodEnd > now) {
+        const msLeft = periodEnd.getTime() - now.getTime();
+        const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+        remainingRatio = Math.max(0, Math.min(1, daysLeft / periodDays));
+      }
+      const totalAmount = Math.round(additionalEmployees * pricePerEmployee * remainingRatio * 100); // kobo
 
       // Initiate payment
       const payment = await paymentService.initiatePayment({
@@ -102,12 +112,12 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { companyId, userId } = request.user as any;
-      const { plan, companySize } = request.body as { plan: string; companySize: number };
+      const { plan } = request.body as { plan: string; companySize?: number };
 
-      if (!plan || !companySize) {
+      if (!plan) {
         return reply.code(400).send({
           success: false,
-          message: 'Plan and company size are required',
+          message: 'Plan is required',
         });
       }
 
@@ -118,6 +128,16 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
         gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
       };
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const db = DatabaseFactory.getPrimaryDatabase();
+      const company = await db.findOne('companies', { id: companyId });
+      const currentPlan = company?.subscription_plan || 'silver_monthly';
+      if (String(currentPlan).startsWith('gold') && String(plan).startsWith('silver')) {
+        return reply.code(400).send({
+          success: false,
+          message: 'Downgrade not allowed during an active Gold period. Select a Gold plan or wait until the current period ends.'
+        });
+      }
 
       const pricePerEmployee = planPrices[plan];
       if (!pricePerEmployee) {
@@ -127,7 +147,16 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const totalAmount = pricePerEmployee * companySize; // Already in kobo
+      // Seat-based on total employees (users + pending invitations)
+      const countsRes = await db.query(
+        `SELECT 
+           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) AS active_count,
+           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending' AND expires_at > NOW()) AS pending_count`,
+        [companyId]
+      );
+      const totalSeats = parseInt(countsRes.rows[0]?.active_count || '0') + parseInt(countsRes.rows[0]?.pending_count || '0');
+      const seats = Math.max(1, totalSeats);
+      const totalAmount = seats * pricePerEmployee * 100; // kobo
 
       // Initiate payment
       const payment = await paymentService.initiatePayment({
@@ -138,7 +167,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         purpose: 'subscription',
         metadata: {
           plan,
-          companySize,
+          seats,
           pricePerEmployee,
         },
       });
@@ -165,6 +194,23 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  fastify.get('/prices', {
+    preHandler: [fastify.authenticate],
+  }, async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const prices = {
+        silver_monthly: parseInt(process.env.SILVER_MONTHLY_PLAN || '1200'),
+        silver_yearly: parseInt(process.env.SILVER_YEARLY_PLAN || '12000'),
+        gold_monthly: parseInt(process.env.GOLD_MONTHLY_PLAN || '2500'),
+        gold_yearly: parseInt(process.env.GOLD_YEARLY_PLAN || '25000'),
+        currency: 'NGN'
+      }
+      return reply.send({ success: true, data: prices })
+    } catch (error: any) {
+      return reply.code(500).send({ success: false, message: 'Failed to load prices' })
+    }
+  })
 
   /**
    * Verify and fulfill payment

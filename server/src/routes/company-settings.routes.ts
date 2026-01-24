@@ -755,4 +755,86 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  // Task policy: require attachments for task completion
+  fastify.get('/tasks-policy', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const companyId = request.user.companyId;
+      // Ensure settings row exists
+      await query(
+        `INSERT INTO company_settings (company_id)
+         VALUES ($1)
+         ON CONFLICT (company_id) DO NOTHING`,
+        [companyId]
+      );
+      const result = await query(
+        `SELECT require_attachments_for_tasks
+         FROM company_settings
+         WHERE company_id = $1`,
+        [companyId]
+      );
+      return reply.code(200).send({
+        success: true,
+        data: { requireAttachmentsForTasks: !!result.rows[0]?.require_attachments_for_tasks },
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to get tasks policy');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve tasks policy'
+      });
+    }
+  });
+
+  fastify.patch('/tasks-policy', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update task policy'
+        });
+      }
+      const { requireAttachmentsForTasks } = request.body as { requireAttachmentsForTasks: boolean };
+      if (typeof requireAttachmentsForTasks !== 'boolean') {
+        return reply.code(400).send({
+          success: false,
+          message: 'requireAttachmentsForTasks must be a boolean'
+        });
+      }
+      const companyId = request.user.companyId;
+      await query(
+        `INSERT INTO company_settings (company_id)
+         VALUES ($1)
+         ON CONFLICT (company_id) DO NOTHING`,
+        [companyId]
+      );
+      const result = await query(
+        `UPDATE company_settings
+         SET require_attachments_for_tasks = $1, updated_at = NOW()
+         WHERE company_id = $2
+         RETURNING require_attachments_for_tasks`,
+        [requireAttachmentsForTasks, companyId]
+      );
+      logger.info({
+        companyId,
+        userId: request.user.userId,
+        requireAttachmentsForTasks
+      }, 'Task policy updated');
+      return reply.code(200).send({
+        success: true,
+        data: { requireAttachmentsForTasks: result.rows[0]?.require_attachments_for_tasks },
+        message: 'Task policy updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update tasks policy');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update tasks policy'
+      });
+    }
+  });
 }

@@ -1533,16 +1533,56 @@ export default function CompanySetupPage() {
           }
           if (currentStep === 'review') currentStepNum = 5    // Completed Review
 
-          // Prepare formData for saving
-          // Save uploaded file metadata (objects with url/filename) or URL strings
-          // Don't save File objects (they need to be uploaded first)
+          // If on details and logo is a File, upload before saving
+          if (currentStep === 'details' && formData.companyLogo && isFile(formData.companyLogo) && companyId && userId) {
+            try {
+              const logoResult = await uploadLogo(companyId, userId, formData.companyLogo as File)
+              const newLogoData = {
+                url: logoResult.data.logoUrl,
+                name: (formData.companyLogo as File).name,
+                size: (formData.companyLogo as File).size,
+                uploaded: true
+              }
+              setFormData(prev => ({ ...prev, companyLogo: newLogoData }))
+            } catch (e) {
+              console.error('Logo upload failed during Save & Exit:', e)
+            }
+          }
+
+          // If on documents and any are File objects, upload them now (Save & Exit)
+          if (currentStep === 'documents' && companyId) {
+            const docsToUpload: Array<{ type: 'cac' | 'proof_of_address' | 'company_policy'; file: File }> = []
+            if (formData.cacDocument && isFile(formData.cacDocument)) docsToUpload.push({ type: 'cac', file: formData.cacDocument as File })
+            if (formData.proofOfAddress && isFile(formData.proofOfAddress)) docsToUpload.push({ type: 'proof_of_address', file: formData.proofOfAddress as File })
+            if (formData.companyPolicies && isFile(formData.companyPolicies)) docsToUpload.push({ type: 'company_policy', file: formData.companyPolicies as File })
+            if (docsToUpload.length > 0) {
+              try {
+                const { uploadDocumentsBatch } = await import('@/utils/onboardingApi')
+                const results = await uploadDocumentsBatch(companyId, docsToUpload)
+                const updates: any = {}
+                results.forEach(({ type, file }) => {
+                  if (type === 'cac') {
+                    updates.cacDocument = { filename: file.filename, size: file.size, url: file.secure_url, uploaded: true }
+                  } else if (type === 'proof_of_address') {
+                    updates.proofOfAddress = { filename: file.filename, size: file.size, url: file.secure_url, uploaded: true }
+                  } else if (type === 'company_policy') {
+                    updates.companyPolicies = { filename: file.filename, size: file.size, url: file.secure_url, uploaded: true }
+                  }
+                })
+                setFormData(prev => ({ ...prev, ...updates }))
+                toast.success('Documents saved')
+              } catch (e) {
+                console.error('Document upload failed during Save & Exit:', e)
+                toast.error('Failed to save some documents')
+              }
+            }
+          }
+
+          // Prepare formData for saving (only metadata/URLs, no raw Files)
           const processDocForSave = (doc: any) => {
             if (!doc) return null
-            // Don't save File objects - they need to be uploaded first
             if (isFile(doc)) return null
-            // Save objects with metadata (uploaded files)
             if (typeof doc === 'object' && (doc.url || doc.filename)) return doc
-            // Save URL strings
             if (typeof doc === 'string') return doc
             return null
           }

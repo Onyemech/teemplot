@@ -63,6 +63,75 @@ export interface AttachFileToCompanyRequest {
 
 class FileUploadService {
   /**
+   * Upload file via Integration Service (Cloudflare Worker or Image Service)
+   */
+  async uploadViaIntegrationService(request: FileUploadRequest): Promise<FileUploadResponse> {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([request.buffer], { type: request.mimeType });
+      formData.append('image', blob, request.filename);
+      formData.append('client', 'teemplot');
+
+      const serviceUrl =
+        process.env.FILE_INTEGRATION_URL ||
+        'https://cf-image-worker.sabimage.workers.dev/upload';
+
+      const response = await axios.post(serviceUrl, formData, {
+        timeout: 120000
+      });
+
+      const data = response.data;
+      const url: string = data.url || data.secure_url || data.location;
+      const publicId: string = data.key || (url ? (url.split('/').pop()?.split('.')[0] || request.hash) : request.hash);
+
+      const result = await query(
+        `INSERT INTO files (
+          hash, public_id, url, secure_url, file_size, mime_type,
+          original_filename, resource_type, format, uploaded_by, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+        RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
+        [
+          request.hash,
+          publicId,
+          url,
+          url,
+          request.buffer.length,
+          request.mimeType,
+          request.filename,
+          this.getResourceType(request.mimeType),
+          (url && url.includes('.') ? url.split('.').pop() : null),
+          request.uploadedBy
+        ]
+      );
+
+      const file = result.rows[0];
+
+      logger.info({
+        fileId: file.id,
+        hash: request.hash,
+        publicId,
+        size: request.buffer.length
+      }, 'File uploaded via Integration Service');
+
+      return {
+        success: true,
+        file: {
+          id: file.id,
+          hash: file.hash,
+          public_id: file.public_id,
+          url: file.url,
+          secure_url: file.secure_url,
+          file_size: file.file_size,
+          mime_type: file.mime_type
+        }
+      };
+    } catch (error: any) {
+      logger.error({ err: error?.message || error, filename: request.filename }, 'Integration upload failed');
+      throw new Error('Failed to upload file via integration service');
+    }
+  }
+
+  /**
    * Check if a file with the given hash already exists
    */
   async checkFileExists(request: FileCheckRequest): Promise<FileCheckResponse> {
@@ -424,82 +493,30 @@ class FileUploadService {
     companyId: string,
     metadata: { filename: string; mimeType: string; uploadedBy: string }
   ): Promise<{ url: string; secureUrl: string; publicId: string }> {
-    const maxRetries = 3;
-    let lastError: any;
+    try {
+      const formData = new FormData();
+      const blob = new Blob([buffer], { type: metadata.mimeType });
+      formData.append('image', blob, metadata.filename);
+      formData.append('client', 'teemplot');
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        logger.info({ companyId, attempt }, 'Attempting to upload logo to Image Service');
+      const serviceUrl = process.env.FILE_INTEGRATION_URL || 'https://cf-image-worker.sabimage.workers.dev/upload';
 
-        const formData = new FormData();
-        const blob = new Blob([buffer], { type: metadata.mimeType });
-        formData.append('image', blob, metadata.filename);
-        formData.append('client', 'teemplot');
-        formData.append('w', '500'); // Resize to 500px width
-        
-        // Use the global image optimization service
-        // Prefer environment variable, fallback to hardcoded URL
-        const serviceUrl = process.env.IMAGE_SERVICE_URL || 'https://image-compressor-f5lk.onrender.com/api/upload';
-        
-        const response = await axios.post(serviceUrl, formData, {
-          timeout: 120000 // Increased to 120s to handle Render cold starts
-        });
+      const response = await axios.post(serviceUrl, formData, {
+        timeout: 120000
+      });
 
-        const { url } = response.data;
-        // Extract hash from URL (e.g., .../teemplot/HASH.webp)
-        const publicId = url.split('/').pop()?.split('.')[0] || `logo-${Date.now()}`;
+      const { url, key } = response.data;
+      const publicId = key || (url.split('/').pop()?.split('.')[0] || `logo-${Date.now()}`);
 
-        logger.info({
-          companyId,
-          publicId,
-          url,
-          size: buffer.length,
-          attempt
-        }, 'Company logo uploaded successfully via Image Service');
-
-        return {
-          url,
-          secureUrl: url,
-          publicId
-        };
-      } catch (error: any) {
-        lastError = error;
-        
-        // Check if it's a network/DNS error
-        const isNetworkError = error.code === 'EAI_AGAIN' || 
-                              error.code === 'ENOTFOUND' || 
-                              error.code === 'ETIMEDOUT' ||
-                              error.code === 'ECONNREFUSED' ||
-                              !error.response; // No response usually means network error
-
-        logger.warn({ 
-          err: error.message, 
-          companyId, 
-          attempt,
-          isNetworkError,
-          willRetry: attempt < maxRetries
-        }, `Logo upload attempt ${attempt} failed`);
-
-        // If it's a network error and we have retries left, wait and retry
-        if (isNetworkError && attempt < maxRetries) {
-          const delay = attempt * 2000;
-          logger.info({ delay, attempt }, 'Waiting before retry');
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-
-        break;
-      }
+      return {
+        url,
+        secureUrl: url,
+        publicId
+      };
+    } catch (error: any) {
+      logger.error({ err: error?.message || error, companyId }, 'Logo upload via Integration Service failed');
+      throw new Error('Failed to upload company logo via integration service');
     }
-
-    // All retries failed
-    logger.error({ 
-      err: lastError, 
-      companyId,
-      attempts: maxRetries 
-    }, 'Failed to upload company logo after all retries');
-
-    throw new Error('Failed to upload company logo. Please try again.');
   }
 
   /**
@@ -511,123 +528,30 @@ class FileUploadService {
     documentType: string,
     metadata: { filename: string; mimeType: string; uploadedBy: string }
   ): Promise<{ url: string; secureUrl: string; publicId: string; fileId: string }> {
-    const maxRetries = 3;
-    let lastError: any;
+    try {
+      const upload = await this.uploadViaIntegrationService({
+        hash: metadata.filename + '-' + Date.now(),
+        buffer,
+        filename: metadata.filename,
+        mimeType: metadata.mimeType,
+        uploadedBy: metadata.uploadedBy
+      });
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        logger.info({ 
-          companyId, 
-          documentType, 
-          attempt,
-          size: buffer.length 
-        }, 'Attempting to upload company document to Cloudinary');
+      const fileIdRes = await query(
+        'SELECT id FROM files WHERE public_id = $1',
+        [upload.file.public_id]
+      );
+      const fileId = fileIdRes.rows[0]?.id || upload.file.id;
 
-        // Determine resource type
-        const resourceType = this.getResourceType(metadata.mimeType);
-
-        // Upload to Cloudinary
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            {
-              folder: `company-documents/${documentType}`,
-              resource_type: resourceType,
-              tags: ['company-document', documentType, companyId],
-              timeout: 60000 // 60 second timeout
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-
-          uploadStream.end(buffer);
-        });
-
-        // Save to database
-        const result = await query(
-          `INSERT INTO files (
-            hash, public_id, url, secure_url, file_size, mime_type,
-            original_filename, resource_type, format, uploaded_by, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
-          RETURNING id`,
-          [
-            uploadResult.public_id, // Using public_id as hash for now
-            uploadResult.public_id,
-            uploadResult.url,
-            uploadResult.secure_url,
-            buffer.length,
-            metadata.mimeType,
-            metadata.filename,
-            uploadResult.resource_type,
-            uploadResult.format,
-            metadata.uploadedBy
-          ]
-        );
-
-        const fileId = result.rows[0].id;
-
-        logger.info({
-          companyId,
-          documentType,
-          publicId: uploadResult.public_id,
-          fileId,
-          size: buffer.length,
-          attempt
-        }, 'Company document uploaded successfully');
-
-        return {
-          url: uploadResult.url,
-          secureUrl: uploadResult.secure_url,
-          publicId: uploadResult.public_id,
-          fileId
-        };
-      } catch (error: any) {
-        lastError = error;
-        
-        // Check if it's a network/DNS error
-        const isNetworkError = error.code === 'EAI_AGAIN' || 
-                              error.code === 'ENOTFOUND' || 
-                              error.code === 'ETIMEDOUT' ||
-                              error.code === 'ECONNREFUSED';
-
-        logger.warn({ 
-          err: error, 
-          companyId, 
-          documentType,
-          attempt,
-          isNetworkError,
-          willRetry: attempt < maxRetries
-        }, `Document upload attempt ${attempt} failed`);
-
-        // If it's a network error and we have retries left, wait and retry
-        if (isNetworkError && attempt < maxRetries) {
-          const delay = attempt * 2000; // 2s, 4s, 6s
-          logger.info({ delay, attempt }, 'Waiting before retry');
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-
-        // If not a network error or out of retries, break
-        break;
-      }
-    }
-
-    // All retries failed
-    logger.error({ 
-      err: lastError, 
-      companyId, 
-      documentType,
-      attempts: maxRetries 
-    }, 'Failed to upload company document after all retries');
-
-    // Provide user-friendly error message
-    if (lastError.code === 'EAI_AGAIN' || lastError.code === 'ENOTFOUND') {
-      throw new Error('Unable to connect to file storage service. Please check your internet connection and try again.');
-    } else if (lastError.code === 'ETIMEDOUT') {
-      throw new Error('File upload timed out. Please try again with a smaller file or check your internet connection.');
-    } else {
-      throw new Error('Failed to upload company document. Please try again.');
+      return {
+        url: upload.file.url,
+        secureUrl: upload.file.secure_url,
+        publicId: upload.file.public_id,
+        fileId
+      };
+    } catch (error: any) {
+      logger.error({ err: error?.message || error, companyId, documentType }, 'Integration document upload failed');
+      throw new Error('Failed to upload company document via integration service');
     }
   }
 

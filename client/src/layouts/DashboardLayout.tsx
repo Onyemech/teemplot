@@ -8,6 +8,8 @@ import { apiClient } from '@/lib/api'
 import { useUser } from '@/contexts/UserContext'
 import BiometricSetupPrompt from '@/components/auth/BiometricSetupPrompt'
 import SupportWidget from '@/components/dashboard/SupportWidget'
+import { LoadingOverlayProvider } from '@/contexts/LoadingOverlayContext'
+import LoadingOverlay from '@/components/ui/LoadingOverlay'
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -18,6 +20,10 @@ export default function DashboardLayout() {
   useEffect(() => {
     const checkBiometrics = async () => {
       try {
+        // Biometric prompt should ONLY target regular employees
+        // Owners, Admins, and Department Heads are excluded from the mandatory setup
+        if (user?.role !== 'employee') return;
+
         // 1. Check company settings
         const settingsRes = await apiClient.get('/api/company-settings')
         if (!settingsRes.data.success) return
@@ -30,6 +36,10 @@ export default function DashboardLayout() {
         const creds = credsRes.data.data
 
         if (Array.isArray(creds) && creds.length === 0) {
+          // Check if user has skipped this session
+          const hasSkipped = sessionStorage.getItem('skip_biometric_setup')
+          if (hasSkipped) return
+
           setIsMandatory(true)
           setShowBiometricPrompt(true)
         }
@@ -64,9 +74,12 @@ export default function DashboardLayout() {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
-          <Outlet />
-        </main>
+        <LoadingOverlayProvider>
+          <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+            <Outlet />
+          </main>
+          <LoadingOverlay />
+        </LoadingOverlayProvider>
 
         {/* Mobile Bottom Navigation */}
         <MobileBottomNav />

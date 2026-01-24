@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import { isBiometricAvailable } from '@/utils/pwa'
+import { isMobile, isPWA } from '@/utils/pwa'
 
 
 interface InvitationData {
@@ -83,6 +84,8 @@ export default function AcceptInvitationPage() {
     signCount?: number
   }>(null)
   const [biometricError, setBiometricError] = useState('')
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   // Validate password on change
   useEffect(() => {
@@ -139,6 +142,29 @@ export default function AcceptInvitationPage() {
     fetchInvitation()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]) // Removed 'toast' and 'error' from deps to prevent loops
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      if (!isPWA() && isMobile()) {
+        setShowInstallBanner(true)
+      }
+    }
+    const handleInstalled = () => {
+      setShowInstallBanner(false)
+      setDeferredPrompt(null)
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall as any)
+    window.addEventListener('appinstalled', handleInstalled as any)
+    if (!isPWA() && isMobile()) {
+      setShowInstallBanner(true)
+    }
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall as any)
+      window.removeEventListener('appinstalled', handleInstalled as any)
+    }
+  }, [])
 
   const toBase64 = (buffer: ArrayBuffer | undefined) => {
     if (!buffer) return undefined
@@ -290,6 +316,34 @@ export default function AcceptInvitationPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
+          {showInstallBanner && (
+            <div className="mb-4 p-3 border border-gray-200 rounded-xl bg-gray-50">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Install Employee App</p>
+                  <p className="text-xs text-gray-600">Get faster clock-ins and offline access</p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={async () => {
+                    if (deferredPrompt) {
+                      await deferredPrompt.prompt()
+                      const choice = await deferredPrompt.userChoice
+                      if (choice.outcome === 'accepted') {
+                        setShowInstallBanner(false)
+                      }
+                      setDeferredPrompt(null)
+                    } else {
+                      window.location.href = '/'
+                    }
+                  }}
+                >
+                  Install
+                </Button>
+              </div>
+            </div>
+          )}
           {/* Company Logo */}
           <div className="text-center mb-6">
             {invitation?.companyLogo ? (

@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import { useUser } from '@/contexts/UserContext'
-import { Clock, AlertCircle, Calendar, User, X } from 'lucide-react'
+import { Clock, AlertCircle, Calendar, User, X, Paperclip, FileText, Loader2 } from 'lucide-react'
+import { uploadToCloudflare } from '@/lib/integrations/cloudflare'
 import { useNavigate } from 'react-router-dom'
 
 export default function TaskStatusPage() {
@@ -23,6 +24,9 @@ export default function TaskStatusPage() {
   const [completing, setCompleting] = useState(false)
   const [completionNotes, setCompletionNotes] = useState('')
   const [actualHours, setActualHours] = useState(1)
+  const [attachments, setAttachments] = useState<any[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [requireAttachments, setRequireAttachments] = useState<boolean>(false)
 
   const fetchTasks = async () => {
     setLoading(true)
@@ -58,15 +62,32 @@ export default function TaskStatusPage() {
     fetchTasks()
   }, [filter, view])
 
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await apiClient.get('/api/company-settings/tasks-policy')
+        if (res.data?.success) {
+          setRequireAttachments(!!res.data.data?.requireAttachmentsForTasks)
+        }
+      } catch (e) {
+        // default false
+      }
+    })()
+  }, [])
+
   const handleMarkComplete = async () => {
     if (!selectedTask) return
 
     setCompleting(true)
     try {
+      if (requireAttachments && attachments.length === 0) {
+        toast.error('Please attach at least one file as proof of work')
+        return
+      }
       const res = await apiClient.post(`/api/tasks/${selectedTask.id}/complete`, {
         actualHours,
         completionNotes,
-        attachments: []
+        attachments
       })
       if (res.data.success) {
         toast.success('Task marked as complete!')
@@ -74,6 +95,7 @@ export default function TaskStatusPage() {
         setSelectedTask(null)
         setCompletionNotes('')
         setActualHours(1)
+        setAttachments([])
         // Refresh tasks list
         fetchTasks()
       }
@@ -153,11 +175,7 @@ export default function TaskStatusPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-        </div>
-      ) : (
+      {(!loading || (user?.role === 'employee')) ? (
         <div className="grid grid-cols-1 gap-4">
           {tasks.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
@@ -166,77 +184,95 @@ export default function TaskStatusPage() {
           ) : (
             tasks.map((task) => (
               <Card key={task.id} className="hover:shadow-md transition-shadow">
-                <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-start justify-between md:justify-start gap-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(task.status)}`}>
-                        {task.status.replace('_', ' ').toUpperCase()}
-                      </span>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        {getPriorityIcon(task.priority)}
-                        <span className="capitalize">{task.priority}</span>
-                      </div>
-                    </div>
-
-                    <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                    <p className="text-gray-600 text-sm line-clamp-2">{task.description}</p>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500 pt-2">
-                      <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        <span>Assigned to: {task.assigned_to_name || 'Unknown'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}</span>
-                      </div>
+                <div className="p-4 md:p-6 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(task.status)}`}>
+                      {task.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <div className="flex items-center gap-1 text-xs text-gray-600 px-2 py-1 rounded-full bg-gray-100">
+                      {getPriorityIcon(task.priority)}
+                      <span className="capitalize">{task.priority}</span>
                     </div>
                   </div>
 
-                  <div className="flex md:flex-col gap-2 justify-center min-w-[140px]">
-                    {/* Show Mark Complete only if user is assigned AND status is pending or in_progress */}
-                    {task.assigned_to === user?.id && (task.status === 'pending' || task.status === 'in_progress') && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedTask(task)
-                          setShowCompleteModal(true)
-                        }}
-                      >
-                        Mark Complete
-                      </Button>
-                    )}
-
-                    {/* Show status message for awaiting review */}
-                    {task.assigned_to === user?.id && task.status === 'awaiting_review' && (
-                      <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700 text-center">
-                        Awaiting manager review
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <h3 className="text-base font-semibold text-gray-900">{task.title}</h3>
+                        <p className="text-gray-600 text-sm mt-0.5">{task.description}</p>
                       </div>
-                    )}
+                    </div>
 
-                    {/* Show completed message */}
-                    {task.status === 'completed' && (
-                      <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 text-center">
-                        ✓ Completed
+                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-700 mt-2">
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+                        <User className="w-3.5 h-3.5" />
+                        <span className="truncate">{task.assigned_to_name || 'Unknown'}</span>
                       </div>
-                    )}
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{task.created_at ? new Date(task.created_at).toLocaleDateString() : '-'}</span>
+                      </div>
+                    </div>
 
-                    {/* Review Action - if user created it (or owner) and it's awaiting review */}
-                    {(user?.role === 'owner' || task.created_by === user?.id) && task.status === 'awaiting_review' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate('/dashboard/tasks/verify')}
-                      >
-                        Review Task
-                      </Button>
-                    )}
-                  </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-500 mt-2">
+                      <div>Created by: {task.created_by_name || 'Unknown'}</div>
+                      {task.review_status && <div className="text-right">Review: {String(task.review_status).replace('_',' ')}</div>}
+                      {task.marked_complete_at && <div>Completed at: {new Date(task.marked_complete_at).toLocaleString()}</div>}
+                      {task.reviewed_at && <div className="text-right">Reviewed: {new Date(task.reviewed_at).toLocaleString()}</div>}
+                      {task.rejection_reason && <div className="col-span-2">Reason: {task.rejection_reason}</div>}
+                    </div>
+
+                    <div className="mt-3">
+                      {task.assigned_to === user?.id && (task.status === 'pending' || task.status === 'in_progress') && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            setSelectedTask(task)
+                            setShowCompleteModal(true)
+                          }}
+                        >
+                          Mark Complete
+                        </Button>
+                      )}
+
+                      {task.assigned_to === user?.id && task.status === 'awaiting_review' && (
+                        <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700 text-center">
+                          Awaiting manager review
+                        </div>
+                      )}
+
+                      {task.status === 'completed' && (
+                        <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 text-center">
+                          ✓ Completed
+                        </div>
+                      )}
+
+                      {(user?.role === 'owner' || user?.role === 'admin' || task.created_by === user?.id) && task.status === 'awaiting_review' && (
+                        <div className="mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => navigate('/dashboard/tasks/verify')}
+                          >
+                            Review Task
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                 </div>
               </Card>
             ))
           )}
+        </div>
+      ) : (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
         </div>
       )}
 
@@ -291,6 +327,63 @@ export default function TaskStatusPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                 />
               </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Proof of Work (Attachments) {requireAttachments ? '(Required)' : '(Optional)'}
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {attachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-xs">
+                        <FileText className="w-3 h-3 text-gray-500" />
+                        <span className="max-w-[150px] truncate">{file.original_filename}</span>
+                        <button
+                          onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setUploading(true)
+                        try {
+                          const cfFile = await uploadToCloudflare(file, 'teemplot')
+                          setAttachments([...attachments, cfFile])
+                          toast.success('File attached')
+                        } catch (err) {
+                          toast.error('Failed to upload file')
+                        } finally {
+                          setUploading(false)
+                        }
+                      }}
+                      className="hidden"
+                      id={`file-upload-${selectedTask.id}`}
+                      disabled={uploading}
+                    />
+                    <label
+                      htmlFor={`file-upload-${selectedTask.id}`}
+                      className={`flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 cursor-pointer hover:border-primary-500 hover:text-primary-600 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip className="w-4 h-4" />
+                          Attach File
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
             </div>
 
             <div className="p-6 border-t border-gray-200 flex gap-3 justify-end sticky bottom-0 bg-white">
@@ -301,6 +394,7 @@ export default function TaskStatusPage() {
                   setSelectedTask(null)
                   setCompletionNotes('')
                   setActualHours(1)
+                    setAttachments([])
                 }}
               >
                 Cancel
@@ -309,6 +403,7 @@ export default function TaskStatusPage() {
                 variant="primary"
                 onClick={handleMarkComplete}
                 loading={completing}
+                  disabled={requireAttachments && attachments.length === 0}
               >
                 Submit for Review
               </Button>

@@ -33,13 +33,14 @@ export function useEmployeeLimit() {
       setState(prev => ({ ...prev, loading: true, error: null }))
       
       const response = await apiClient.get('/api/company/info')
+      const payload = response.data?.data || response.data
       const { 
         employee_limit, 
         current_employee_count, 
         pending_invitations_count,
         subscription_plan, 
         subscription_status 
-      } = response.data
+      } = payload
 
       // Use employee_limit from DB, default to 0 if null
       const declaredLimit = employee_limit ?? 0

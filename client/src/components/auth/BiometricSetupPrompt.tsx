@@ -39,6 +39,7 @@ export default function BiometricSetupPrompt({
     };
 
     const bufferDecode = (value: string) => {
+        if (!value) return new Uint8Array(0);
         return Uint8Array.from(atob(value.replace(/_/g, '/').replace(/-/g, '+')), c => c.charCodeAt(0));
     };
 
@@ -48,7 +49,8 @@ export default function BiometricSetupPrompt({
         try {
             // 1. Get options from server
             const optionsRes = await apiClient.post('/api/webauthn/register/options');
-            const options = optionsRes.data.data;
+            const data = optionsRes.data.data;
+            const options = data.options;
 
             // 2. Decode options for WebAuthn API
             const publicKey: PublicKeyCredentialCreationOptions = {
@@ -71,7 +73,7 @@ export default function BiometricSetupPrompt({
             // 4. Verify with server
             const verifyRes = await apiClient.post('/api/webauthn/register/verify', {
                 credentialId: credential.id,
-                challengeId: options.challenge, // Send back the original base64 challenge
+                challengeId: data.challengeId, // Send back the original challenge ID
                 response: {
                     id: credential.id,
                     rawId: toBase64(credential.rawId),
@@ -93,11 +95,24 @@ export default function BiometricSetupPrompt({
             }
         } catch (error: any) {
             console.error('Biometric registration failed:', error);
-            toast.error(error.response?.data?.message || error.message || 'Registration failed');
+            
+            // Handle specific WebAuthn errors
+            if (error.name === 'NotAllowedError') {
+                toast.error('Registration was cancelled or timed out. Please try again.');
+            } else if (error.name === 'NotSupportedError') {
+                toast.error('Biometrics not supported on this browser or device.');
+            } else {
+                toast.error(error.response?.data?.message || error.message || 'Registration failed');
+            }
             setStep('prompt');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSkip = () => {
+        sessionStorage.setItem('skip_biometric_setup', 'true');
+        onClose();
     };
 
     return (
@@ -112,11 +127,9 @@ export default function BiometricSetupPrompt({
                         </div>
                         <h3 className="font-semibold text-gray-900">Biometric Setup</h3>
                     </div>
-                    {!isMandatory && (
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                            <X className="w-5 h-5" />
-                        </button>
-                    )}
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Content */}
@@ -131,24 +144,33 @@ export default function BiometricSetupPrompt({
                             <h4 className="text-lg font-bold text-gray-900 mb-2">Secure Your Account</h4>
                             <p className="text-gray-500 mb-6">
                                 {isMandatory
-                                    ? "Your company requires biometric verification. Please set it up to continue."
+                                    ? "Your company requires biometric verification for clocking in/out. Please set it up on your device."
                                     : "Enable biometric login for faster and more secure access."
                                 }
                             </p>
 
-                            <Button
-                                onClick={handleRegister}
-                                fullWidth
-                                size="lg"
-                                disabled={!supported}
-                                loading={loading}
-                            >
-                                {supported ? 'Setup Biometrics' : 'Device Not Supported'}
-                            </Button>
+                            <div className="space-y-3">
+                                <Button
+                                    onClick={handleRegister}
+                                    fullWidth
+                                    size="lg"
+                                    disabled={!supported}
+                                    loading={loading}
+                                >
+                                    {supported ? 'Setup Biometrics' : 'Device Not Supported'}
+                                </Button>
+
+                                <button 
+                                    onClick={handleSkip}
+                                    className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors"
+                                >
+                                    Skip for now
+                                </button>
+                            </div>
 
                             {!supported && (
-                                <p className="mt-3 text-xs text-red-500">
-                                    Your device does not support or allow biometrics. Please use a compatible device.
+                                <p className="mt-4 text-xs text-red-500 bg-red-50 p-2 rounded-lg">
+                                    Your device or browser does not support WebAuthn biometrics (Face ID/Fingerprint). If you're on a desktop, ensure your hardware supports Windows Hello or Touch ID.
                                 </p>
                             )}
                         </>

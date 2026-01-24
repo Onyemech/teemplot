@@ -89,7 +89,7 @@ export class CompanyService {
       }
 
       const companyQuery = await this.db.query(
-        `SELECT subscription_plan, subscription_status, subscription_end_date, 
+        `SELECT subscription_plan, subscription_status, current_period_end, 
          subscription_start_date, trial_start_date, trial_end_date 
          FROM companies WHERE id = $1`,
         [companyId]
@@ -104,7 +104,7 @@ export class CompanyService {
       return {
         subscriptionPlan: company.subscription_plan,
         subscriptionStatus: company.subscription_status,
-        subscriptionEndDate: company.subscription_end_date,
+        currentPeriodEnd: company.current_period_end,
         subscriptionStartDate: company.subscription_start_date,
         trialStartDate: company.trial_start_date,
         trialEndDate: company.trial_end_date

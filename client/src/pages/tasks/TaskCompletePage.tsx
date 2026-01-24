@@ -4,16 +4,18 @@ import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
 
 import { Paperclip, X, FileText, Loader2 } from 'lucide-react'
+import { uploadToCloudflare } from '@/lib/integrations/cloudflare'
 
 export default function TaskCompletePage() {
   const toast = useToast()
   const [tasks, setTasks] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [completing, setCompleting] = useState('')
   const [notes, setNotes] = useState('')
   const [hours, setHours] = useState(1)
   const [attachments, setAttachments] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
+  const [requireAttachments, setRequireAttachments] = useState<boolean>(false)
 
   const fetchMyTasks = async () => {
     try {
@@ -30,11 +32,25 @@ export default function TaskCompletePage() {
 
   useEffect(() => {
     fetchMyTasks()
+    ;(async () => {
+      try {
+        const res = await apiClient.get('/api/company-settings/tasks-policy')
+        if (res.data?.success) {
+          setRequireAttachments(!!res.data.data?.requireAttachmentsForTasks)
+        }
+      } catch (e) {
+        // default stays false
+      }
+    })()
   }, [])
 
   const complete = async (taskId: string) => {
     setCompleting(taskId)
     try {
+      if (requireAttachments && attachments.length === 0) {
+        toast.error('Please attach at least one file as proof of work')
+        return
+      }
       const res = await apiClient.post(`/api/tasks/${taskId}/complete`, {
         actualHours: hours,
         completionNotes: notes,
@@ -54,7 +70,7 @@ export default function TaskCompletePage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading...</div>
+  // Rely on global overlay for employees; keep layout visible
 
   return (
     <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
@@ -86,7 +102,7 @@ export default function TaskCompletePage() {
 
             {/* File Upload Section */}
             <div>
-              <label className="text-sm text-[#212121] mb-2 block">Proof of Work (Attachments)</label>
+              <label className="text-sm text-[#212121] mb-2 block">Proof of Work (Attachments) {requireAttachments ? '(Required)' : '(Optional)'}</label>
 
               <div className="flex flex-wrap gap-2 mb-2">
                 {attachments.map((file, idx) => (
@@ -115,13 +131,9 @@ export default function TaskCompletePage() {
                     formData.append('file', file)
 
                     try {
-                      const res = await apiClient.post('/api/files/upload', formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                      })
-                      if (res.data.success) {
-                        setAttachments([...attachments, res.data.data.file])
-                        toast.success('File attached')
-                      }
+                      const cfFile = await uploadToCloudflare(file, 'teemplot')
+                      setAttachments([...attachments, cfFile])
+                      toast.success('File attached')
                     } catch (err) {
                       toast.error('Failed to upload file')
                     } finally {
@@ -156,6 +168,7 @@ export default function TaskCompletePage() {
               variant="primary"
               onClick={() => complete(t.id)}
               loading={completing === t.id}
+              disabled={requireAttachments && attachments.length === 0}
             >
               Mark Complete
             </Button>

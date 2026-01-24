@@ -63,6 +63,17 @@ export default function SupportWidget() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
+  useEffect(() => {
+    const openHandler = () => setIsOpen(true)
+    const closeHandler = () => setIsOpen(false)
+    window.addEventListener('open-support-widget', openHandler as any)
+    window.addEventListener('close-support-widget', closeHandler as any)
+    return () => {
+      window.removeEventListener('open-support-widget', openHandler as any)
+      window.removeEventListener('close-support-widget', closeHandler as any)
+    }
+  }, [])
+
     // When card opens or position changes, check if card is in viewport
     useEffect(() => {
         if (isOpen && widgetRef.current) {

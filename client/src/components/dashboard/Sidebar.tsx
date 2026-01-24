@@ -93,6 +93,7 @@ export const navigationConfig: NavItemConfig[] = [
     submenu: [
       { label: 'Workspace', href: '/dashboard/tasks', icon: ClipboardList, feature: 'tasks' },
       { label: 'Assignments', href: '/dashboard/tasks/assignments', icon: ClipboardList, feature: 'tasks', adminOnly: true },
+      { label: 'Settings', href: '/dashboard/tasks/settings', icon: Settings, feature: 'tasks', adminOnly: true },
     ],
   },
   {
@@ -222,6 +223,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/leave/calendar',
       '/dashboard/tasks',
       '/dashboard/tasks/assignments',
+      '/dashboard/tasks/settings',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 
@@ -364,8 +366,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span>Settings</span>
           </Link>
 
+          <Link to="/dashboard/settings/billing"
+            className={`
+            flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200
+            ${isActive('/dashboard/settings/billing')
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-foreground/70 hover:bg-secondary hover:text-foreground'
+              }
+          `}
+          >
+            <CircleDollarSign className="w-5 h-5" />
+            <span>Billing</span>
+          </Link>
+
           <button
-            onClick={() => toast.info('Help & Support - Coming Soon! 💬')}
+            onClick={() => {
+              window.dispatchEvent(new Event('open-support-widget'))
+            }}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-foreground/70 hover:bg-secondary hover:text-foreground transition-all duration-200"
           >
             <HelpCircle className="w-5 h-5" />

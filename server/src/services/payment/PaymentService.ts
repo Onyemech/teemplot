@@ -54,25 +54,9 @@ export class PaymentService {
     // Generate unique reference
     const reference = `${purpose}_${companyId}_${Date.now()}_${randomUUID().substring(0, 8)}`;
 
-    // Create payment record in database
-    const paymentId = randomUUID();
-    await this.db.insert('payments', {
-      id: paymentId,
-      company_id: companyId,
-      user_id: userId,
-      reference,
-      amount,
-      currency,
-      purpose,
-      status: 'pending',
-      provider: this.provider.getProviderName(),
-      metadata: JSON.stringify(metadata),
-      created_at: new Date().toISOString(),
-    });
-
-    // Initialize payment with provider
     const callbackUrl = `${process.env.FRONTEND_URL}/payment/callback?reference=${reference}`;
-    
+
+    // Initialize payment with provider FIRST (so we have authorization_url/access_code)
     const result = await this.provider.initializePayment({
       email: user.email,
       amount,
@@ -87,11 +71,23 @@ export class PaymentService {
       callbackUrl,
     });
 
-    // Update payment record with authorization URL
-    await this.db.update('payments', {
+    // Insert payment record with provider fields included to satisfy DB constraints
+    const paymentId = randomUUID();
+    await this.db.insert('payments', {
+      id: paymentId,
+      company_id: companyId,
+      user_id: userId,
+      reference,
+      amount,
+      currency,
+      purpose,
+      status: 'pending',
+      provider: this.provider.getProviderName(),
       authorization_url: result.authorizationUrl,
       access_code: result.accessCode,
-    }, { id: paymentId });
+      metadata: JSON.stringify(metadata),
+      created_at: new Date().toISOString(),
+    });
 
     logger.info({ paymentId, reference, purpose }, 'Payment initiated');
 
@@ -201,15 +197,14 @@ export class PaymentService {
       throw new Error('Company not found');
     }
 
-    const currentLimit = parseInt(company.employee_count) || 1;
-    const newLimit = currentLimit + additionalEmployees;
+    const baseLimit = Number(company.employee_limit ?? 0) || Number(company.employee_count ?? 0) || 0;
+    const newLimit = baseLimit + Number(additionalEmployees || 0);
 
     await this.db.update('companies', {
-      employee_count: newLimit.toString(),
-      updated_at: new Date().toISOString(),
+      employee_limit: newLimit,
     }, { id: companyId });
 
-    logger.info({ companyId, oldLimit: currentLimit, newLimit }, 'Employee limit upgraded');
+    logger.info({ companyId, oldLimit: baseLimit, newLimit }, 'Employee limit upgraded');
   }
 
   /**
@@ -217,14 +212,38 @@ export class PaymentService {
    */
   private async fulfillSubscription(companyId: string, metadata: any) {
     const { plan } = metadata;
+    const now = new Date();
+
+    // Determine extension duration from plan
+    const isMonthly = String(plan).toLowerCase().includes('monthly');
+    const isYearly = String(plan).toLowerCase().includes('yearly');
+
+    // Fetch existing period end and trial end
+    const company = await this.db.findOne('companies', { id: companyId });
+    const currentEnd = company?.current_period_end ? new Date(company.current_period_end) : now;
+    const trialEnd = company?.trial_end_date ? new Date(company.trial_end_date) : null;
+
+    // Extend from max(current_end, trial_end, now)
+    let base = currentEnd > now ? currentEnd : now;
+    if (trialEnd && trialEnd > base) {
+      base = trialEnd;
+    }
+    const extended = new Date(base);
+    extended.setDate(extended.getDate() + (isYearly ? 365 : 30));
 
     await this.db.update('companies', {
       subscription_plan: plan,
       subscription_status: 'active',
-      updated_at: new Date().toISOString(),
+      current_period_end: extended.toISOString(),
+      last_billing_event: JSON.stringify({
+        type: 'subscription',
+        plan,
+        extendedDays: isYearly ? 365 : 30,
+        processedAt: now.toISOString(),
+      }),
     }, { id: companyId });
 
-    logger.info({ companyId, plan }, 'Subscription activated');
+    logger.info({ companyId, plan, current_period_end: extended.toISOString() }, 'Subscription activated and extended');
   }
 
   /**

@@ -20,6 +20,7 @@ interface Task {
     name: string;
     avatar?: string;
   };
+  createdByName?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'awaiting_review' | 'approved' | 'rejected';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   dueDate: string;
@@ -169,8 +170,13 @@ export default function DepartmentTaskOverview({ role }: DepartmentTaskOverviewP
                         size="sm"
                         isAdminView={currentUser?.role === 'admin' || currentUser?.role === 'owner'}
                       />
-                      {task.assignedTo.name}
+                      <span>Assigned to: {task.assignedTo.name}</span>
                     </div>
+                    {task.createdByName && (
+                      <div className="flex items-center gap-1">
+                        <span>Assigned by: {task.createdByName}</span>
+                      </div>
+                    )}
                     {task.dueDate && (
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />

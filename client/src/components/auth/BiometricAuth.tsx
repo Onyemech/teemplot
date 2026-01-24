@@ -86,8 +86,8 @@ export default function BiometricAuth({ action, onSuccess, onCancel, email, devi
       // Step 3: Verify registration with server
       const verifyResponse = await apiClient.post('/api/webauthn/register/verify', {
         credentialId: attResp.id,
-        registrationResponse: attResp,
-        deviceType
+        response: attResp,
+        challengeId: data.data.challengeId,
       });
 
       const verifyData = verifyResponse.data;

@@ -118,7 +118,7 @@ export class FileService {
         };
       }
 
-      const uploadResult = await fileUploadService.uploadToCloudinary({ ...params, hash });
+      const uploadResult = await fileUploadService.uploadViaIntegrationService({ ...params, hash });
 
       // Save to db if needed (assuming uploadToCloudinary handles it, or add here)
 

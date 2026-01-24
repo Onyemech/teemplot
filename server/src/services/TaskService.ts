@@ -186,9 +186,11 @@ export class TaskService {
       SELECT 
         t.*,
         u.first_name || ' ' || u.last_name as assigned_to_name,
-        u.avatar_url as assigned_to_avatar
+        u.avatar_url as assigned_to_avatar,
+        c.first_name || ' ' || c.last_name as created_by_name
       FROM tasks t
       JOIN users u ON t.assigned_to = u.id
+      JOIN users c ON t.created_by = c.id
       WHERE t.company_id = $1
         AND (u.department_id = $2 OR t.department_id = $2)
         AND t.deleted_at IS NULL
@@ -207,6 +209,7 @@ export class TaskService {
         name: row.assigned_to_name,
         avatar: row.assigned_to_avatar
       },
+      createdByName: row.created_by_name,
       status: row.status,
       priority: row.priority,
       dueDate: row.due_date,
@@ -395,6 +398,18 @@ export class TaskService {
       throw new Error('Only the assigned user can mark this task as complete');
     }
 
+    // Check company policy for attachment requirement
+    const policyRes = await this.db.query(
+      `SELECT require_attachments_for_tasks
+       FROM company_settings
+       WHERE company_id = $1`,
+      [companyId]
+    );
+    const requireAttachments = !!policyRes.rows[0]?.require_attachments_for_tasks;
+    if (requireAttachments && (!attachments || (Array.isArray(attachments) && attachments.length === 0))) {
+      throw new Error('At least one attachment is required to mark this task as complete');
+    }
+
     // Build metadata object with completion notes and attachments
     const newMetadata = {
       completion_notes: completionNotes,
@@ -442,9 +457,33 @@ export class TaskService {
 
     const task = taskResult.rows[0];
 
-    // Allow owners to review any task, others only if they created it
-    if (role !== 'owner' && task.created_by !== userId) {
-      throw new Error('Only the original assigner (or owner) can review this task');
+    // Stricter role checks:
+    // - Owners/Admins can review any task
+    // - Original assigner can review
+    // - Department heads/managers can review tasks in their department
+    if (role !== 'owner' && role !== 'admin' && task.created_by !== userId) {
+      // Check department constraint for department_head/manager
+      if (role === 'department_head' || role === 'manager') {
+        const reviewerRes = await this.db.query(
+          'SELECT department_id FROM users WHERE id = $1 AND company_id = $2',
+          [userId, companyId]
+        );
+        const reviewerDept = reviewerRes.rows[0]?.department_id;
+        // Compare against task.department_id or assignee's department
+        let taskDept = task.department_id;
+        if (!taskDept) {
+          const assigneeDeptRes = await this.db.query(
+            'SELECT department_id FROM users WHERE id = $1',
+            [task.assigned_to]
+          );
+          taskDept = assigneeDeptRes.rows[0]?.department_id;
+        }
+        if (!reviewerDept || !taskDept || reviewerDept !== taskDept) {
+          throw new Error('Managers and department heads can only review tasks within their department or tasks they assigned');
+        }
+      } else {
+        throw new Error('Only the original assigner, owner, or admin can review this task');
+      }
     }
 
     if (task.review_status !== 'pending_review') {
