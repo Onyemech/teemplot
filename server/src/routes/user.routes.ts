@@ -4,6 +4,7 @@ import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 const db = DatabaseFactory.getPrimaryDatabase();
 
 export async function userRoutes(fastify: FastifyInstance) {
+  fastify.log.info('Registering user routes');
   // Update current user profile
   fastify.patch('/profile', {
     preHandler: [fastify.authenticate]

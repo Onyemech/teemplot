@@ -4,6 +4,25 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { authRoutes } from './routes/auth.routes';
+import { userRoutes } from './routes/user.routes';
+import { onboardingRoutes } from './routes/onboarding.routes';
+import { employeesRoutes } from './routes/employees.routes';
+import { employeeInvitationRoutes } from './routes/employee-invitation.routes';
+import { superAdminRoutes } from './routes/superadmin.routes';
+import filesRoutes from './routes/files.routes';
+import attendanceRoutes from './routes/attendance.routes';
+import companySettingsRoutes from './routes/company-settings.routes';
+import webAuthnRoutes from './routes/webauthn.routes';
+import adminAddressAuditRoutes from './routes/admin-address-audit.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import { companyRoutes } from './routes/company.routes';
+import { companyLocationsRoutes } from './routes/company-locations.routes';
+import { subscriptionRoutes } from './routes/subscription.routes';
+import leaveRoutes from './routes/leave.routes';
+import taskAssignmentRoutes from './routes/task-assignment.routes';
+import tasksRoutes from './routes/tasks.routes';
+import { notificationRoutes } from './routes/notifications.routes';
+import locationRoutes from './routes/location.routes';
 import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
 import { logger } from './utils/logger';
@@ -179,82 +198,25 @@ export async function buildApp() {
   const apiPrefix = '/api';
 
   await app.register(authRoutes, { prefix: `${apiPrefix}/auth` });
-
-  // Import and register user routes
-  const { userRoutes } = await import('./routes/user.routes');
   await app.register(userRoutes, { prefix: `${apiPrefix}/user` });
-
-  // Import and register onboarding routes
-  const { onboardingRoutes } = await import('./routes/onboarding.routes');
   await app.register(onboardingRoutes, { prefix: `${apiPrefix}/onboarding` });
-
-  // Import and register employees routes
-  const { employeesRoutes } = await import('./routes/employees.routes');
   await app.register(employeesRoutes, { prefix: `${apiPrefix}/employees` });
-
-  // Import and register employee invitation routes
-  const { employeeInvitationRoutes } = await import('./routes/employee-invitation.routes');
   await app.register(employeeInvitationRoutes, { prefix: `${apiPrefix}/employee-invitations` });
-
-  // Import and register super admin routes
-  const { superAdminRoutes } = await import('./routes/superadmin.routes');
   await app.register(superAdminRoutes, { prefix: `${apiPrefix}/superadmin` });
-
-  // Import and register files routes
-  const filesRoutes = await import('./routes/files.routes');
-  await app.register(filesRoutes.default, { prefix: `${apiPrefix}/files` });
-
-  // Import and register attendance routes
-  const attendanceRoutes = await import('./routes/attendance.routes');
-  await app.register(attendanceRoutes.default, { prefix: `${apiPrefix}/attendance` });
-
-  // Import and register company settings routes
-  const companySettingsRoutes = await import('./routes/company-settings.routes');
-  await app.register(companySettingsRoutes.default, { prefix: `${apiPrefix}/company-settings` });
-
-  // Import and register WebAuthn routes for biometric authentication
-  const webAuthnRoutes = await import('./routes/webauthn.routes');
-  await app.register(webAuthnRoutes.default, { prefix: `${apiPrefix}/webauthn` });
-
-  // Import and register admin address audit routes
-  const adminAddressAuditRoutes = await import('./routes/admin-address-audit.routes');
-  await app.register(adminAddressAuditRoutes.default, { prefix: `${apiPrefix}/admin/address-audit` });
-
-  // Import and register dashboard routes
-  const dashboardRoutes = await import('./routes/dashboard.routes');
-  await app.register(dashboardRoutes.default, { prefix: `${apiPrefix}/dashboard` });
-
-  // Import and register company routes
-  const { companyRoutes } = await import('./routes/company.routes');
+  await app.register(filesRoutes, { prefix: `${apiPrefix}/files` });
+  await app.register(attendanceRoutes, { prefix: `${apiPrefix}/attendance` });
+  await app.register(companySettingsRoutes, { prefix: `${apiPrefix}/company-settings` });
+  await app.register(webAuthnRoutes, { prefix: `${apiPrefix}/webauthn` });
+  await app.register(adminAddressAuditRoutes, { prefix: `${apiPrefix}/admin/address-audit` });
+  await app.register(dashboardRoutes, { prefix: `${apiPrefix}/dashboard` });
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });
-
-  // Import and register company locations routes
-  const { companyLocationsRoutes } = await import('./routes/company-locations.routes');
   await app.register(companyLocationsRoutes, { prefix: `${apiPrefix}/company-locations` });
-
-  // Import and register subscription routes
-  const { subscriptionRoutes } = await import('./routes/subscription.routes');
   await app.register(subscriptionRoutes, { prefix: `${apiPrefix}/subscription` });
-
-  // Import and register leave management routes
-  const leaveRoutes = await import('./routes/leave.routes');
-  await app.register(leaveRoutes.default, { prefix: `${apiPrefix}/leave` });
-
-  // Import and register task assignment routes
-  const taskAssignmentRoutes = await import('./routes/task-assignment.routes');
-  await app.register(taskAssignmentRoutes.default, { prefix: `${apiPrefix}/task-assignments` });
-
-  // Import and register tasks routes
-  const tasksRoutes = await import('./routes/tasks.routes');
-  await app.register(tasksRoutes.default, { prefix: `${apiPrefix}/tasks` });
-
-  // Import and register notification routes
-  const { notificationRoutes } = await import('./routes/notifications.routes');
+  await app.register(leaveRoutes, { prefix: `${apiPrefix}/leave` });
+  await app.register(taskAssignmentRoutes, { prefix: `${apiPrefix}/task-assignments` });
+  await app.register(tasksRoutes, { prefix: `${apiPrefix}/tasks` });
   await app.register(notificationRoutes, { prefix: `${apiPrefix}/notifications` });
-
-  // Import and register device location routes
-  const locationRoutes = await import('./routes/location.routes');
-  await app.register(locationRoutes.default, { prefix: `${apiPrefix}/location` });
+  await app.register(locationRoutes, { prefix: `${apiPrefix}/location` });
 
 
   // Initialize auto attendance service
