@@ -4,7 +4,7 @@ import { userService } from '../services/UserService';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
-export async function attendanceRoutes(fastify: FastifyInstance) {
+export default async function attendanceRoutes(fastify: FastifyInstance) {
   // Admin: Get company attendance (filtered list)
   fastify.get('/', {
     preHandler: [fastify.authenticate],

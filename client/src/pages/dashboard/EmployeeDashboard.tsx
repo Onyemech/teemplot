@@ -11,7 +11,6 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
-import Avatar from '@/components/ui/Avatar';
 import StatCard from '@/components/dashboard/StatCard';
 import LocationVerificationModal from '@/components/dashboard/LocationVerificationModal';
 import { apiClient } from '@/lib/api';
@@ -33,7 +32,7 @@ export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
   const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
-  const [, setLoading] = useState(true); // Initial data load
+  const [loading, setLoading] = useState(true); // Initial data load
   const [loadingAction, setLoadingAction] = useState<string | null>(null); // 'clockIn', 'clockOut', 'startBreak', 'endBreak'
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -45,6 +44,7 @@ export default function EmployeeDashboard() {
   const [biometricRequired, setBiometricRequired] = useState(false);
   const [showLocationVerification, setShowLocationVerification] = useState(false);
   const [biometricProof, setBiometricProof] = useState<string | null>(null);
+  const [companyTimezone, setCompanyTimezone] = useState<string | undefined>(undefined);
 
   // Permission States
   const [showPermissionModal, setShowPermissionModal] = useState(false);
@@ -96,6 +96,7 @@ export default function EmployeeDashboard() {
       const settingsResponse = await apiClient.get('/api/company-settings');
       if (settingsResponse.data.success) {
         setBiometricRequired(settingsResponse.data.data.biometrics_required || false);
+        setCompanyTimezone(settingsResponse.data.data.timezone);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -369,7 +370,13 @@ export default function EmployeeDashboard() {
 
 
 
-  // For employees, we rely on the global LoadingOverlay; do not block UI with a full-screen spinner.
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-0">
@@ -381,13 +388,15 @@ export default function EmployeeDashboard() {
             <h1 className="text-xl font-bold text-gray-900 mt-1">{userName}</h1>
           </div>
           {/* Avatar */}
-          <Avatar 
-            src={currentUser?.avatarUrl} 
-            firstName={currentUser?.firstName || ''} 
-            lastName={currentUser?.lastName || ''} 
-            size="md"
-            editable={true}
-          />
+          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-[#0F5D5D] text-white font-bold text-lg">
+                {userName.charAt(0)}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Overview */}
@@ -403,7 +412,7 @@ export default function EmployeeDashboard() {
             <Clock className="h-4 w-4 text-[#0F5D5D]" />
             <span className="text-sm font-semibold text-gray-700">
               {attendanceStatus?.clockInTime
-                ? new Date(attendanceStatus.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                ? new Date(attendanceStatus.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: companyTimezone })
                 : 'Clock In'}
             </span>
           </div>
@@ -430,7 +439,7 @@ export default function EmployeeDashboard() {
             <LogOut className="h-4 w-4 text-red-500" />
             <span className="text-sm font-semibold text-gray-700">
               {attendanceStatus?.clockOutTime
-                ? new Date(attendanceStatus.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                ? new Date(attendanceStatus.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: companyTimezone })
                 : 'Clock Out'}
             </span>
           </div>
@@ -492,7 +501,7 @@ export default function EmployeeDashboard() {
           <div className="flex items-center justify-center flex-col">
             <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase mb-1">Current Time</p>
             <h2 className="text-4xl font-black text-gray-900 tabular-nums tracking-tight">
-              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: companyTimezone })}
             </h2>
             <p className="text-xs text-gray-400 mt-2 font-medium">
               09Hrs : 28Mins : 52Secs until close out

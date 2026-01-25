@@ -858,7 +858,7 @@ class EnhancedAttendanceService {
 
       // Get data with optimized subqueries for breaks to avoid N+1
       let queryStr = `
-        SELECT ar.*, u.first_name, u.last_name, u.email, u.position, u.avatar_url,
+        SELECT ar.*, u.first_name, u.last_name, u.email, u.position,
         d.name as department,
         CASE 
           WHEN ar.is_within_geofence THEN 'onsite'

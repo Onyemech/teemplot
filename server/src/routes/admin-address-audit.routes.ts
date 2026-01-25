@@ -3,7 +3,7 @@ import { query } from '../config/database';
 import { addressValidationService } from '../services/AddressValidationService';
 import { logger } from '../utils/logger';
 
-export async function adminAddressAuditRoutes(fastify: FastifyInstance) {
+export default async function adminAddressAuditRoutes(fastify: FastifyInstance) {
   // Get all company addresses for audit
   fastify.get('/addresses', {
     preHandler: [fastify.authenticate],

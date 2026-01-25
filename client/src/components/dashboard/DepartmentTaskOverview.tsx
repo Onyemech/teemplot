@@ -3,13 +3,12 @@ import {
   CheckCircle, 
   XCircle, 
   Search,
+  User,
   Calendar
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { format } from 'date-fns';
 import { UserRoles } from '@/constants/roles';
-import { useUser } from '@/contexts/UserContext';
-import Avatar from '@/components/ui/Avatar';
 
 interface Task {
   id: string;
@@ -20,7 +19,6 @@ interface Task {
     name: string;
     avatar?: string;
   };
-  createdByName?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'awaiting_review' | 'approved' | 'rejected';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   dueDate: string;
@@ -33,7 +31,6 @@ interface DepartmentTaskOverviewProps {
 }
 
 export default function DepartmentTaskOverview({ role }: DepartmentTaskOverviewProps) {
-  const { user: currentUser } = useUser();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -162,21 +159,10 @@ export default function DepartmentTaskOverview({ role }: DepartmentTaskOverviewP
                   <p className="text-sm text-gray-500 line-clamp-1">{task.description}</p>
                   
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                    <div className="flex items-center gap-2">
-                      <Avatar 
-                        src={task.assignedTo.avatar} 
-                        firstName={task.assignedTo.name.split(' ')[0]} 
-                        lastName={task.assignedTo.name.split(' ')[1] || ''} 
-                        size="sm"
-                        isAdminView={currentUser?.role === 'admin' || currentUser?.role === 'owner'}
-                      />
-                      <span>Assigned to: {task.assignedTo.name}</span>
+                    <div className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {task.assignedTo.name}
                     </div>
-                    {task.createdByName && (
-                      <div className="flex items-center gap-1">
-                        <span>Assigned by: {task.createdByName}</span>
-                      </div>
-                    )}
                     {task.dueDate && (
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />

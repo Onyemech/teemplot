@@ -31,3 +31,5 @@ export type { CardProps } from './Card'
 
 export { default as FileUpload } from './FileUpload'
 export type { FileUploadProps } from './FileUpload'
+
+export { default as Avatar } from './Avatar'

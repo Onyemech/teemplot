@@ -62,6 +62,7 @@ function App() {
           <NotificationProvider>
             <ServiceWorkerErrorHandler />
             <ReloadPrompt />
+            {/* <IOSInstallPrompt /> */}
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={

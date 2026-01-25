@@ -1,4 +1,5 @@
 import '@fastify/jwt';
+import '@fastify/cookie';
 
 declare module 'fastify' {
   interface FastifyInstance {

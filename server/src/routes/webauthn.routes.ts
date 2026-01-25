@@ -22,7 +22,7 @@ const AuthenticateBiometricSchema = z.object({
   deviceType: z.enum(['fingerprint', 'face', 'voice', 'iris']).optional().default('fingerprint'),
 });
 
-export async function webAuthnRoutes(fastify: FastifyInstance) {
+export default async function webAuthnRoutes(fastify: FastifyInstance) {
   // Generate registration options for biometric setup
   fastify.post('/register/options', {
     preHandler: [fastify.authenticate],

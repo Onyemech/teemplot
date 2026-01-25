@@ -3,7 +3,7 @@ import { query } from '../config/database';
 import { logger } from '../utils/logger';
 import { notificationService } from '../services/NotificationService';
 
-export async function locationRoutes(fastify: FastifyInstance) {
+export default async function locationRoutes(fastify: FastifyInstance) {
   fastify.post('/update', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {

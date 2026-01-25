@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { requireFeature } from '../middleware/subscription.middleware';
 
-export async function leaveRoutes(fastify: FastifyInstance) {
+export default async function leaveRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
 
   // Request leave

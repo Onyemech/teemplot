@@ -22,7 +22,7 @@ interface UserContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  refetch: (silent?: boolean) => Promise<void>;
+  refetch: () => Promise<void>;
   clearUser: () => void;
   hasRole: (roles: string | string[]) => boolean;
 }
@@ -75,9 +75,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     fetchUser();
   }, []);
 
-  const refetch = async (silent = false) => {
-    console.log(`🔄 Refetching user data (${silent ? 'silent' : 'active'})...`);
-    if (!silent) setLoading(true);
+  const refetch = async () => {
+    console.log('🔄 Refetching user data...');
+    setLoading(true);
     await fetchUser();
   };
 

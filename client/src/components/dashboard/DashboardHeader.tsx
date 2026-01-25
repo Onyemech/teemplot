@@ -36,6 +36,10 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
 
         {/* Mobile Header: Simple & Clean */}
         <div className="flex items-center gap-3 md:hidden">
+          {/* User Avatar - Small */}
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+            {userInitials}
+          </div>
           <div>
             <h1 className="text-base font-bold text-gray-900 leading-tight truncate max-w-[150px]">
               {currentUser?.companyName || 'Teemplot'}

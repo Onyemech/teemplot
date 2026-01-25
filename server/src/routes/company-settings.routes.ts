@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 
-export async function companySettingsRoutes(fastify: FastifyInstance) {
+export default async function companySettingsRoutes(fastify: FastifyInstance) {
   // Get company settings
   fastify.get('/', {
     preHandler: [fastify.authenticate],

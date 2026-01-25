@@ -25,10 +25,8 @@ import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns'
 import MobileAttendancePage from '../mobile/AttendancePage'
 import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
-import Avatar from '@/components/ui/Avatar'
 import StatCard from '@/components/dashboard/StatCard'
 import AttendanceDonutChart from '@/components/dashboard/AttendanceDonutChart'
-import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
 import { apiClient } from '@/lib/api'
 
 interface AttendanceStats {
@@ -117,7 +115,6 @@ export default function AttendanceOverviewPage() {
   const [filterDepartment, setFilterDepartment] = useState('All Departments')
   const [filterStatus, setFilterStatus] = useState('All Statuses')
   const [filterLocation, setFilterLocation] = useState('All Locations')
-  const [isInviteOpen, setIsInviteOpen] = useState(false)
 
   useEffect(() => {
     if (!hasAccess('attendance')) {
@@ -190,10 +187,9 @@ export default function AttendanceOverviewPage() {
           employeeId: r.user_id,
           employeeName: `${r.first_name || 'Unknown'} ${r.last_name || ''}`,
           employeeEmail: r.email,
-          employeeAvatar: r.avatar_url,
           department: r.department || 'General',
-          clockInTime: r.clock_in_time ? new Date(r.clock_in_time).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Africa/Lagos' }) : null,
-          clockOutTime: r.clock_out_time ? new Date(r.clock_out_time).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Africa/Lagos' }) : null,
+          clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
+          clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
           duration: r.duration_minutes ? `${Math.floor(r.duration_minutes / 60)}h ${r.duration_minutes % 60}m` : '--',
           status: r.status === 'on_break' ? 'on_break' : (r.status === 'late_arrival' ? 'late_arrival' : (r.status || 'absent')),
           location: r.location_type || 'onsite',
@@ -475,8 +471,8 @@ export default function AttendanceOverviewPage() {
           </div>
 
           <button
-            onClick={() => setIsInviteOpen(true)}
-            className="w-full sm:w-auto bg-[#0F5D5D] hover:bg-[#0a4545] text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
+            onClick={() => navigate('/dashboard/employees')}
+            className="w-full sm:w-auto bg-[#0F5D5D] hover:bg-[#0a4545] text-white px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             <span>Invite Employee</span>
@@ -701,13 +697,13 @@ export default function AttendanceOverviewPage() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <Avatar 
-                            src={record.employeeAvatar} 
-                            firstName={record.employeeName.split(' ')[0]} 
-                            lastName={record.employeeName.split(' ')[1] || ''} 
-                            size="sm"
-                            isAdminView={user?.role === 'admin' || user?.role === 'owner'}
-                          />
+                          <div className="flex-shrink-0 h-8 w-8">
+                            <div className="h-8 w-8 rounded-full bg-[#0F5D5D] flex items-center justify-center">
+                              <span className="text-white font-medium text-xs">
+                                {record.employeeName.split(' ').map(n => n[0]).join('')}
+                              </span>
+                            </div>
+                          </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">{record.employeeName}</div>
                           </div>
@@ -924,19 +920,6 @@ export default function AttendanceOverviewPage() {
             <Button fullWidth onClick={() => setIsSuccessModalOpen(false)}>Close</Button>
           </div>
         </div>
-      )}
-
-      {/* Inline Invite Employee Modal */}
-      {isInviteOpen && (
-        <InviteEmployeeModal
-          isOpen={isInviteOpen}
-          onClose={() => setIsInviteOpen(false)}
-          onSuccess={() => {
-            setIsInviteOpen(false)
-            // Optionally refresh employees list
-            fetchEmployees()
-          }}
-        />
       )}
     </div>
   )
