@@ -172,7 +172,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/tasks/create')}
+                  onClick={() => navigate('/dashboard/tasks/create')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-purple-50 hover:border-purple-200 transition-all active:scale-95"
                 >
                   <CheckSquare className="h-6 w-6 text-gray-600 mb-2" />
@@ -180,7 +180,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/reports')}
+                  onClick={() => navigate('/dashboard/reports')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95"
                 >
                   <FileText className="h-6 w-6 text-gray-600 mb-2" />
@@ -188,7 +188,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/settings')}
+                  onClick={() => navigate('/dashboard/settings')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all active:scale-95"
                 >
                   <Settings className="h-6 w-6 text-gray-600 mb-2" />

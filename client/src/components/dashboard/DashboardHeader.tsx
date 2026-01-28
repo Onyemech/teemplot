@@ -70,8 +70,12 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-medium">{userInitials}</span>
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {currentUser?.avatarUrl ? (
+                  <img src={`${currentUser.avatarUrl}?t=${Date.now()}`} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-sm font-medium">{userInitials}</span>
+                )}
               </div>
               <span className="hidden sm:block text-sm font-medium text-gray-700">{userName}</span>
               <ChevronDown className="hidden sm:block w-4 h-4 text-gray-500" />
@@ -88,7 +92,7 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
                   <button
                     onClick={() => {
                       setShowUserMenu(false)
-                      toast.info('Profile - Coming Soon! 👤')
+                      navigate('/dashboard/profile')
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >

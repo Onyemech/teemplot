@@ -244,6 +244,10 @@ export async function buildApp() {
   const tasksRoutes = await import('./routes/tasks.routes');
   await app.register(tasksRoutes.default, { prefix: `${apiPrefix}/tasks` });
 
+  // Import and register user routes (profile, etc.)
+  const userRoutes = await import('./routes/user.routes');
+  await app.register(userRoutes.default, { prefix: `${apiPrefix}/user` });
+
   // Import and register notification routes
   const { notificationRoutes } = await import('./routes/notifications.routes');
   await app.register(notificationRoutes, { prefix: `${apiPrefix}/notifications` });

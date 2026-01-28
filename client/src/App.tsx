@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/ErrorBoundary'
 import ServiceWorkerErrorHandler from './components/pwa/ServiceWorkerErrorHandler'
 import ReloadPrompt from './components/pwa/ReloadPrompt'
+import IOSInstallPrompt from './components/pwa/IOSInstallPrompt'
 import OnboardingGuard from './components/OnboardingGuard'
 import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
@@ -37,6 +38,7 @@ import TaskAssignmentDashboardPage from './pages/tasks/TaskAssignmentDashboardPa
 import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
 import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
 import TaskPolicySettingsPage from './pages/tasks/TaskPolicySettingsPage'
+import ProfilePage from './pages/dashboard/ProfilePage'
 
 import './utils/debugAuth'
 
@@ -62,7 +64,7 @@ function App() {
           <NotificationProvider>
             <ServiceWorkerErrorHandler />
             <ReloadPrompt />
-            {/* <IOSInstallPrompt /> */}
+            <IOSInstallPrompt />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={
@@ -117,6 +119,7 @@ function App() {
               }>
                 <Route index element={<DashboardPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
+                <Route path="profile" element={<ProfilePage />} />
                 <Route path="attendance" element={<AttendanceOverviewPage />} />
                 <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />
                 <Route path="attendance/setup" element={<AttendanceSettingsPage />} />

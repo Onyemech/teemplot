@@ -69,14 +69,19 @@ export class AttendanceService {
       }
 
       // Check remote work permissions
-      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin FROM users WHERE id = $1`;
+      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin, allow_remote_clockin FROM users WHERE id = $1`;
       const userSettingsResult = await client.query(userSettingsQuery, [data.userId]);
       const userSettings = userSettingsResult.rows[0];
       const userRemoteDays = userSettings?.remote_work_days || [];
       const allowMultiLocation = userSettings?.allow_multi_location_clockin || false;
+      const userExplicitlyAllowed = userSettings?.allow_remote_clockin || false;
 
       const currentDay = new Date().getDay() || 7; // 1-7 (Mon-Sun)
-      const isRemoteAllowed = company.allow_remote_clockin && userRemoteDays.includes(currentDay);
+      
+      // Enterprise Logic:
+      // 1. User explicitly allowed (via Remote Clockin Management) -> Always YES
+      // 2. Company global policy ON + User scheduled for remote day -> YES
+      const isRemoteAllowed = userExplicitlyAllowed || (company.allow_remote_clockin && userRemoteDays.includes(currentDay));
 
       // Validate geofence if required
       let isWithinFence = true;

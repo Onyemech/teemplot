@@ -5,7 +5,7 @@ interface AvatarProps {
   src?: string | null
   firstName?: string
   lastName?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   className?: string
   isAdminView?: boolean
 }
@@ -18,11 +18,12 @@ const Avatar: React.FC<AvatarProps> = ({
   className = '',
   isAdminView = false,
 }) => {
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
     lg: 'w-12 h-12 text-base',
     xl: 'w-16 h-16 text-lg',
+    '2xl': 'w-24 h-24 text-xl', // Added 2xl
   }
 
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()

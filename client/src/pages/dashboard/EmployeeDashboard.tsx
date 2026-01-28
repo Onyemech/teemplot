@@ -16,6 +16,7 @@ import LocationVerificationModal from '@/components/dashboard/LocationVerificati
 import { apiClient } from '@/lib/api';
 import { permissionManager, type PermissionError } from '@/utils/PermissionManager';
 import PermissionModal from '@/components/common/PermissionModal';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -30,6 +31,7 @@ interface AttendanceStatus {
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
   const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
   const [loading, setLoading] = useState(true); // Initial data load
@@ -51,11 +53,35 @@ export default function EmployeeDashboard() {
   const [permissionError, setPermissionError] = useState<PermissionError | undefined>();
 
   // Get user data securely from context (uses httpOnly cookies)
-  const { user: currentUser } = useUser();
+  const { user: currentUser, refetch } = useUser();
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
+  const toast = useToast();
 
   // Helper to check if any action is in progress
   const isActionLoading = !!loadingAction;
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const response = await apiClient.post('/api/user/profile-picture', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      if (response.data.success) {
+        toast.success('Profile picture updated successfully')
+        await refetch()
+      } else {
+        toast.error(response.data.message || 'Failed to update profile picture')
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error)
+      toast.error(error.response?.data?.message || 'Failed to update profile picture')
+    }
+  }
 
   useEffect(() => {
     fetchDashboardData();
@@ -372,8 +398,47 @@ export default function EmployeeDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+      <div className="min-h-screen bg-gray-50 pb-24 md:pb-0">
+        {/* Top Section Skeleton */}
+        <div className="bg-white p-6 pb-2">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-6 w-48" />
+            </div>
+            <Skeleton className="h-12 w-12 rounded-full" />
+          </div>
+
+          {/* Stats Overview Skeleton */}
+          <div className="grid grid-cols-2 gap-4 mb-6 md:grid-cols-3 md:gap-3">
+            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+          </div>
+
+          {/* Status Pills Skeleton */}
+          <div className="flex items-center space-x-3 overflow-hidden py-2">
+            <Skeleton className="h-10 w-28 rounded-full" />
+            <Skeleton className="h-10 w-28 rounded-full" />
+            <Skeleton className="h-10 w-28 rounded-full" />
+          </div>
+        </div>
+
+        {/* Quick Actions Skeleton */}
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-4 w-32 mb-4" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+        </div>
+
+        {/* Bottom Actions Skeleton */}
+        <div className="fixed bottom-[5.5rem] left-4 right-4 md:static md:mt-6">
+          <div className="flex space-x-4">
+            <Skeleton className="flex-1 h-14 rounded-xl" />
+            <Skeleton className="flex-1 h-14 rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -387,15 +452,14 @@ export default function EmployeeDashboard() {
             <p className="text-sm text-gray-500 font-medium">Good Morning ☀️</p>
             <h1 className="text-xl font-bold text-gray-900 mt-1">{userName}</h1>
           </div>
-          {/* Avatar */}
-          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
-            {currentUser?.avatarUrl ? (
-              <img src={currentUser.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-[#0F5D5D] text-white font-bold text-lg">
-                {userName.charAt(0)}
-              </div>
-            )}
+          {/* Avatar with Upload Capability */}
+          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm relative group">
+            <ImageUpload
+              currentImage={currentUser?.avatarUrl}
+              onImageUpload={handleImageUpload}
+              className="h-full w-full"
+              shape="round"
+            />
           </div>
         </div>
 
