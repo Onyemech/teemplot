@@ -7,6 +7,9 @@ export default function LeaveDashboardPage() {
   const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [requests, setRequests] = useState<any[]>([])
+  const [leaveTypes, setLeaveTypes] = useState<{name: string}[]>([
+    {name: 'Annual'}, {name: 'Sick'}, {name: 'Unpaid'}
+  ])
   const [form, setForm] = useState({
     leaveType: 'annual',
     startDate: '',
@@ -26,8 +29,20 @@ export default function LeaveDashboardPage() {
     }
   }
 
+  const fetchLeaveTypes = async () => {
+    try {
+      const res = await apiClient.get('/api/company-settings/leave-policy')
+      if (res.data.success && res.data.data.leaveTypes?.length > 0) {
+        setLeaveTypes(res.data.data.leaveTypes)
+      }
+    } catch (e) {
+      console.error('Failed to load leave types', e)
+    }
+  }
+
   useEffect(() => {
     fetchRequests()
+    fetchLeaveTypes()
   }, [])
 
   const submitRequest = async () => {
@@ -62,9 +77,9 @@ export default function LeaveDashboardPage() {
               onChange={e => setForm({ ...form, leaveType: e.target.value })}
               className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
             >
-              <option value="annual">Annual</option>
-              <option value="sick">Sick</option>
-              <option value="unpaid">Unpaid</option>
+              {leaveTypes.map(type => (
+                <option key={type.name} value={type.name.toLowerCase()}>{type.name}</option>
+              ))}
             </select>
           </div>
           <div>

@@ -33,7 +33,7 @@ FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename IN (
     'attendance_breaks',
-    'task_rate_assignments',
+    'tax_assignments',
     'table_definition_cache',
     'biometric_audit_log',
     'expenses',

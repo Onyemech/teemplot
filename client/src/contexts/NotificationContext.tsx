@@ -119,13 +119,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
 
+      // Enterprise "Ping" Sound
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      
+      // First tone (higher pitch)
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+      
+      // Quick decay
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3);
 
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.5);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
     } catch (e) {
       console.error('Audio playback failed', e);
     }

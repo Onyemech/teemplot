@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import '@fastify/cookie'; // Import for type augmentation
 import { registrationService } from '../services/RegistrationService';
 import { passwordResetService } from '../services/PasswordResetService';
 import { z } from 'zod';

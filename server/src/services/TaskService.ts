@@ -509,7 +509,7 @@ export class TaskService {
            reviewed_by = $3,
            completed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE NULL END,
            rejection_reason = $4,
-           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('review_notes', $5)
+           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('review_notes', $5::text)
        WHERE id = $6 AND company_id = $7
        RETURNING *`,
       [newStatus, reviewStatus, userId, rejectionReason, reviewNotes, taskId, companyId]

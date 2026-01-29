@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
@@ -122,7 +123,7 @@ export async function buildApp() {
   // });
 
   // Cookie plugin (must be registered before JWT)
-  await app.register(require('@fastify/cookie'), {
+  await app.register(cookie, {
     secret: process.env.COOKIE_SECRET || process.env.JWT_ACCESS_SECRET || 'dev_secret_change_in_production',
   });
 

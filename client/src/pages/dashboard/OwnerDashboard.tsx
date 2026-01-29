@@ -13,6 +13,7 @@ import {
 // import { useUser } from '@/contexts/UserContext';
 import { apiClient } from '@/lib/api';
 import StatCard from '@/components/dashboard/StatCard';
+import LeaveSettingsModal from '@/components/leave/LeaveSettingsModal';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -44,6 +45,8 @@ export default function OwnerDashboard() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   // const [loading, setLoading] = useState(true);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [showLeaveSettings, setShowLeaveSettings] = useState(false);
+  const [annualLeaveDays, setAnnualLeaveDays] = useState<number>(20);
 
   // Get user data securely from context (uses httpOnly cookies)
   // const { user: currentUser } = useUser();
@@ -80,6 +83,12 @@ export default function OwnerDashboard() {
       if (activityData.success) {
         setRecentActivity(activityData.data);
       }
+
+      // Fetch leave policy
+      const policyRes = await apiClient.get('/api/company-settings/leave-policy');
+      if (policyRes.data.success) {
+        setAnnualLeaveDays(policyRes.data.data.annualLeaveDays);
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -111,13 +120,15 @@ export default function OwnerDashboard() {
             icon={CheckSquare}
             iconColorClass="text-green-600"
           />
-          <StatCard
-            label="On Leave"
-            value={stats?.onLeave || 0}
-            subtext={<span className="text-xs text-orange-600">{stats?.pendingLeaveRequests || 0} pending</span>}
-            icon={Calendar}
-            iconColorClass="text-orange-600"
-          />
+          <div onClick={() => setShowLeaveSettings(true)} className="cursor-pointer transition-transform active:scale-95 h-full">
+            <StatCard
+              label="Annual Leave"
+              value={`${annualLeaveDays} Days`}
+              subtext={<span className="text-xs text-blue-600">Click to manage policy</span>}
+              icon={Calendar}
+              iconColorClass="text-blue-600"
+            />
+          </div>
           <StatCard
             label="Late Today"
             value={stats?.lateToday || 0}
@@ -172,7 +183,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/dashboard/tasks/create')}
+                  onClick={() => navigate('/tasks/create')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-purple-50 hover:border-purple-200 transition-all active:scale-95"
                 >
                   <CheckSquare className="h-6 w-6 text-gray-600 mb-2" />
@@ -180,7 +191,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/dashboard/reports')}
+                  onClick={() => navigate('/reports')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95"
                 >
                   <FileText className="h-6 w-6 text-gray-600 mb-2" />
@@ -188,7 +199,7 @@ export default function OwnerDashboard() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/dashboard/settings')}
+                  onClick={() => navigate('/settings')}
                   className="flex flex-col items-center p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all active:scale-95"
                 >
                   <Settings className="h-6 w-6 text-gray-600 mb-2" />
@@ -292,6 +303,13 @@ export default function OwnerDashboard() {
           </div>
         </div>
       </div>
+      <LeaveSettingsModal
+        isOpen={showLeaveSettings}
+        onClose={() => {
+          setShowLeaveSettings(false);
+          fetchDashboardData(); // Refresh data on close
+        }}
+      />
     </div>
   );
 }

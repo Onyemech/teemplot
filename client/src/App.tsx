@@ -6,6 +6,7 @@ import IOSInstallPrompt from './components/pwa/IOSInstallPrompt'
 import OnboardingGuard from './components/OnboardingGuard'
 import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
+import ProtectedRoute from './components/ProtectedRoute'
 import { UserProvider } from './contexts/UserContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
@@ -30,6 +31,7 @@ import LeaveDashboardPage from './pages/leave/LeaveDashboardPage'
 import LeaveRequestsPage from './pages/leave/LeaveRequestsPage'
 import LeaveRequestDetailPage from './pages/leave/LeaveRequestDetailPage'
 import LeaveCalendarPage from './pages/leave/LeaveCalendarPage'
+import LeaveSettingsPage from './pages/leave/LeaveSettingsPage'
 import TaskAssignPage from './pages/tasks/TaskAssignPage'
 import TaskCompletePage from './pages/tasks/TaskCompletePage'
 import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
@@ -39,6 +41,10 @@ import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
 import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
 import TaskPolicySettingsPage from './pages/tasks/TaskPolicySettingsPage'
 import ProfilePage from './pages/dashboard/ProfilePage'
+import AnalyticsDashboardPage from './pages/dashboard/AnalyticsDashboardPage'
+import PerformancePage from './pages/dashboard/PerformancePage'
+import AdminPerformancePage from './pages/dashboard/AdminPerformancePage'
+import AuditLogsPage from './pages/dashboard/AuditLogsPage'
 
 import './utils/debugAuth'
 
@@ -55,6 +61,18 @@ import OnboardingRegisterPage from './pages/onboarding/RegisterPage'
 import OnboardingVerifyPage from './pages/onboarding/VerifyPage'
 import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
 import OnboardingCompletePage from './pages/onboarding/CompletePage'
+
+import { useUser } from './contexts/UserContext'
+
+function RoleBasedRedirect() {
+  const { user } = useUser()
+  
+  if (user?.role === 'owner' || user?.role === 'admin') {
+    return <AdminPerformancePage />
+  }
+  
+  return <PerformancePage />
+}
 
 function App() {
   return (
@@ -129,6 +147,7 @@ function App() {
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
                 <Route path="leave/calendar" element={<LeaveCalendarPage />} />
+                <Route path="leave/setup" element={<LeaveSettingsPage />} />
                 <Route path="tasks" element={<TaskWorkspacePage />} />
                 <Route path="tasks/assign" element={<TaskAssignPage />} />
                 <Route path="tasks/complete" element={<TaskCompletePage />} />
@@ -137,9 +156,16 @@ function App() {
                 <Route path="tasks/assignments" element={<TaskAssignmentDashboardPage />} />
                 <Route path="tasks/assignments/:id" element={<TaskAssignmentDetailPage />} />
                 <Route path="tasks/settings" element={<TaskPolicySettingsPage />} />
+                <Route path="analytics" element={<AnalyticsDashboardPage />} />
+                <Route path="performance" element={
+                  <ProtectedRoute>
+                    <RoleBasedRedirect />
+                  </ProtectedRoute>
+                } />
                 <Route path="inbox" element={<InboxPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="settings/billing" element={<ManagePlanPage />} />
+                <Route path="audit-logs" element={<AuditLogsPage />} />
               </Route>
 
               <Route path="/superadmin" element={<SuperAdminPage />} />

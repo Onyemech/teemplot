@@ -1,4 +1,5 @@
 import { FastifyReply } from 'fastify';
+import '@fastify/cookie'; // Import for type augmentation
 
 export interface TokenPayload {
   userId: string;

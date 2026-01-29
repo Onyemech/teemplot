@@ -9,23 +9,18 @@ const uuidv4 = randomUUID;
 
 const db = DatabaseFactory.getPrimaryDatabase();
 
-// Determine redirect URI based on environment
 const getGoogleRedirectUri = () => {
-  // If explicitly set in env, use that
   if (process.env.GOOGLE_REDIRECT_URI) {
     return process.env.GOOGLE_REDIRECT_URI;
   }
   
-  // Otherwise, construct based on environment
   if (process.env.NODE_ENV === 'production') {
-    // Use custom domain if available, otherwise Vercel URL
     const baseUrl = process.env.BACKEND_URL || process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'https://teemplot-backend.vercel.app';
     return `${baseUrl}/api/auth/google/callback`;
   }
   
-  // Development
   return 'http://localhost:5000/api/auth/google/callback';
 };
 

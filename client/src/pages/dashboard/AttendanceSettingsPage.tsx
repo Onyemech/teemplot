@@ -12,13 +12,13 @@ export default function AttendanceSettingsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Setup</h1>
-          <p className="text-gray-500">Configure auto-clockin, biometrics, and office locations</p>
+          <p className="text-gray-500">Configure company policies, locations, and branches</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto">
           <button
             onClick={() => setActiveTab('general')}
             className={`

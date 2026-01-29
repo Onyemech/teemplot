@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import '@fastify/cookie'; // Import for type augmentation
 import { z } from 'zod';
 import { AuthService } from '../../application/services/AuthService';
 import { UserRepository, SuperAdminRepository } from '../../infrastructure/repositories/UserRepository';

@@ -93,4 +93,50 @@ export default async function userRoutes(fastify: FastifyInstance) {
       return reply.code(statusCode).send(formatErrorResponse(error, 'Failed to update profile picture'));
     }
   });
+
+  /**
+   * PUT /api/user/profile
+   * Update user profile information
+   */
+  fastify.put('/profile', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const { firstName, lastName, phoneNumber, jobTitle, bio } = request.body as any;
+      const userId = request.user.userId;
+
+      // Update user record with provided fields
+      const result = await db.query(
+        `UPDATE users 
+         SET first_name = COALESCE($1, first_name),
+             last_name = COALESCE($2, last_name),
+             phone_number = COALESCE($3, phone_number),
+             job_title = COALESCE($4, job_title),
+             bio = COALESCE($5, bio),
+             updated_at = NOW() 
+         WHERE id = $6
+         RETURNING *`,
+        [firstName, lastName, phoneNumber, jobTitle, bio, userId]
+      );
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      logger.info({ userId }, 'User profile updated');
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Profile updated successfully',
+        data: result.rows[0],
+      });
+    } catch (error: any) {
+      logger.error({ err: error, userId: request.user?.userId }, 'Error updating profile');
+      const statusCode = getStatusCodeFromError(error);
+      return reply.code(statusCode).send(formatErrorResponse(error, 'Failed to update profile'));
+    }
+  });
 }

@@ -95,8 +95,6 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
         </button>
       </div>
 
-      {/* <PWAInstallBanner /> */}
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3 mb-8">
         <StatCard

@@ -132,7 +132,6 @@ async function buildServerlessApp() {
     };
   });
 
-  // 404 handler
   fastify.setNotFoundHandler((request, reply) => {
     console.log('[404] Route not found:', request.method, request.url);
     reply.code(404).send({
@@ -149,7 +148,6 @@ async function buildServerlessApp() {
 
 async function handler(req: any, res: any) {
   try {
-    // Initialize app if not already done
     if (!app) {
       console.log('[Serverless] Initializing Fastify app...');
       app = await buildServerlessApp();

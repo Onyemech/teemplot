@@ -402,11 +402,11 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       const result = await query(
         `UPDATE companies 
          SET office_latitude = $1,
-             office_longitude = $2,
-             formatted_address = $3,
-             place_id = $4,
-             geocoded_at = NOW(),
-             updated_at = NOW()
+         office_longitude = $2,
+         formatted_address = $3,
+         place_id = $4,
+         geocoded_at = NOW(),
+         updated_at = NOW()
          WHERE id = $5
          RETURNING office_latitude, office_longitude, formatted_address, place_id`,
         [latitude, longitude, address, placeId, request.user.companyId]
@@ -640,14 +640,6 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           longitude: company.longitude,
           geofence_radius_meters: company.geofence_radius_meters,
           last_updated_at: company.last_updated_at,
-          // Let's actually use the logic:
-          // can_update: canUpdate, 
-          // Re-reading user request: "as an admin i am not seeing the office location... i need you to get it and populate it". 
-          // I will respect the logic but maybe the user WANTS to update it now. 
-          // If I enforce false, they can't save. 
-          // But wait, if they have NEVER set it (or it was set during onboarding), 'geocoded_at' might be set. 
-          // If 'geocoded_at' is old (from onboarding), they might be allowed.
-          // Let's use the logic but default 'can_update' to true if last_updated_at is null.
           can_update: canUpdate,
           next_update_available_at: nextUpdateAvailableAt
         },
@@ -707,14 +699,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           const now = new Date(company.current_time);
           const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
           if (now.getTime() - lastUpdated.getTime() < sevenDaysMs) {
-            // Forcing update allowed for now based on user urgency "i need you to get it and populate it... on the input fields"
-            // Actually, if the user just wants to SEE it, GET is enough. 
-            // If they want to change it and are blocked, that's another issue.
-            // The UI shows "Update Restricted" if can_update is false.
-            // I'll stick to standard logic. If they need to override, they can ask.
-            // But wait, if they just onboarded, 'geocoded_at' is NOW. So they will be blocked immediately?
-            // That might be annoying if they made a mistake.
-            // However, adhering to the codebase's implied logic is safer.
+            // Restriction logic here
           }
         }
       }
@@ -722,11 +707,11 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       const result = await query(
         `UPDATE companies 
          SET office_latitude = $1,
-             office_longitude = $2,
-             formatted_address = $3,
-             geofence_radius_meters = $4,
-             geocoded_at = NOW(),
-             updated_at = NOW()
+         office_longitude = $2,
+         formatted_address = $3,
+         geofence_radius_meters = $4,
+         geocoded_at = NOW(),
+         updated_at = NOW()
          WHERE id = $5
          RETURNING 
            id,
@@ -834,6 +819,127 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         message: 'Failed to update tasks policy'
+      });
+    }
+  });
+
+  // Leave policy: annual leave days and custom leave types
+  fastify.get('/leave-policy', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      const companyId = request.user.companyId;
+      // Ensure settings row exists
+      await query(
+        `INSERT INTO company_settings (company_id)
+         VALUES ($1)
+         ON CONFLICT (company_id) DO NOTHING`,
+        [companyId]
+      );
+      const result = await query(
+        `SELECT annual_leave_days, leave_types
+         FROM company_settings
+         WHERE company_id = $1`,
+        [companyId]
+      );
+      
+      const settings = result.rows[0];
+      return reply.code(200).send({
+        success: true,
+        data: {
+          annualLeaveDays: settings?.annual_leave_days ?? 20,
+          leaveTypes: settings?.leave_types ?? []
+        },
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to get leave policy');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to retrieve leave policy'
+      });
+    }
+  });
+
+  fastify.patch('/leave-policy', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    try {
+      if (request.user.role !== 'owner' && request.user.role !== 'admin') {
+        return reply.code(403).send({
+          success: false,
+          message: 'Only owners and admins can update leave policy'
+        });
+      }
+      const { annualLeaveDays, leaveTypes } = request.body as { 
+        annualLeaveDays?: number;
+        leaveTypes?: any[];
+      };
+
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (typeof annualLeaveDays === 'number') {
+        if (annualLeaveDays < 0) {
+          return reply.code(400).send({
+            success: false,
+            message: 'annualLeaveDays must be non-negative'
+          });
+        }
+        params.push(annualLeaveDays);
+        updates.push(`annual_leave_days = $${paramIndex++}`);
+      }
+
+      if (Array.isArray(leaveTypes)) {
+        params.push(JSON.stringify(leaveTypes));
+        updates.push(`leave_types = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'No updates provided'
+        });
+      }
+
+      const companyId = request.user.companyId;
+      await query(
+        `INSERT INTO company_settings (company_id)
+         VALUES ($1)
+         ON CONFLICT (company_id) DO NOTHING`,
+        [companyId]
+      );
+
+      params.push(companyId);
+      updates.push('updated_at = NOW()');
+
+      const result = await query(
+        `UPDATE company_settings
+         SET ${updates.join(', ')}
+         WHERE company_id = $${paramIndex}
+         RETURNING annual_leave_days, leave_types`,
+        params
+      );
+
+      logger.info({
+        companyId,
+        userId: request.user.userId,
+        updates: Object.keys(request.body as object)
+      }, 'Leave policy updated');
+
+      return reply.code(200).send({
+        success: true,
+        data: {
+          annualLeaveDays: result.rows[0]?.annual_leave_days,
+          leaveTypes: result.rows[0]?.leave_types
+        },
+        message: 'Leave policy updated successfully'
+      });
+    } catch (error: any) {
+      logger.error({ error, companyId: request.user.companyId }, 'Failed to update leave policy');
+      return reply.code(500).send({
+        success: false,
+        message: 'Failed to update leave policy'
       });
     }
   });

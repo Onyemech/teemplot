@@ -31,7 +31,6 @@ interface AttendanceStatus {
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
   const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
   const [loading, setLoading] = useState(true); // Initial data load
@@ -53,35 +52,11 @@ export default function EmployeeDashboard() {
   const [permissionError, setPermissionError] = useState<PermissionError | undefined>();
 
   // Get user data securely from context (uses httpOnly cookies)
-  const { user: currentUser, refetch } = useUser();
+  const { user: currentUser } = useUser();
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
-  const toast = useToast();
 
   // Helper to check if any action is in progress
   const isActionLoading = !!loadingAction;
-
-  const handleImageUpload = async (file: File) => {
-    try {
-      const formData = new FormData()
-      formData.append('image', file)
-
-      const response = await apiClient.post('/api/user/profile-picture', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-
-      if (response.data.success) {
-        toast.success('Profile picture updated successfully')
-        await refetch()
-      } else {
-        toast.error(response.data.message || 'Failed to update profile picture')
-      }
-    } catch (error: any) {
-      console.error('Upload error:', error)
-      toast.error(error.response?.data?.message || 'Failed to update profile picture')
-    }
-  }
 
   useEffect(() => {
     fetchDashboardData();
@@ -452,14 +427,15 @@ export default function EmployeeDashboard() {
             <p className="text-sm text-gray-500 font-medium">Good Morning ☀️</p>
             <h1 className="text-xl font-bold text-gray-900 mt-1">{userName}</h1>
           </div>
-          {/* Avatar with Upload Capability */}
-          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm relative group">
-            <ImageUpload
-              currentImage={currentUser?.avatarUrl}
-              onImageUpload={handleImageUpload}
-              className="h-full w-full"
-              shape="round"
-            />
+          {/* Avatar */}
+          <div className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-[#0F5D5D] text-white font-bold text-lg">
+                {userName.charAt(0)}
+              </div>
+            )}
           </div>
         </div>
 
