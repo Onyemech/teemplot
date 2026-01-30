@@ -19,6 +19,7 @@ export default function LeaveSettingsModal({ isOpen, onClose }: LeaveSettingsMod
   const [annualLeaveDays, setAnnualLeaveDays] = useState(20);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [newType, setNewType] = useState('');
+  const [updateExistingEmployees, setUpdateExistingEmployees] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -100,6 +101,18 @@ export default function LeaveSettingsModal({ isOpen, onClose }: LeaveSettingsMod
                 <p className="text-xs text-gray-500 mt-1">
                   Default annual leave days allocated to each employee per year.
                 </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="updateExisting"
+                    checked={updateExistingEmployees}
+                    onChange={(e) => setUpdateExistingEmployees(e.target.checked)}
+                    className="rounded border-gray-300 text-[#0F5D5D] focus:ring-[#0F5D5D]"
+                  />
+                  <label htmlFor="updateExisting" className="text-sm text-gray-700">
+                    Apply this balance to all existing employees
+                  </label>
+                </div>
               </div>
 
               {/* Leave Types */}

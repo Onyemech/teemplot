@@ -9,6 +9,11 @@ export const isMobile = (): boolean => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
 
+// Check if device is iOS
+export const isIOS = (): boolean => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+};
+
 // Push Notifications - NO SENSITIVE DATA
 export interface NotificationPermissionResult {
   granted: boolean;

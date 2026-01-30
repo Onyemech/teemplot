@@ -4,10 +4,12 @@ import Features from '@/components/landing/Features'
 import Benefits from '@/components/landing/Benefits'
 import CTA from '@/components/landing/CTA'
 import Footer from '@/components/landing/Footer'
+import IOSInstallPrompt from '@/components/pwa/IOSInstallPrompt'
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen">
+      <IOSInstallPrompt />
       <Navbar />
       <Hero />
       <div id="features">

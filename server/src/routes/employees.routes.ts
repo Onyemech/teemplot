@@ -77,18 +77,52 @@ export async function employeesRoutes(fastify: FastifyInstance) {
     try {
       const user = request.user as any;
       const { id } = request.params as any;
-      const { firstName, lastName, role, position } = request.body as any;
+      const { firstName, lastName, role, position, annualLeaveBalance } = request.body as any;
 
       if (user.role !== 'owner' && user.role !== 'admin') {
         return reply.code(403).send({ success: false, message: 'Forbidden' });
       }
 
+      // Build update query dynamically
+      const updates: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (firstName) {
+        params.push(firstName);
+        updates.push(`first_name = $${paramIndex++}`);
+      }
+      if (lastName) {
+        params.push(lastName);
+        updates.push(`last_name = $${paramIndex++}`);
+      }
+      if (role) {
+        params.push(role);
+        updates.push(`role = $${paramIndex++}`);
+      }
+      if (position) {
+        params.push(position);
+        updates.push(`position = $${paramIndex++}`);
+      }
+      if (annualLeaveBalance !== undefined) {
+        params.push(annualLeaveBalance);
+        updates.push(`annual_leave_balance = $${paramIndex++}`);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ success: false, message: 'No updates provided' });
+      }
+
+      params.push(id);
+      params.push(user.companyId);
+      updates.push('updated_at = NOW()');
+
       const updateQuery = await db.query(
         `UPDATE users 
-         SET first_name = $1, last_name = $2, role = $3, position = $4, updated_at = NOW()
-         WHERE id = $5 AND company_id = $6 AND deleted_at IS NULL
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex++} AND company_id = $${paramIndex++} AND deleted_at IS NULL
          RETURNING id`,
-        [firstName, lastName, role, position, id, user.companyId]
+        params
       );
 
       if (!updateQuery.rows[0]) {
