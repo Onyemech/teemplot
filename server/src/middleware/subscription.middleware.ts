@@ -46,6 +46,10 @@ const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
 };
 
 
+export function checkPlanFeature(feature: Feature) {
+  return requireFeature(feature);
+}
+
 export function requireFeature(feature: Feature) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {

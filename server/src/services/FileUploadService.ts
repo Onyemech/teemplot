@@ -89,6 +89,9 @@ class FileUploadService {
           hash, public_id, url, secure_url, file_size, mime_type,
           original_filename, resource_type, format, uploaded_by, status
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'uploaded')
+        ON CONFLICT (hash) DO UPDATE SET
+          updated_at = NOW(),
+          upload_count = files.upload_count + 1
         RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
         [
           request.hash,

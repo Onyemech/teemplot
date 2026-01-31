@@ -84,7 +84,7 @@ export default function LeaveRequestsPage() {
           <p className="text-gray-500">Track and manage leave applications</p>
         </div>
 
-        <Button onClick={() => navigate('/dashboard/leave/request')}>
+        <Button onClick={() => navigate('/dashboard/leave')}>
           + Request Leave
         </Button>
       </div>
@@ -131,7 +131,7 @@ export default function LeaveRequestsPage() {
                         {r.status.replace('_', ' ').toUpperCase()}
                       </span>
                       <span className="text-sm text-gray-500 font-medium">
-                        {r.leave_type.toUpperCase()}
+                        {r.leave_type_name?.toUpperCase() || 'UNKNOWN TYPE'}
                       </span>
                     </div>
 

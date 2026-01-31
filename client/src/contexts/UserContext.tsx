@@ -10,12 +10,13 @@ interface User {
   companyId: string;
   companyName?: string;
   companyLogo?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   subscriptionPlan?: string;
   subscriptionStatus?: string;
   trialDaysLeft?: number | null;
   emailVerified: boolean;
   onboardingCompleted: boolean;
+  _fetchedAt?: number;
 }
 
 interface UserContextType {
@@ -48,7 +49,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (response.data.success) {
         console.log('✅ User data fetched successfully:', response.data.data);
-        setUser(response.data.data);
+        setUser({ ...response.data.data, _fetchedAt: Date.now() });
         setError(null);
       } else {
         console.log('❌ Failed to fetch user:', response.data.message);

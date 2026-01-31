@@ -72,6 +72,10 @@ export default async function userRoutes(fastify: FastifyInstance) {
       const avatarUrl = uploadResult.file.secure_url || uploadResult.file.url;
 
       // Update user record
+      if (!avatarUrl) {
+        throw new Error('No URL returned from upload service');
+      }
+
       await db.query(
         'UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2',
         [avatarUrl, request.user.userId]

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { analyticsApi } from '@/services/analytics';
@@ -11,25 +12,26 @@ import {
   ArrowDown,
   Crown,
   UserPlus,
-  Users
+  Users,
+  Award
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 
 interface RankingEmployee {
-  id: string;
   rank: number;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  department: string;
-  jobTitle: string;
-  overallScore: number;
-  metrics: {
-    attendanceScore: number;
-    taskScore: number;
-    tasksCompleted: number;
-    daysPresent: number;
+  tier: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    role: string;
+  };
+  scores: {
+    overall: number;
+    attendance: number;
+    tasks: number;
   };
 }
 
@@ -78,8 +80,8 @@ export default function AdminPerformancePage() {
 
   const filteredEmployees = employees
     .filter(emp => 
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.department.toLowerCase().includes(searchQuery.toLowerCase())
+      emp.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.user.email.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
       let comparison = 0;
@@ -88,17 +90,27 @@ export default function AdminPerformancePage() {
           comparison = a.rank - b.rank;
           break;
         case 'score':
-          comparison = b.overallScore - a.overallScore;
+          comparison = a.scores.overall - b.scores.overall;
           break;
         case 'attendance':
-          comparison = b.metrics.attendanceScore - a.metrics.attendanceScore;
+          comparison = a.scores.attendance - b.scores.attendance;
           break;
         case 'tasks':
-          comparison = b.metrics.taskScore - a.metrics.taskScore;
+          comparison = a.scores.tasks - b.scores.tasks;
           break;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
+
+  const getTierBadge = (tier: string) => {
+    switch (tier) {
+      case 'Platinum': return 'bg-slate-800 text-white border-slate-700';
+      case 'Gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Silver': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'Bronze': return 'bg-orange-50 text-orange-800 border-orange-200';
+      default: return 'bg-gray-50 text-gray-600';
+    }
+  };
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -109,29 +121,20 @@ export default function AdminPerformancePage() {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-700 bg-green-100 ring-green-600/20';
-    if (score >= 70) return 'text-blue-700 bg-blue-100 ring-blue-600/20';
-    if (score >= 50) return 'text-orange-700 bg-orange-100 ring-orange-600/20';
-    return 'text-red-700 bg-red-100 ring-red-600/20';
-  };
-
   // Podium Component
   const Podium = () => {
     if (employees.length === 0) return null;
     
     const top3 = employees.slice(0, 3);
-    // Ensure we have 3 slots even if fewer employees, filled with nulls for layout
     const slots = [
-      top3[1] || null, // 2nd place (left)
-      top3[0] || null, // 1st place (center)
-      top3[2] || null  // 3rd place (right)
+      top3[1] || null, 
+      top3[0] || null, 
+      top3[2] || null  
     ];
 
     return (
       <div className="flex justify-center items-end gap-4 mb-12 min-h-[300px] px-4">
         {slots.map((emp, idx) => {
-          // Re-map index to rank: idx 0 is 2nd place, idx 1 is 1st place, idx 2 is 3rd place
           const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
           const height = rank === 1 ? 'h-48' : rank === 2 ? 'h-36' : 'h-24';
           const color = rank === 1 ? 'bg-gradient-to-b from-yellow-100 to-yellow-50 border-yellow-200' 
@@ -142,15 +145,15 @@ export default function AdminPerformancePage() {
           if (!emp) return <div key={idx} className="w-1/3 max-w-[200px] invisible" />;
 
           return (
-            <div key={emp.id} className="flex flex-col items-center w-1/3 max-w-[240px] relative group">
-               {/* Avatar floating above */}
+            <div key={emp.user.id} className="flex flex-col items-center w-1/3 max-w-[240px] relative group">
+               {/* Avatar */}
                <div className={`relative mb-4 transition-transform transform group-hover:-translate-y-2 duration-300`}>
                  <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-4 shadow-lg overflow-hidden ${rank === 1 ? 'border-yellow-400 ring-4 ring-yellow-100' : rank === 2 ? 'border-gray-300' : 'border-orange-300'}`}>
-                    {emp.avatarUrl ? (
-                      <img src={emp.avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                    {emp.user.avatar ? (
+                      <img src={emp.user.avatar} alt={emp.user.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-white flex items-center justify-center text-2xl font-bold text-gray-400">
-                        {emp.name.charAt(0)}
+                        {emp.user.name.charAt(0)}
                       </div>
                     )}
                  </div>
@@ -162,10 +165,12 @@ export default function AdminPerformancePage() {
                {/* Podium Step */}
                <div className={`w-full ${height} rounded-t-2xl border-x border-t ${color} shadow-sm flex flex-col items-center justify-start pt-4 relative`}>
                  <div className="text-center px-2">
-                   <h3 className="font-bold text-gray-900 truncate max-w-full px-2">{emp.name}</h3>
-                   <p className="text-xs text-gray-500 mb-2 truncate">{emp.jobTitle}</p>
-                   <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-white/50 backdrop-blur-sm border border-white/50 ${iconColor}`}>
-                     {emp.overallScore} <span className="text-xs font-normal text-gray-500">pts</span>
+                   <h3 className="font-bold text-gray-900 truncate max-w-full px-2">{emp.user.name}</h3>
+                   <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide border ${getTierBadge(emp.tier)}`}>
+                      {emp.tier}
+                   </div>
+                   <div className={`mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-white/50 backdrop-blur-sm border border-white/50 ${iconColor}`}>
+                     {emp.scores.overall} <span className="text-xs font-normal text-gray-500">pts</span>
                    </div>
                  </div>
                </div>
@@ -204,7 +209,7 @@ export default function AdminPerformancePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search employee or department..."
+                  placeholder="Search employee..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent transition-all"
@@ -241,7 +246,7 @@ export default function AdminPerformancePage() {
                       </div>
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tier</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => { setSortField('score'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
                       <div className="flex items-center gap-1">
                         Overall Score
@@ -270,7 +275,7 @@ export default function AdminPerformancePage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filteredEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={emp.user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2 font-medium text-gray-900">
                           {getRankIcon(emp.rank)}
@@ -279,60 +284,45 @@ export default function AdminPerformancePage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 mr-3 border border-gray-200 overflow-hidden">
-                            {emp.avatarUrl ? (
-                              <img src={emp.avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                            {emp.user.avatar ? (
+                              <img src={emp.user.avatar} alt={emp.user.name} className="w-full h-full object-cover" />
                             ) : (
-                              emp.name.charAt(0)
+                              emp.user.name.charAt(0)
                             )}
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-gray-900">{emp.name}</div>
-                            <div className="text-xs text-gray-500">{emp.jobTitle}</div>
+                            <div className="text-sm font-semibold text-gray-900">{emp.user.name}</div>
+                            <div className="text-xs text-gray-500 capitalize">{emp.user.role}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                          {emp.department}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold uppercase border ${getTierBadge(emp.tier)}`}>
+                          <Award className="w-3 h-3 mr-1" />
+                          {emp.tier}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ring-1 ring-inset ${getScoreColor(emp.overallScore)}`}>
-                          {emp.overallScore}
-                        </span>
+                        <span className="font-bold text-gray-900">{emp.scores.overall}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">{emp.metrics.attendanceScore}%</span>
-                          <span className="text-xs text-gray-500">{emp.metrics.daysPresent} days present</span>
+                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                          <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${emp.scores.attendance}%` }}></div>
                         </div>
+                        <span className="text-xs text-gray-500 mt-1 block">{emp.scores.attendance}%</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">{emp.metrics.taskScore}%</span>
-                          <span className="text-xs text-gray-500">{emp.metrics.tasksCompleted} completed</span>
+                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                          <div className="bg-green-600 h-1.5 rounded-full" style={{ width: `${emp.scores.tasks}%` }}></div>
                         </div>
+                        <span className="text-xs text-gray-500 mt-1 block">{emp.scores.tasks}%</span>
                       </td>
                     </tr>
                   ))}
                   {filteredEmployees.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                        <div className="flex flex-col items-center justify-center py-6">
-                           <Search className="w-12 h-12 text-gray-300 mb-3" />
-                           <p className="text-lg font-medium text-gray-900">No matches found</p>
-                           <p className="text-sm text-gray-500">Try adjusting your search terms or filters.</p>
-                           <Button 
-                              variant="outline" 
-                              className="mt-4"
-                              onClick={() => {
-                                setSearchQuery('');
-                                setSortField('rank');
-                              }}
-                           >
-                             Clear Search
-                           </Button>
-                        </div>
+                        <p>No employees found matching your criteria.</p>
                       </td>
                     </tr>
                   )}

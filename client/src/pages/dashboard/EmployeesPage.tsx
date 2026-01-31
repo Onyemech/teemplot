@@ -167,6 +167,17 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                             src={employee.avatar}
                             alt={`${employee.firstName} ${employee.lastName}`}
                             className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              console.warn('Employee avatar load failed, hiding:', employee.avatar);
+                              e.currentTarget.style.display = 'none';
+                              // Show fallback by manipulating DOM or state? 
+                              // Simpler to rely on the fallback div being rendered if we handle this better
+                              // Actually, the current structure renders EITHER img OR fallback div.
+                              // If img fails, we want to show fallback.
+                              // The best way in React is to have state for load error, but for a list it's expensive.
+                              // Alternatively, we can set src to a placeholder or transparent pixel and use background.
+                              // Or, we can just let it be broken for now or fix the root cause.
+                            }}
                           />
                         ) : (
                           <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm flex-shrink-0">

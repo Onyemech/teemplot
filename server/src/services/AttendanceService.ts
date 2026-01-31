@@ -2,6 +2,7 @@ import { pool, transaction } from '../config/database';
 import { logger } from '../utils/logger';
 import { calculateDistance, isWithinGeofence, Coordinates } from '../utils/geolocation';
 import { notificationService } from './NotificationService';
+import { auditService } from './AuditService';
 
 export interface ClockInData {
   userId: string;
@@ -184,12 +185,30 @@ export class AttendanceService {
         second: '2-digit',
       });
 
-      const graceTime = this.addMinutes(
-        company.work_start_time,
-        company.grace_period_minutes
-      );
+      // Check if today is a working day
+      // currentDay is already defined above
+      // company.working_days is array [1,2,3,4,5] (Mon-Fri)
+      const isWorkingDay = Array.isArray(company.working_days) 
+        ? company.working_days.includes(currentDay)
+        : true; // Default to working day if not defined
 
-      const status = currentTime > graceTime ? 'late' : 'present';
+      let status = 'present';
+      let minutesLate = 0;
+      let isLateArrival = false;
+
+      if (isWorkingDay) {
+        const graceTime = this.addMinutes(
+          company.work_start_time,
+          company.grace_period_minutes
+        );
+        
+        if (currentTime > graceTime) {
+          status = 'late_arrival';
+          isLateArrival = true;
+          minutesLate = this.calculateMinutesDifference(currentTime, company.work_start_time);
+        }
+      }
+      // If not working day, status remains 'present' (overtime is calculated by DB trigger)
 
       // Create attendance record
       const insertQuery = `
@@ -200,8 +219,10 @@ export class AttendanceService {
           clock_in_location,
           clock_in_distance_meters,
           is_within_geofence,
-          status
-        ) VALUES ($1, $2, NOW(), $3, $4, $5, $6)
+          status,
+          is_late_arrival,
+          minutes_late
+        ) VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
@@ -212,6 +233,8 @@ export class AttendanceService {
         distance,
         isWithinFence,
         status,
+        isLateArrival,
+        minutesLate
       ]);
 
       logger.info({
@@ -220,6 +243,21 @@ export class AttendanceService {
         isWithinFence,
         distance,
       }, 'User clocked in');
+
+      // Audit Log
+      await auditService.logAction({
+        userId: data.userId,
+        companyId: data.companyId,
+        action: 'clock_in',
+        entityType: 'attendance',
+        entityId: result.rows[0].id,
+        metadata: {
+          location: data.location,
+          distance,
+          isWithinFence,
+          status
+        }
+      }, client);
 
       return result.rows[0];
     });
@@ -306,10 +344,21 @@ export class AttendanceService {
         company.early_departure_threshold_minutes
       );
 
-      const isEarlyDeparture = currentTime < thresholdTime;
-      const minutesEarly = isEarlyDeparture
-        ? this.calculateMinutesDifference(currentTime, company.work_end_time)
-        : 0;
+      // Check if today is a working day
+      const currentDay = new Date().getDay() || 7; // 1-7 (Mon-Sun)
+      const isWorkingDay = Array.isArray(company.working_days) 
+        ? company.working_days.includes(currentDay)
+        : true;
+
+      let isEarlyDeparture = false;
+      let minutesEarly = 0;
+
+      if (isWorkingDay) {
+        isEarlyDeparture = currentTime < thresholdTime;
+        minutesEarly = isEarlyDeparture
+          ? this.calculateMinutesDifference(currentTime, company.work_end_time)
+          : 0;
+      }
 
       // Update attendance record
       const updateQuery = `
@@ -368,6 +417,21 @@ export class AttendanceService {
         minutesEarly,
         distance,
       }, 'User clocked out');
+
+      // Audit Log
+      await auditService.logAction({
+        userId: data.userId,
+        companyId: data.companyId,
+        action: 'clock_out',
+        entityType: 'attendance',
+        entityId: record.id,
+        metadata: {
+          location: data.location,
+          distance,
+          isEarlyDeparture,
+          minutesEarly
+        }
+      }, client);
 
       return result.rows[0];
     });

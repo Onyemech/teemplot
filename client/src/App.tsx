@@ -42,7 +42,7 @@ import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
 import TaskPolicySettingsPage from './pages/tasks/TaskPolicySettingsPage'
 import ProfilePage from './pages/dashboard/ProfilePage'
 import AnalyticsDashboardPage from './pages/dashboard/AnalyticsDashboardPage'
-import PerformancePage from './pages/dashboard/PerformancePage'
+import EmployeePerformancePage from './pages/dashboard/EmployeePerformancePage'
 import AdminPerformancePage from './pages/dashboard/AdminPerformancePage'
 import AuditLogsPage from './pages/dashboard/AuditLogsPage'
 
@@ -71,7 +71,7 @@ function RoleBasedRedirect() {
     return <AdminPerformancePage />
   }
   
-  return <PerformancePage />
+  return <EmployeePerformancePage />
 }
 
 function App() {
@@ -147,7 +147,7 @@ function App() {
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
                 <Route path="leave/calendar" element={<LeaveCalendarPage />} />
-                <Route path="leave/setup" element={<LeaveSettingsPage />} />
+                <Route path="leave/settings" element={<LeaveSettingsPage />} />
                 <Route path="tasks" element={<TaskWorkspacePage />} />
                 <Route path="tasks/assign" element={<TaskAssignPage />} />
                 <Route path="tasks/complete" element={<TaskCompletePage />} />

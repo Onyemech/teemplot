@@ -32,6 +32,10 @@ export class PostgresDatabase implements IDatabase {
     logger.info('PostgreSQL database initialized');
   }
 
+  public getPool(): Pool {
+    return this.pool;
+  }
+
   async query<T = any>(sql: string, params: any[] = [], retries = 3): Promise<QueryResult<T>> {
     try {
       const start = Date.now();

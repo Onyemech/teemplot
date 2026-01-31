@@ -15,10 +15,15 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
   const toast = useToast()
   const { user: currentUser } = useUser()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [avatarFailed, setAvatarFailed] = useState(false)
 
   // Get user data securely from context (uses httpOnly cookies)
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase()
+  const avatarVersion = currentUser?._fetchedAt || 0
+  const avatarSrc = currentUser?.avatarUrl
+    ? `${currentUser.avatarUrl}${currentUser.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
+    : null
 
   const handleLogout = async () => {
     // Call logout endpoint to clear httpOnly cookies
@@ -33,13 +38,8 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 lg:py-4">
       <div className="flex items-center justify-between gap-4">
-
         {/* Mobile Header: Simple & Clean */}
         <div className="flex items-center gap-3 md:hidden">
-          {/* User Avatar - Small */}
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-            {userInitials}
-          </div>
           <div>
             <h1 className="text-base font-bold text-gray-900 leading-tight truncate max-w-[150px]">
               {currentUser?.companyName || 'Teemplot'}
@@ -70,8 +70,17 @@ export default function DashboardHeader({ }: DashboardHeaderProps) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-medium">{userInitials}</span>
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {avatarSrc && !avatarFailed ? (
+                  <img
+                    src={avatarSrc}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  <span className="text-white text-sm font-medium">{userInitials}</span>
+                )}
               </div>
               <span className="hidden sm:block text-sm font-medium text-gray-700">{userName}</span>
               <ChevronDown className="hidden sm:block w-4 h-4 text-gray-500" />

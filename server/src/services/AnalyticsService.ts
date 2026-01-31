@@ -180,9 +180,47 @@ export class AnalyticsService {
     }
   }
 
+  private async getCompanySettings(client: any, companyId: string) {
+    const res = await client.query(
+      `SELECT working_days, working_hours_start, working_hours_end, kpi_settings
+       FROM company_settings 
+       WHERE company_id = $1`,
+      [companyId]
+    );
+    return res.rows[0] || { 
+      working_days: [1, 2, 3, 4, 5], // Default Mon-Fri
+      working_hours_start: '09:00:00',
+      working_hours_end: '17:00:00',
+      kpi_settings: { attendanceWeight: 50, taskCompletionWeight: 50 }
+    };
+  }
+
+  private calculateExpectedWorkDays(workingDays: number[], daysLookback: number): number {
+    let count = 0;
+    const today = new Date();
+    for (let i = 0; i < daysLookback; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      // Postgres 1=Mon...7=Sun. JS 0=Sun, 1=Mon...
+      // Map JS day to Postgres day: 0->7, 1->1, ...
+      const jsDay = d.getDay();
+      const pgDay = jsDay === 0 ? 7 : jsDay;
+      
+      if (workingDays.includes(pgDay)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
   async getEmployeePerformance(companyId: string, userId: string) {
     const client = await pool.connect();
     try {
+      // 0. Get Company Settings for KPI Weights & Schedule
+      const settings = await this.getCompanySettings(client, companyId);
+      const kpiWeights = settings.kpi_settings || { attendanceWeight: 50, taskCompletionWeight: 50 };
+      const expectedDays = this.calculateExpectedWorkDays(settings.working_days, 30);
+
       // 1. Get all employees in the company
       const employeesResult = await client.query(
         `SELECT id FROM users WHERE company_id = $1 AND role != 'owner'`,
@@ -191,45 +229,56 @@ export class AnalyticsService {
       const employees = employeesResult.rows;
 
       // 2. Calculate scores for all employees
-      // This is a heavy operation, in production this should be cached or calculated via a materialized view/cron job
-      // For now, we do a simplified on-the-fly calculation
-      
       const scores = await Promise.all(employees.map(async (emp) => {
         // Attendance Score (Last 30 days)
         const attResult = await client.query(
           `SELECT 
-             COUNT(*) FILTER (WHERE status = 'present') as present,
-             COUNT(*) as total
+             COUNT(*) FILTER (WHERE status = 'present') as present
            FROM attendance_records 
            WHERE company_id = $1 AND user_id = $2 
            AND clock_in_time >= NOW() - INTERVAL '30 days'`,
           [companyId, emp.id]
         );
-        const attTotal = parseInt(attResult.rows[0].total) || 0;
         const attPresent = parseInt(attResult.rows[0].present) || 0;
-        const attScore = attTotal > 0 ? (attPresent / attTotal) * 100 : 0;
+        const attScore = expectedDays > 0 ? Math.min(100, (attPresent / expectedDays) * 100) : 0;
 
         // Task Score (Last 30 days)
         const taskResult = await client.query(
           `SELECT 
              COUNT(*) FILTER (WHERE status = 'completed') as completed,
-             COUNT(*) as total
+             COUNT(*) FILTER (WHERE status = 'completed' OR (status != 'completed' AND due_date < NOW())) as actionable_total
            FROM tasks 
            WHERE company_id = $1 AND assigned_to = $2 
            AND created_at >= NOW() - INTERVAL '30 days'`,
           [companyId, emp.id]
         );
-        const taskTotal = parseInt(taskResult.rows[0].total) || 0;
+        const taskTotal = parseInt(taskResult.rows[0].actionable_total) || 0;
         const taskCompleted = parseInt(taskResult.rows[0].completed) || 0;
         const taskScore = taskTotal > 0 ? (taskCompleted / taskTotal) * 100 : 0;
 
-        // Overall Score (50/50 weight)
-        // If no tasks assigned, weight attendance 100%
+        // Overall Score (Weighted)
+        // Normalize weights to 100 if needed, but assuming they sum to 100 or close enough for now
+        // Fallback to equal weighting if one component is missing data? 
+        // Logic: If no tasks, re-distribute task weight to attendance?
+        // Current Logic: If no tasks assigned, task score is 0? Or ignored?
+        // Improved Logic: If expectedDays > 0 and taskTotal > 0: use weights.
+        // If expectedDays > 0 and taskTotal == 0: 100% attendance.
+        // If expectedDays == 0 and taskTotal > 0: 100% task.
+        
         let overallScore = 0;
-        if (taskTotal === 0 && attTotal === 0) overallScore = 0;
-        else if (taskTotal === 0) overallScore = attScore;
-        else if (attTotal === 0) overallScore = taskScore;
-        else overallScore = (attScore * 0.5) + (taskScore * 0.5);
+        const wAtt = kpiWeights.attendanceWeight || 50;
+        const wTask = kpiWeights.taskCompletionWeight || 50;
+        const totalWeight = wAtt + wTask;
+
+        if (taskTotal === 0 && expectedDays === 0) {
+           overallScore = 0;
+        } else if (taskTotal === 0) {
+           overallScore = attScore;
+        } else if (expectedDays === 0) {
+           overallScore = taskScore;
+        } else {
+           overallScore = ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
+        }
 
         return {
           id: emp.id,
@@ -248,9 +297,16 @@ export class AnalyticsService {
       const myRankIndex = scores.findIndex(s => s.id === userId);
       const myStats = scores[myRankIndex];
       const rank = myRankIndex + 1; // 1-based rank
+      
+      // 5. Calculate Tier
+      let tier = 'Bronze';
+      if (myStats?.overallScore >= 90) tier = 'Platinum';
+      else if (myStats?.overallScore >= 80) tier = 'Gold';
+      else if (myStats?.overallScore >= 60) tier = 'Silver';
 
       return {
         rank,
+        tier,
         totalEmployees: employees.length,
         score: Math.round(myStats?.overallScore || 0),
         metrics: {
@@ -258,12 +314,108 @@ export class AnalyticsService {
           taskScore: Math.round(myStats?.taskScore || 0),
           tasksCompleted: myStats?.taskCompleted || 0,
           daysPresent: myStats?.attPresent || 0
-        }
+        },
+        // Only return peer comparison data for Admin context (handled by controller/route separation usually)
+        // But for employee view, we strictly limit what is returned.
+        // The service returns raw data, the controller should filter.
+        // However, this method is specific to "getEmployeePerformance" (singular).
+        // So we just return this employee's stats.
       };
 
     } finally {
       client.release();
     }
+  }
+
+  async getAllEmployeePerformance(companyId: string) {
+      const client = await pool.connect();
+      try {
+        const settings = await this.getCompanySettings(client, companyId);
+        const kpiWeights = settings.kpi_settings || { attendanceWeight: 50, taskCompletionWeight: 50 };
+        const expectedDays = this.calculateExpectedWorkDays(settings.working_days, 30);
+
+        const res = await client.query(
+          `SELECT 
+             u.id, u.first_name, u.last_name, u.email, u.avatar_url,
+             u.role, u.department_id
+           FROM users u
+           WHERE u.company_id = $1 AND u.role != 'owner'`,
+          [companyId]
+        );
+        
+        const employees = res.rows;
+        
+        // Parallel calculation (same logic as above, reused)
+        // In a real refactor, extract "calculateScore(empId)" to private method
+        const fullStats = await Promise.all(employees.map(async (emp: any) => {
+             // Attendance
+            const attResult = await client.query(
+              `SELECT COUNT(*) FILTER (WHERE status = 'present') as present
+               FROM attendance_records 
+               WHERE company_id = $1 AND user_id = $2 
+               AND clock_in_time >= NOW() - INTERVAL '30 days'`,
+              [companyId, emp.id]
+            );
+            const attPresent = parseInt(attResult.rows[0].present) || 0;
+            const attScore = expectedDays > 0 ? Math.min(100, (attPresent / expectedDays) * 100) : 0;
+
+            // Tasks
+            const taskResult = await client.query(
+              `SELECT 
+                 COUNT(*) FILTER (WHERE status = 'completed') as completed,
+                 COUNT(*) FILTER (WHERE status = 'completed' OR (status != 'completed' AND due_date < NOW())) as actionable_total
+               FROM tasks 
+               WHERE company_id = $1 AND assigned_to = $2 
+               AND created_at >= NOW() - INTERVAL '30 days'`,
+              [companyId, emp.id]
+            );
+            const taskTotal = parseInt(taskResult.rows[0].actionable_total) || 0;
+            const taskCompleted = parseInt(taskResult.rows[0].completed) || 0;
+            const taskScore = taskTotal > 0 ? (taskCompleted / taskTotal) * 100 : 0;
+
+            // Overall
+            let overallScore = 0;
+            const wAtt = kpiWeights.attendanceWeight || 50;
+            const wTask = kpiWeights.taskCompletionWeight || 50;
+            const totalWeight = wAtt + wTask;
+
+            if (taskTotal === 0 && expectedDays === 0) overallScore = 0;
+            else if (taskTotal === 0) overallScore = attScore;
+            else if (expectedDays === 0) overallScore = taskScore;
+            else overallScore = ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
+
+            // Tier
+            let tier = 'Bronze';
+            if (overallScore >= 90) tier = 'Platinum';
+            else if (overallScore >= 80) tier = 'Gold';
+            else if (overallScore >= 60) tier = 'Silver';
+
+            return {
+                user: {
+                    id: emp.id,
+                    name: `${emp.first_name} ${emp.last_name}`,
+                    email: emp.email,
+                    avatar: emp.avatar_url,
+                    role: emp.role
+                },
+                scores: {
+                    overall: Math.round(overallScore),
+                    attendance: Math.round(attScore),
+                    tasks: Math.round(taskScore)
+                },
+                tier
+            };
+        }));
+
+        // Sort by score
+        fullStats.sort((a, b) => b.scores.overall - a.scores.overall);
+        
+        // Add rank
+        return fullStats.map((s, i) => ({ ...s, rank: i + 1 }));
+
+      } finally {
+        client.release();
+      }
   }
 }
 

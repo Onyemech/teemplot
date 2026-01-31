@@ -85,9 +85,9 @@ export default function LeaveRequestDetailPage() {
               <p className="text-sm font-medium text-gray-500">Leave Type</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                  {request.leave_type.toUpperCase()}
+                  {request.leave_type_name?.toUpperCase() || 'UNKNOWN'}
                 </span>
-                {request.half_day && (
+                {request.half_day_start && (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
                     HALF DAY
                   </span>
@@ -101,7 +101,7 @@ export default function LeaveRequestDetailPage() {
                 {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
               </p>
               <p className="text-sm text-gray-500">
-                {request.total_days} day(s)
+                {request.days_requested} day(s)
               </p>
             </div>
           </div>
@@ -131,13 +131,11 @@ export default function LeaveRequestDetailPage() {
               </div>
             </div>
 
-            {(request.manager_notes || request.admin_notes || request.owner_notes) && (
+            {request.rejection_reason && (
               <div>
                 <p className="text-sm font-medium text-gray-500">Review Notes</p>
-                <div className="mt-1 space-y-2">
-                  {request.manager_notes && <p className="text-sm text-gray-600"><span className="font-semibold">Manager:</span> {request.manager_notes}</p>}
-                  {request.admin_notes && <p className="text-sm text-gray-600"><span className="font-semibold">Admin:</span> {request.admin_notes}</p>}
-                  {request.owner_notes && <p className="text-sm text-gray-600"><span className="font-semibold">Owner:</span> {request.owner_notes}</p>}
+                <div className="mt-1 p-3 bg-red-50 rounded-lg text-sm text-gray-700 border border-red-100">
+                  {request.rejection_reason}
                 </div>
               </div>
             )}

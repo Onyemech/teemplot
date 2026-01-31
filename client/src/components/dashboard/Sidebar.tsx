@@ -70,6 +70,12 @@ export const navigationConfig: NavItemConfig[] = [
     href: '/dashboard/leave',
     icon: Calendar,
     feature: 'leave', // Silver + Gold
+    submenu: [
+      { label: 'Overview', href: '/dashboard/leave', icon: LayoutGrid, feature: 'leave' },
+      { label: 'My Requests', href: '/dashboard/leave/requests', icon: FileText, feature: 'leave' },
+      { label: 'Leave Calendar', href: '/dashboard/leave/calendar', icon: Calendar, feature: 'leave' },
+      { label: 'Leave Settings', href: '/dashboard/leave/settings', icon: Settings, feature: 'leave', adminOnly: true },
+    ]
   },
   {
     label: 'Employees',
@@ -221,9 +227,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/leave',
       '/dashboard/leave/requests',
       '/dashboard/leave/calendar',
+      '/dashboard/leave/settings',
       '/dashboard/tasks',
       '/dashboard/tasks/assignments',
       '/dashboard/tasks/settings',
+      '/dashboard/audit-logs',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 

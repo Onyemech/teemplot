@@ -870,9 +870,10 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           message: 'Only owners and admins can update leave policy'
         });
       }
-      const { annualLeaveDays, leaveTypes } = request.body as { 
+      const { annualLeaveDays, leaveTypes, updateExistingEmployees } = request.body as { 
         annualLeaveDays?: number;
         leaveTypes?: any[];
+        updateExistingEmployees?: boolean;
       };
 
       const updates: string[] = [];
@@ -920,6 +921,21 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
          RETURNING annual_leave_days, leave_types`,
         params
       );
+
+      // If requested, update all existing employees' leave balance
+      if (updateExistingEmployees && annualLeaveDays !== undefined) {
+        await query(
+          `UPDATE users
+           SET annual_leave_balance = $1, updated_at = NOW()
+           WHERE company_id = $2 AND deleted_at IS NULL`,
+          [annualLeaveDays, companyId]
+        );
+        logger.info({
+          companyId,
+          userId: request.user.userId,
+          newBalance: annualLeaveDays
+        }, 'Updated all employees leave balance');
+      }
 
       logger.info({
         companyId,
