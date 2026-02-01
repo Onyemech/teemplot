@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home,
@@ -149,9 +149,41 @@ export const reportingConfig: NavItemConfig[] = [
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const pathname = location.pathname
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Attendance'])
+  
+  // Persist expanded items in localStorage to maintain state across reloads/navigation
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_expanded_items')
+      return saved ? JSON.parse(saved) : ['Attendance']
+    } catch (e) {
+      return ['Attendance']
+    }
+  })
+
+  // Update localStorage when expanded items change
+  useEffect(() => {
+    localStorage.setItem('sidebar_expanded_items', JSON.stringify(expandedItems))
+  }, [expandedItems])
+
   const { hasAccess, plan, loading } = useFeatureAccess()
   const toast = useToast()
+
+  const navRef = useRef<HTMLElement>(null)
+
+  // Restore sidebar scroll position
+  useLayoutEffect(() => {
+    const savedScroll = sessionStorage.getItem('sidebar_scroll_position')
+    if (navRef.current && savedScroll) {
+      navRef.current.scrollTop = parseInt(savedScroll, 10)
+    }
+  }, [pathname]) // Restore when path changes (i.e. after re-render)
+
+  // Save sidebar scroll position on scroll
+  const handleScroll = () => {
+    if (navRef.current) {
+      sessionStorage.setItem('sidebar_scroll_position', navRef.current.scrollTop.toString())
+    }
+  }
 
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser()
@@ -187,8 +219,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     )
   }
 
-  const isActive = (href: string) => {
+  const isActive = (href: string, isSubmenuItem = false) => {
     if (href === '/dashboard') {
+      return pathname === href
+    }
+    // For submenu items that act as "Overview" or root of a section (shorter paths), use exact match
+    // to avoid highlighting when on a sibling page (e.g. /dashboard/leave vs /dashboard/leave/requests)
+    if (isSubmenuItem && href.split('/').length <= 3) {
       return pathname === href
     }
     return pathname.startsWith(href)
@@ -204,7 +241,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (item.feature && !hasAccess(item.feature)) {
       return null // Hide if company plan doesn't have access
     }
-    const active = isActive(item.href)
+    const active = isActive(item.href, isSubmenu)
     const hasSubmenu = item.submenu && item.submenu.length > 0
     const isExpanded = expandedItems.includes(item.label)
     const Icon = item.icon
@@ -231,7 +268,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/tasks',
       '/dashboard/tasks/assignments',
       '/dashboard/tasks/settings',
-      '/dashboard/audit-logs',
+      '/dashboard/wallet',
+      '/dashboard/wallet/transactions',
+      '/dashboard/attendance/payroll',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 
@@ -258,14 +297,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ${isSubmenu ? 'pl-10 lg:pl-12 text-sm' : ''}
             ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
             ${active && !isLocked
-              ? 'bg-accent/10 text-accent font-medium'
+              ? (isSubmenu 
+                  ? 'text-accent font-medium' 
+                  : 'bg-secondary text-foreground font-medium')
               : 'text-foreground/70 hover:bg-secondary hover:text-foreground'
             }
           `}
           title={isLocked ? `Upgrade to ${plan === 'trial' ? 'Silver or Gold' : 'Gold'} plan to access this feature` : ''}
         >
           <div className="flex items-center gap-2 lg:gap-3">
-            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? 'text-accent' : ''}`} />
+            <Icon className={`w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0 ${active && !isLocked ? (isSubmenu ? 'text-accent' : 'text-foreground') : ''}`} />
             <span className="text-sm lg:text-base">{item.label}</span>
             {isLocked && <Lock className="w-3 h-3 ml-1 flex-shrink-0" />}
           </div>
@@ -339,7 +380,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1">
+        <nav 
+          ref={navRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1"
+        >
           {navigationConfig.map((item) => (
             <NavLink key={item.href} item={item} />
           ))}

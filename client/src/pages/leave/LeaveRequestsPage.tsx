@@ -128,7 +128,7 @@ export default function LeaveRequestsPage() {
                     <div className="flex items-start justify-between md:justify-start gap-3">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border flex items-center gap-1 ${getStatusColor(r.status)}`}>
                         {getStatusIcon(r.status)}
-                        {r.status.replace('_', ' ').toUpperCase()}
+                        {r.status ? r.status.replace('_', ' ').toUpperCase() : 'UNKNOWN'}
                       </span>
                       <span className="text-sm text-gray-500 font-medium">
                         {r.leave_type_name?.toUpperCase() || 'UNKNOWN TYPE'}
@@ -151,9 +151,15 @@ export default function LeaveRequestsPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        <span>{r.total_days} day(s)</span>
+                        <span>{r.total_days || r.days_requested} day(s)</span>
                       </div>
                     </div>
+                    
+                    {(r.status === 'approved' || r.status === 'rejected') && r.approver_first_name && (
+                      <div className="mt-2 text-xs text-gray-500 border-t pt-2 w-full">
+                        <span className="font-medium">Reviewed by:</span> {r.approver_first_name} {r.approver_last_name} ({r.approver_role})
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex md:flex-col gap-2 justify-center min-w-[140px]">

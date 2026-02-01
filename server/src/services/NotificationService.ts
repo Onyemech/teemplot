@@ -1,6 +1,6 @@
+import nodemailer from 'nodemailer';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
-import nodemailer from 'nodemailer';
 import { realtimeService } from './RealtimeService';
 
 interface EmailNotification {
@@ -57,6 +57,116 @@ export class NotificationService {
     });
 
     logger.info('Email transporter initialized');
+  }
+
+  /**
+   * Notify admins/managers about new leave request
+   */
+  async notifyLeaveRequestCreated(data: {
+    companyId: string;
+    requesterId: string;
+    requesterName: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    reason: string;
+  }): Promise<void> {
+    try {
+      // Get admins and managers
+      const recipientsQuery = `
+        SELECT id, email, first_name, last_name, role
+        FROM users
+        WHERE company_id = $1
+          AND role IN ('admin', 'owner', 'manager', 'department_head')
+          AND is_active = true
+          AND deleted_at IS NULL
+          AND id != $2
+      `;
+
+      const recipientsRes = await pool.query(recipientsQuery, [data.companyId, data.requesterId]);
+
+      for (const recipient of recipientsRes.rows) {
+        // In-app notification
+        await this.sendPushNotification({
+          userId: recipient.id,
+          title: 'New Leave Request',
+          body: `${data.requesterName} requested ${data.days} day(s) for ${data.leaveType}`,
+          data: {
+            type: 'leave_request',
+            url: '/dashboard/leave/requests',
+            requesterId: data.requesterId
+          }
+        });
+
+        // Email notification
+        await this.sendEmail({
+          to: recipient.email,
+          subject: `Leave Request: ${data.requesterName}`,
+          html: `
+            <h3>New Leave Request</h3>
+            <p><strong>${data.requesterName}</strong> has requested leave.</p>
+            <ul>
+              <li><strong>Type:</strong> ${data.leaveType}</li>
+              <li><strong>Dates:</strong> ${data.startDate} to ${data.endDate}</li>
+              <li><strong>Duration:</strong> ${data.days} day(s)</li>
+              <li><strong>Reason:</strong> ${data.reason}</li>
+            </ul>
+            <p><a href="${process.env.FRONTEND_URL}/dashboard/leave/requests">Review Request</a></p>
+          `
+        });
+      }
+    } catch (error) {
+      logger.error({ error }, 'Failed to send leave request notifications');
+    }
+  }
+
+  /**
+   * Notify employee about leave request status change
+   */
+  async notifyLeaveRequestStatus(data: {
+    userId: string;
+    status: string;
+    approverName: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+  }): Promise<void> {
+    try {
+      const userRes = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [data.userId]);
+      if (userRes.rows.length === 0) return;
+      const user = userRes.rows[0];
+
+      const statusText = data.status === 'approved' ? 'Approved' : 'Rejected';
+      const color = data.status === 'approved' ? '#0F5D5D' : '#DC2626';
+
+      // In-app
+      await this.sendPushNotification({
+        userId: data.userId,
+        title: `Leave Request ${statusText}`,
+        body: `Your ${data.leaveType} request has been ${data.status} by ${data.approverName}`,
+        data: {
+          type: 'leave_status',
+          status: data.status,
+          url: '/dashboard/leave'
+        }
+      });
+
+      // Email
+      await this.sendEmail({
+        to: user.email,
+        subject: `Leave Request ${statusText}`,
+        html: `
+          <h3>Leave Request Update</h3>
+          <p>Hi ${user.first_name},</p>
+          <p>Your request for <strong>${data.leaveType}</strong> (${data.startDate} - ${data.endDate}) has been <strong style="color: ${color}">${statusText.toUpperCase()}</strong> by ${data.approverName}.</p>
+          <p><a href="${process.env.FRONTEND_URL}/dashboard/leave">View Details</a></p>
+        `
+      });
+
+    } catch (error) {
+      logger.error({ error }, 'Failed to send leave status notification');
+    }
   }
 
   /**

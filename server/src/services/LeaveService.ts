@@ -1,5 +1,7 @@
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
+import { notificationService } from './NotificationService';
+import { auditService } from './AuditService';
 
 export class LeaveService {
   private db = DatabaseFactory.getPrimaryDatabase();
@@ -272,13 +274,16 @@ export class LeaveService {
     return result.rows;
   }
 
-  async reviewLeaveRequest(companyId: string, requestId: string, approverId: string, status: 'approved' | 'rejected', reason?: string) {
+  async reviewLeaveRequest(companyId: string, requestId: string, approverId: string, approverRole: string, status: 'approved' | 'rejected', reason?: string) {
     const client = await (this.db as any).getPool().connect();
     try {
       await client.query('BEGIN');
 
       const reqRes = await client.query(
-        `SELECT * FROM leave_requests WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+        `SELECT lr.*, u.role as requester_role, u.first_name, u.last_name 
+         FROM leave_requests lr
+         JOIN users u ON lr.employee_id = u.id
+         WHERE lr.id = $1 AND lr.company_id = $2 FOR UPDATE`,
         [requestId, companyId]
       );
       
@@ -286,6 +291,21 @@ export class LeaveService {
       const request = reqRes.rows[0];
 
       if (request.status !== 'pending') throw new Error('Request is not pending');
+
+      // Hierarchy Check
+      const requesterRole = request.requester_role;
+      
+      // Managers cannot approve other Managers, Admins, or Owners
+      if (approverRole === 'manager' || approverRole === 'department_head') {
+        if (['manager', 'department_head', 'admin', 'owner'].includes(requesterRole)) {
+           throw new Error('Managers cannot review leave requests for this role');
+        }
+      }
+      
+      // Employees cannot approve anything (handled in controller, but double check)
+      if (approverRole === 'employee') {
+        throw new Error('Employees cannot review leave requests');
+      }
 
       // Update Request
       const updateRes = await client.query(
@@ -315,6 +335,69 @@ export class LeaveService {
       }
 
       await client.query('COMMIT');
+
+      // Fetch approver name
+      const approverRes = await this.db.query('SELECT first_name, last_name FROM users WHERE id = $1', [approverId]);
+      const approver = approverRes.rows[0];
+      const approverName = `${approver.first_name} ${approver.last_name}`;
+
+      // Fetch leave type name
+      const typeRes = await this.db.query('SELECT name FROM leave_types WHERE id = $1', [request.leave_type_id]);
+      const typeName = typeRes.rows[0]?.name || 'Leave';
+
+      // Notify Employee
+      notificationService.notifyLeaveRequestStatus({
+        userId: request.employee_id,
+        status,
+        approverName,
+        leaveType: typeName,
+        startDate: request.start_date,
+        endDate: request.end_date
+      });
+      
+      // Audit Log
+      auditService.logAction({
+        userId: approverId,
+        companyId,
+        action: `LEAVE_REQUEST_${status.toUpperCase()}`,
+        entityType: 'leave_request',
+        entityId: requestId,
+        metadata: {
+          requesterId: request.employee_id,
+          requesterName: `${request.first_name} ${request.last_name}`,
+          leaveType: typeName,
+          days: request.days_requested,
+          reason: reason || ''
+        }
+      });
+      
+      // Manually insert into audit_logs table via client if AuditService doesn't do it automatically or if we want to be explicit
+      // The provided AuditService has a logAction that just console.logs, but logInvitationSentWithClient does DB insert.
+      // We should probably extend AuditService or just do a direct insert here for now to ensure it is saved as requested.
+      // Since AuditService.logAction is just a console log, I will insert directly here to satisfy the user requirement.
+      
+      // Actually, I should check if I can update AuditService to save to DB, but user complained about time.
+      // I will insert directly here for speed and reliability.
+      
+      await this.db.query(
+        `INSERT INTO audit_logs (user_id, company_id, action, entity_type, entity_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          approverId, 
+          companyId, 
+          `LEAVE_${status.toUpperCase()}`, 
+          'leave_request', 
+          requestId, 
+          JSON.stringify({ 
+            requester_id: request.employee_id,
+            requester_name: `${request.first_name} ${request.last_name}`,
+            leave_type: typeName,
+            days: request.days_requested,
+            reason: reason 
+          })
+        ]
+      );
+
       return updateRes.rows[0];
 
     } catch (e) {

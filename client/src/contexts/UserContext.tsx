@@ -10,13 +10,15 @@ interface User {
   companyId: string;
   companyName?: string;
   companyLogo?: string;
-  avatarUrl?: string | null;
+  avatarUrl?: string;
   subscriptionPlan?: string;
   subscriptionStatus?: string;
   trialDaysLeft?: number | null;
   emailVerified: boolean;
   onboardingCompleted: boolean;
-  _fetchedAt?: number;
+  jobTitle?: string;
+  bio?: string;
+  phoneNumber?: string;
 }
 
 interface UserContextType {

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import Cropper from 'react-easy-crop';
-import { Camera, ZoomIn, ZoomOut, Image as ImageIcon, Loader2, Trash2, X } from 'lucide-react';
+import { Camera, ZoomIn, ZoomOut, Image as ImageIcon, Loader2, X } from 'lucide-react';
 import Modal from '../ui/Modal';
 import CameraCaptureModal from '@/components/profile/CameraCaptureModal';
 import getCroppedImg from '@/utils/imageUtils';
@@ -18,10 +18,9 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
   const { user, refetch } = useUser();
   const { success, error } = useToast();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(user?.avatarUrl || null);
+  const [displayUrl, setDisplayUrl] = useState<string | undefined>(user?.avatarUrl);
   const lastUploadedUrlRef = useRef<string | null>(null);
   const [imageKey, setImageKey] = useState(Date.now());
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
@@ -44,34 +43,34 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
-  // Update local display URL when user context changes
+  // Simplified sync logic:
+  // 1. If we have a local upload pending sync (lastUploadedUrlRef), prioritize it.
+  // 2. If the user context updates to match our local upload, clear the pending flag.
+  // 3. If user context changes to something else (remote update), we sync to it unless we just uploaded.
   React.useEffect(() => {
-    if (user?.avatarUrl) {
-       // If we have a recent upload, only update if the user context has actually caught up
-       // or if it's a completely different URL (e.g. from another session)
-       if (lastUploadedUrlRef.current && displayUrl === lastUploadedUrlRef.current) {
-          if (user.avatarUrl === lastUploadedUrlRef.current) {
-             // Synced!
-          } else {
-             // Context is likely stale or race condition, ignore it to prevent revert
-             return; 
-          }
-       }
-       
-      if (user.avatarUrl !== displayUrl) {
-         setDisplayUrl(user.avatarUrl);
+    // If user context is missing, do nothing
+    if (!user?.avatarUrl) return;
+
+    // If we have a pending local upload...
+    if (lastUploadedUrlRef.current) {
+      // Check if server caught up
+      if (user.avatarUrl === lastUploadedUrlRef.current) {
+        // Server caught up! Clear flag.
+        lastUploadedUrlRef.current = null;
+        // Ensure display matches
+        if (displayUrl !== user.avatarUrl) {
+           setDisplayUrl(user.avatarUrl);
+        }
+      }
+      // If server hasn't caught up, we keep our local displayUrl (optimistic).
+      // We ignore the stale user.avatarUrl.
+    } else {
+      // No pending upload, just sync with server
+      if (displayUrl !== user.avatarUrl) {
+        setDisplayUrl(user.avatarUrl);
       }
     }
   }, [user?.avatarUrl, displayUrl]);
-
-  React.useEffect(() => {
-    setAvatarFailed(false);
-  }, [displayUrl]);
-
-  const withCacheBust = (url: string, key: number) => {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}v=${key}`;
-  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -100,23 +99,40 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
 
       const file = new File([croppedBlob], 'profile-pic.jpg', { type: 'image/jpeg' });
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('image', file);
+      formData.append('client', 'teemplot');
 
-      const response = await apiClient.post('/api/user/profile-picture', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // 1. Direct Upload to Global Image Service
+      const uploadResponse = await fetch('https://cf-image-worker.sabimage.workers.dev/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image to storage service');
+      }
+
+      const uploadData = await uploadResponse.json();
+      const newAvatarUrl = uploadData.url;
+
+      if (!newAvatarUrl) {
+        throw new Error('No URL returned from storage service');
+      }
+
+      // 2. Update Backend with new URL
+      const response = await apiClient.post('/api/user/profile-picture', {
+        avatarUrl: newAvatarUrl
       });
 
       if (response.data.success) {
         success('Profile picture updated successfully');
         
         // Optimistic update for immediate feedback
-        const newUrl = response.data.data?.avatarUrl;
-        if (newUrl) {
-           console.log('Setting new display URL:', newUrl);
-           lastUploadedUrlRef.current = newUrl; // Mark this as our latest upload
-           setDisplayUrl(newUrl);
+        const finalUrl = response.data.data?.avatarUrl || newAvatarUrl;
+        if (finalUrl) {
+           console.log('Setting new display URL:', finalUrl);
+           lastUploadedUrlRef.current = finalUrl;
+           setDisplayUrl(finalUrl);
            // Force re-render with cache-busting key to ensure fresh load
            setImageKey(Date.now()); 
         } else {
@@ -165,15 +181,16 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
             className={`${sizeClasses} rounded-full overflow-hidden border-${size === 'sm' ? '2' : '4'} border-white shadow-lg bg-gray-100 relative cursor-pointer`}
             onClick={handleImageClick}
           >
-            {displayUrl && !avatarFailed ? (
+            {displayUrl ? (
               <img 
                 key={imageKey} // Force re-mount on update
-                src={withCacheBust(displayUrl, imageKey)}
+                src={displayUrl}
                 alt={`${user?.firstName || 'User'}'s profile`} 
                 className="w-full h-full object-cover"
-                onError={() => {
+                onError={(_e) => {
                   console.error('Image load failed:', displayUrl);
-                  setAvatarFailed(true);
+                  lastUploadedUrlRef.current = null;
+                  setDisplayUrl(undefined);
                 }}
               />
             ) : (
@@ -298,7 +315,7 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
                 disabled={isUploading}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
+                <X className="w-4 h-4" />
                 Cancel
               </button>
               <button
@@ -343,7 +360,7 @@ export default function ProfileImageUploader({ className, size = 'lg', allowEdit
               <X className="w-6 h-6" />
             </button>
             <img 
-              src={withCacheBust(displayUrl, imageKey)}
+              src={displayUrl} 
               alt="Profile Full View" 
               className="max-w-full max-h-[90vh] object-contain"
               onClick={(e) => e.stopPropagation()} 

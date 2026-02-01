@@ -54,11 +54,6 @@ export default function EmployeeDashboard() {
   // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser();
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
-  const [avatarFailed, setAvatarFailed] = useState(false);
-  const avatarVersion = currentUser?._fetchedAt || 0;
-  const avatarSrc = currentUser?.avatarUrl
-    ? `${currentUser.avatarUrl}${currentUser.avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
-    : null;
 
   // Helper to check if any action is in progress
   const isActionLoading = !!loadingAction;
@@ -437,12 +432,11 @@ export default function EmployeeDashboard() {
             onClick={() => navigate('/dashboard/profile')}
             className="h-12 w-12 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
           >
-            {avatarSrc && !avatarFailed ? (
+            {currentUser?.avatarUrl ? (
               <img 
-                src={avatarSrc}
+                src={`${currentUser.avatarUrl}`}
                 alt="Profile" 
                 className="w-full h-full object-cover"
-                onError={() => setAvatarFailed(true)}
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center bg-[#0F5D5D] text-white font-bold text-lg">

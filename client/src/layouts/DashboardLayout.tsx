@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '@/components/dashboard/Sidebar'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav'
@@ -16,6 +16,16 @@ export default function DashboardLayout() {
   const { user } = useUser()
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false)
   const [isMandatory, setIsMandatory] = useState(false)
+  
+  const location = useLocation()
+  const mainContentRef = useRef<HTMLElement>(null)
+
+  // Scroll to top when route changes
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo(0, 0)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     const checkBiometrics = async () => {
@@ -75,7 +85,7 @@ export default function DashboardLayout() {
 
         {/* Page Content */}
         <LoadingOverlayProvider>
-          <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          <main ref={mainContentRef} className="flex-1 overflow-y-auto pb-20 md:pb-0">
             <Outlet />
           </main>
           <LoadingOverlay />

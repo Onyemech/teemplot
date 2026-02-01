@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255),
   first_name VARCHAR(100),
   last_name VARCHAR(100),
+  avatar_url TEXT,
   role VARCHAR(20) CHECK (role IN ('owner', 'admin', 'manager', 'staff', 'employee')),
   
   -- Settings

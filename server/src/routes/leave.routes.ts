@@ -191,11 +191,25 @@ export default async function leaveRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ success: false, message: 'Employees cannot review requests' });
       }
 
-      // In a real app, verify manager's department here. 
-      // Assuming 'manager', 'department_head', 'admin', 'owner' are valid reviewers.
+      // Hierarchy Check:
+      // - Employees cannot review
+      // - Managers can review Employees
+      // - Owners/Admins can review Everyone (including Managers)
+      
+      const requesterId = (await leaveService.getLeaveRequests(companyId, { id })).find(r => r.id === id)?.employee_id;
+      if (!requesterId) {
+         return reply.code(404).send({ success: false, message: 'Request not found' });
+      }
+      
+      // Get requester role
+      // This is slightly inefficient (fetching request then user role), but safe.
+      // Ideally LeaveService.reviewLeaveRequest handles this, or we pass user role to it.
+      
+      // We will let LeaveService handle the logic to keep controller thin, 
+      // but we need to pass the reviewer's role to the service.
 
       const status = approved ? 'approved' : 'rejected';
-      const result = await leaveService.reviewLeaveRequest(companyId, id, userId, status, reason);
+      const result = await leaveService.reviewLeaveRequest(companyId, id, userId, role, status, reason);
       
       return reply.send({ success: true, data: result });
     } catch (error: any) {

@@ -56,6 +56,50 @@ export default function LeaveDashboardPage() {
     halfDay: false
   })
 
+  // Calculate business days
+  const [calculatedDays, setCalculatedDays] = useState(0)
+
+  useEffect(() => {
+    if (form.startDate && form.endDate) {
+      const start = new Date(form.startDate)
+      const end = new Date(form.endDate)
+      
+      if (start > end) {
+        setCalculatedDays(0)
+        return
+      }
+
+      let count = 0
+      let curDate = new Date(start)
+      while (curDate <= end) {
+        const dayOfWeek = curDate.getDay()
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 0 = Sun, 6 = Sat
+           count++
+        }
+        curDate.setDate(curDate.getDate() + 1)
+      }
+      
+      if (form.halfDay) count = 0.5 // If half day checked, override? Or maybe just 0.5 if single day?
+      // Better logic: if halfDay is true, it implies a single day or 0.5 deduction? 
+      // User prompt implies "half day request" usually means taking 0.5 day off.
+      // If range is multiple days, half day usually applies to start or end. 
+      // For simplicity here, if halfDay is checked, we assume the total duration is reduced by 0.5 or it is a 0.5 day leave.
+      // Let's assume if halfDay is checked, it's a 0.5 day leave for a single date, or we just subtract 0.5?
+      // Given the UI "Half Day Request" checkbox, it usually means the whole request is 0.5 days (and usually restricts to 1 day).
+      
+      if (form.halfDay) {
+         // If multiple days selected + half day, it's ambiguous. 
+         // But usually half day is for single day.
+         // Let's set to 0.5 if it is 1 day.
+         if (count === 1) count = 0.5
+      }
+
+      setCalculatedDays(count)
+    } else {
+      setCalculatedDays(0)
+    }
+  }, [form.startDate, form.endDate, form.halfDay])
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -109,7 +153,7 @@ export default function LeaveDashboardPage() {
         reason: form.reason,
         half_day_start: form.halfDay, // Mapping simplified checkbox to start/end logic if needed
         half_day_end: form.halfDay,
-        days_requested: 1 // Backend calculates this usually, but here we let backend handle validation
+        days_requested: calculatedDays
       })
       if (res.data.success) {
         toast.success('Leave requested successfully')
@@ -274,6 +318,14 @@ export default function LeaveDashboardPage() {
                     Available: {availableDays} days
                   </p>
                 )}
+              </div>
+
+              {/* Days Preview */}
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total Days:</span>
+                <span className={`font-bold ${calculatedDays > availableDays ? 'text-red-600' : 'text-[#0F5D5D]'}`}>
+                  {calculatedDays} days
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

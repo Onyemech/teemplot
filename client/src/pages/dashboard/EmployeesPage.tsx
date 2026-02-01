@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
+import EmployeeDetailsModal from '@/components/dashboard/EmployeeDetailsModal'
 import { format } from 'date-fns'
 
 interface Employee {
@@ -13,6 +14,9 @@ interface Employee {
   email: string
   role: string
   position: string
+  jobTitle?: string
+  bio?: string
+  phoneNumber?: string
   status: 'active' | 'inactive'
   avatar?: string
   createdAt: string
@@ -38,6 +42,10 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
   // const [loading, setLoading] = useState(true)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'employees' | 'invitations'>(initialTab)
+  
+  // State for Employee Details Modal
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab)
@@ -75,7 +83,10 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
     fetchData()
   }
 
-
+  const handleEmployeeClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsDetailsModalOpen(true);
+  };
 
   return (
     <div className="h-full bg-gray-50 p-3 md:p-6 lg:p-8">
@@ -159,40 +170,34 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                   {employees.map((employee) => (
                     <div
                       key={employee.id}
-                      className="flex items-center justify-between p-4 md:p-5 bg-white rounded-xl border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+                      onClick={() => handleEmployeeClick(employee)}
+                      className="flex items-center justify-between p-4 md:p-5 bg-white rounded-xl border border-gray-200 hover:border-primary/50 hover:shadow-lg hover:bg-gray-50 transition-all duration-300 cursor-pointer group"
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
                         {employee.avatar ? (
                           <img
                             src={employee.avatar}
                             alt={`${employee.firstName} ${employee.lastName}`}
-                            className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0"
+                            className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover flex-shrink-0 border border-gray-100 group-hover:border-primary/30 transition-colors"
                             onError={(e) => {
                               console.warn('Employee avatar load failed, hiding:', employee.avatar);
                               e.currentTarget.style.display = 'none';
-                              // Show fallback by manipulating DOM or state? 
-                              // Simpler to rely on the fallback div being rendered if we handle this better
-                              // Actually, the current structure renders EITHER img OR fallback div.
-                              // If img fails, we want to show fallback.
-                              // The best way in React is to have state for load error, but for a list it's expensive.
-                              // Alternatively, we can set src to a placeholder or transparent pixel and use background.
-                              // Or, we can just let it be broken for now or fix the root cause.
                             }}
                           />
                         ) : (
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm flex-shrink-0">
+                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm flex-shrink-0 group-hover:shadow-md transition-all">
                             <span className="text-white font-semibold text-base md:text-lg">
                               {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                             </span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-gray-900 truncate pr-2">
+                          <h3 className="font-medium text-gray-900 truncate pr-2 group-hover:text-primary transition-colors">
                             {employee.firstName} {employee.lastName}
                           </h3>
                           <p className="text-sm text-gray-600 truncate">{employee.email}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="text-xs text-gray-500 whitespace-nowrap">{employee.role}</span>
+                            <span className="text-xs text-gray-500 whitespace-nowrap bg-gray-100 px-2 py-0.5 rounded-full group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-200">{employee.role}</span>
                             {employee.position && (
                               <>
                                 <span className="text-xs text-gray-400 hidden sm:inline">•</span>
@@ -276,6 +281,13 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         onSuccess={handleInviteSuccess}
+      />
+
+      {/* Employee Details Modal */}
+      <EmployeeDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        employee={selectedEmployee}
       />
     </div>
   )

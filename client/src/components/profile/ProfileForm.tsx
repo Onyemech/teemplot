@@ -14,6 +14,7 @@ const profileSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   jobTitle: z.string().optional(),
   bio: z.string().max(500, 'Bio must be less than 500 characters').optional(),
+  phoneNumber: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -34,6 +35,7 @@ export default function ProfileForm() {
       lastName: '',
       jobTitle: '',
       bio: '',
+      phoneNumber: '',
     },
   });
 
@@ -43,8 +45,9 @@ export default function ProfileForm() {
       reset({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
-        jobTitle: (user as any).jobTitle || '', // Cast as any if type definition is missing jobTitle
-        bio: (user as any).bio || '',
+        jobTitle: user.jobTitle || '', 
+        bio: user.bio || '',
+        phoneNumber: user.phoneNumber || '',
       });
     }
   }, [user, reset]);

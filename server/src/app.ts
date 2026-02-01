@@ -221,10 +221,6 @@ export async function buildApp() {
   const dashboardRoutes = await import('./routes/dashboard.routes');
   await app.register(dashboardRoutes.default, { prefix: `${apiPrefix}/dashboard` });
 
-  // Import and register audit routes
-  const auditRoutes = await import('./routes/audit.routes');
-  await app.register(auditRoutes.default, { prefix: `${apiPrefix}/audit-logs` });
-
   // Import and register company routes
   const { companyRoutes } = await import('./routes/company.routes');
   await app.register(companyRoutes, { prefix: `${apiPrefix}/company` });

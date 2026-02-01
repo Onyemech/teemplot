@@ -210,15 +210,7 @@ export default function OwnerDashboard() {
 
             {/* Recent Activity */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
-                <button 
-                  onClick={() => navigate('/dashboard/audit-logs')}
-                  className="text-sm font-medium text-[#0F5D5D] hover:text-[#0a4545] hover:underline"
-                >
-                  View All
-                </button>
-              </div>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Activity</h2>
               <div className="space-y-4">
                 {recentActivity.length > 0 ? (
                   recentActivity.map((activity) => (

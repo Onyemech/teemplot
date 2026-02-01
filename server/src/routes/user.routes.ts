@@ -1,21 +1,10 @@
 import { FastifyInstance } from 'fastify';
-import multipart from '@fastify/multipart';
-import { fileUploadService } from '../services/FileUploadService';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
 import { getStatusCodeFromError, formatErrorResponse } from '../middleware/error-formatter.middleware';
-import crypto from 'crypto';
 
 export default async function userRoutes(fastify: FastifyInstance) {
   const db = DatabaseFactory.getPrimaryDatabase();
-
-  // Register multipart support for file uploads
-  await fastify.register(multipart, {
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
-      files: 1, // Only 1 file allowed
-    },
-  });
 
   // Helper to sanitize filename
   function sanitizeFilename(filename: string): string {
@@ -28,54 +17,22 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/user/profile-picture
-   * Upload and update user profile picture
+   * Update user profile picture URL (after direct upload)
    */
   fastify.post('/profile-picture', {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const data = await request.file();
+      const { avatarUrl } = request.body as { avatarUrl: string };
 
-      if (!data) {
+      if (!avatarUrl) {
         return reply.code(400).send({
           success: false,
-          message: 'No image file uploaded',
+          message: 'Avatar URL is required',
         });
       }
-
-      // Validate mime type
-      if (!data.mimetype.startsWith('image/')) {
-        return reply.code(400).send({
-          success: false,
-          message: 'Only image files are allowed (JPG, PNG, etc.)',
-        });
-      }
-
-      const buffer = await data.toBuffer();
-      const sanitizedFilename = sanitizeFilename(data.filename);
-      const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-
-      // Upload using existing service
-      const uploadResult = await fileUploadService.uploadViaIntegrationService({
-        hash,
-        buffer,
-        filename: sanitizedFilename,
-        mimeType: data.mimetype,
-        uploadedBy: request.user.userId,
-        resourceType: 'image',
-      });
-
-      if (!uploadResult.success || !uploadResult.file) {
-        throw new Error('Failed to upload image');
-      }
-
-      const avatarUrl = uploadResult.file.secure_url || uploadResult.file.url;
 
       // Update user record
-      if (!avatarUrl) {
-        throw new Error('No URL returned from upload service');
-      }
-
       await db.query(
         'UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2',
         [avatarUrl, request.user.userId]

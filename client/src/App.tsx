@@ -45,6 +45,8 @@ import AnalyticsDashboardPage from './pages/dashboard/AnalyticsDashboardPage'
 import EmployeePerformancePage from './pages/dashboard/EmployeePerformancePage'
 import AdminPerformancePage from './pages/dashboard/AdminPerformancePage'
 import AuditLogsPage from './pages/dashboard/AuditLogsPage'
+import WalletTransactionsPage from './pages/wallet/WalletTransactionsPage'
+import PayrollPage from './pages/dashboard/PayrollPage'
 
 import './utils/debugAuth'
 
@@ -143,6 +145,7 @@ function App() {
                 <Route path="attendance/setup" element={<AttendanceSettingsPage />} />
                 <Route path="attendance/multiple-clockin" element={<MultipleClockInPage />} />
                 <Route path="attendance/remote-clockin" element={<RemoteClockinPage />} />
+                <Route path="attendance/payroll" element={<PayrollPage />} />
                 <Route path="leave" element={<LeaveDashboardPage />} />
                 <Route path="leave/requests" element={<LeaveRequestsPage />} />
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
@@ -165,6 +168,8 @@ function App() {
                 <Route path="inbox" element={<InboxPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="settings/billing" element={<ManagePlanPage />} />
+                <Route path="wallet" element={<WalletTransactionsPage />} />
+                <Route path="wallet/transactions" element={<WalletTransactionsPage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
               </Route>
 

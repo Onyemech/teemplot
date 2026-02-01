@@ -18,8 +18,8 @@ export async function employeesRoutes(fastify: FastifyInstance) {
 
       // Get all employees in the company (use companyId directly from JWT)
       const employeesQuery = await db.query(
-        `SELECT id, first_name as "firstName", last_name as "lastName", email, role, position, 
-         avatar_url as avatar, created_at as "createdAt", 'active' as status,
+        `SELECT id, first_name as "firstName", last_name as "lastName", email, role, position, job_title as "jobTitle",
+         avatar_url as avatar, bio, phone_number as "phoneNumber", created_at as "createdAt", 'active' as status,
          allow_multi_location_clockin as "allowMultiLocationClockin",
          allow_remote_clockin as "allowRemoteClockin"
          FROM users 
