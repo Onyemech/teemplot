@@ -177,10 +177,13 @@ export async function attendanceRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       logger.error({ error, userId: request.user.userId }, 'Check-in failed');
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to check in'
-      });
+      if (error?.code === '42P01' || /relation\s+"company"\s+does\s+not\s+exist/i.test(String(error?.message || ''))) {
+        return reply.code(500).send({
+          success: false,
+          message: 'Attendance is temporarily unavailable due to a database configuration error. Please contact support.'
+        });
+      }
+      return reply.code(400).send({ success: false, message: error.message || 'Failed to check in' });
     }
   });
 
@@ -262,10 +265,13 @@ export async function attendanceRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       logger.error({ error, userId: request.user.userId }, 'Check-out failed');
-      return reply.code(400).send({
-        success: false,
-        message: error.message || 'Failed to check out'
-      });
+      if (error?.code === '42P01' || /relation\s+"company"\s+does\s+not\s+exist/i.test(String(error?.message || ''))) {
+        return reply.code(500).send({
+          success: false,
+          message: 'Attendance is temporarily unavailable due to a database configuration error. Please contact support.'
+        });
+      }
+      return reply.code(400).send({ success: false, message: error.message || 'Failed to check out' });
     }
   });
 
@@ -335,7 +341,7 @@ export async function attendanceRoutes(fastify: FastifyInstance) {
   }, async (request: any, reply) => {
     try {
       const result = await query(
-        'SELECT * FROM check_early_departure($1, NOW())',
+        'SELECT * FROM public.check_early_departure($1, NOW())',
         [request.user.companyId]
       );
 

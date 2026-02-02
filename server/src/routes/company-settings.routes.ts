@@ -33,7 +33,8 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
           language,
           breaks_enabled,
           max_break_duration_minutes,
-          allow_remote_clockin
+          allow_remote_clockin,
+          allow_remote_clockin_on_non_working_days
         FROM companies 
         WHERE id = $1`,
         [request.user.companyId]
@@ -163,13 +164,15 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
         autoCheckoutEnabled,
         geofenceRadiusMeters,
         requireGeofenceForCheckin,
-        allowRemoteClockin
+        allowRemoteClockin,
+        allowRemoteClockinOnNonWorkingDays
       } = request.body as {
         autoCheckinEnabled?: boolean;
         autoCheckoutEnabled?: boolean;
         geofenceRadiusMeters?: number;
         requireGeofenceForCheckin?: boolean;
         allowRemoteClockin?: boolean;
+        allowRemoteClockinOnNonWorkingDays?: boolean;
       };
 
       const updates: string[] = [];
@@ -201,6 +204,11 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
         updates.push(`allow_remote_clockin = $${paramIndex++}`);
       }
 
+      if (typeof allowRemoteClockinOnNonWorkingDays === 'boolean') {
+        params.push(allowRemoteClockinOnNonWorkingDays);
+        updates.push(`allow_remote_clockin_on_non_working_days = $${paramIndex++}`);
+      }
+
       if (updates.length === 0) {
         return reply.code(400).send({
           success: false,
@@ -216,7 +224,7 @@ export default async function companySettingsRoutes(fastify: FastifyInstance) {
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING auto_clockin_enabled, auto_clockout_enabled, 
-                  geofence_radius_meters, require_geofence_for_clockin, allow_remote_clockin`,
+                 geofence_radius_meters, require_geofence_for_clockin, allow_remote_clockin, allow_remote_clockin_on_non_working_days`,
         params
       );
 

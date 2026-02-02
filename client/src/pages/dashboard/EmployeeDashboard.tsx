@@ -214,7 +214,20 @@ export default function EmployeeDashboard() {
       const data = response.data;
 
       if (data.success) {
-        setAttendanceStatus(data.data);
+        setAttendanceStatus(prev => ({
+          ...(prev || {
+            isClockedIn: false,
+            clockInTime: null,
+            clockOutTime: null,
+            totalHoursToday: 0,
+            isWithinGeofence: false,
+            distanceFromOffice: 0
+          }),
+          isClockedIn: true,
+          clockInTime: data.data?.clockInTime || prev?.clockInTime || new Date().toISOString(),
+          clockOutTime: null
+        }));
+        await fetchDashboardData();
         alert('Clocked in successfully!');
       } else {
         alert(data.message || 'Failed to clock in');
@@ -314,7 +327,19 @@ export default function EmployeeDashboard() {
       const data = response.data;
 
       if (data.success) {
-        setAttendanceStatus(data.data);
+        setAttendanceStatus(prev => ({
+          ...(prev || {
+            isClockedIn: true,
+            clockInTime: null,
+            clockOutTime: null,
+            totalHoursToday: 0,
+            isWithinGeofence: false,
+            distanceFromOffice: 0
+          }),
+          isClockedIn: false,
+          clockOutTime: data.data?.clockOutTime || prev?.clockOutTime || new Date().toISOString()
+        }));
+        await fetchDashboardData();
         setShowEarlyClockOutModal(false);
         setShowSuccessModal(true);
       } else {

@@ -236,8 +236,15 @@ export default function MobileAttendancePage() {
 
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchSettings() // Refresh status
-        fetchHistory() // Refresh history
+        setTodayStatus((prev: any) => ({
+          ...(prev || {}),
+          isClockedIn: true,
+          status: res.data.data?.status || 'present',
+          clockInTime: res.data.data?.clockInTime || new Date().toISOString(),
+          clockOutTime: null
+        }))
+        await fetchSettings()
+        await fetchHistory()
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Check-in failed')
@@ -301,8 +308,14 @@ export default function MobileAttendancePage() {
 
       if (res.data.success) {
         toast.success(res.data.message)
-        fetchSettings() // Refresh status
-        fetchHistory() // Refresh history
+        setTodayStatus((prev: any) => ({
+          ...(prev || {}),
+          isClockedIn: false,
+          status: res.data.data?.status || 'present',
+          clockOutTime: res.data.data?.clockOutTime || new Date().toISOString()
+        }))
+        await fetchSettings()
+        await fetchHistory()
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Check-out failed')

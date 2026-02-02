@@ -79,7 +79,7 @@ export class TaskReviewService {
         action: 'TASK_MARKED_COMPLETE',
         entityType: 'task',
         entityId: data.taskId,
-        changes: {
+        metadata: {
           status: { from: task.status, to: 'awaiting_review' },
           actualHours: data.actualHours,
           completionNotes: data.completionNotes
@@ -119,9 +119,11 @@ export class TaskReviewService {
 
       // Get task
       const taskQuery = `
-        SELECT id, company_id, assigned_to, status, review_status
-        FROM tasks
-        WHERE id = $1 AND deleted_at IS NULL
+        SELECT t.id, t.company_id, t.assigned_to, t.status, t.review_status,
+               u.first_name || ' ' || u.last_name as assigned_to_name
+        FROM tasks t
+        LEFT JOIN users u ON t.assigned_to = u.id
+        WHERE t.id = $1 AND t.deleted_at IS NULL
       `;
       
       const taskResult = await client.query(taskQuery, [data.taskId]);
@@ -176,11 +178,13 @@ export class TaskReviewService {
         action: data.approved ? 'TASK_APPROVED' : 'TASK_REJECTED',
         entityType: 'task',
         entityId: data.taskId,
-        changes: {
+        metadata: {
           reviewStatus: { from: 'pending_review', to: newStatus },
           status: { from: task.status, to: taskStatus },
           reviewNotes: data.reviewNotes,
-          rejectionReason: data.rejectionReason
+          rejectionReason: data.rejectionReason,
+          assignedTo: task.assigned_to,
+          assignedToName: task.assigned_to_name
         }
       });
 
@@ -266,7 +270,7 @@ export class TaskReviewService {
     action: string;
     entityType: string;
     entityId: string;
-    changes: any;
+    metadata: any;
   }): Promise<void> {
     const query = `
       INSERT INTO audit_logs (
@@ -275,7 +279,7 @@ export class TaskReviewService {
         action,
         entity_type,
         entity_id,
-        changes
+        metadata
       ) VALUES ($1, $2, $3, $4, $5, $6)
     `;
 
@@ -285,7 +289,7 @@ export class TaskReviewService {
       data.action,
       data.entityType,
       data.entityId,
-      JSON.stringify(data.changes)
+      JSON.stringify(data.metadata)
     ]);
   }
 

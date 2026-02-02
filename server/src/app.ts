@@ -7,6 +7,7 @@ import jwt from '@fastify/jwt';
 import { authRoutes } from './routes/auth.routes';
 import { DatabaseFactory } from './infrastructure/database/DatabaseFactory';
 import { autoAttendanceService } from './services/AutoAttendanceService';
+import { performanceSnapshotJobService } from './services/PerformanceSnapshotJobService';
 import { logger } from './utils/logger';
 import { errorHandler, setupUncaughtExceptionHandler, setupUnhandledRejectionHandler } from './middleware/errorHandler.middleware';
 import {
@@ -261,17 +262,23 @@ export async function buildApp() {
   const { analyticsRoutes } = await import('./routes/analytics.routes');
   await app.register(analyticsRoutes, { prefix: `${apiPrefix}/analytics` });
 
+  // Import and register audit routes
+  const auditRoutes = await import('./routes/audit.routes');
+  await app.register(auditRoutes.default, { prefix: `${apiPrefix}/audit` });
+
 
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {
     autoAttendanceService.initialize();
+    performanceSnapshotJobService.initialize();
   }
 
   // Graceful shutdown
   const closeGracefully = async (signal: string) => {
     logger.info(`Received ${signal}, closing gracefully`);
     autoAttendanceService.stop();
+    performanceSnapshotJobService.stop();
     await DatabaseFactory.closeAll();
     await app.close();
     process.exit(0);

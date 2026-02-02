@@ -5,29 +5,30 @@ import { useUser } from '@/contexts/UserContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { navigationConfig, reportingConfig, NavItemConfig } from './Sidebar';
 import { apiClient } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
+import { PrefetchNavLink } from '@/components/ui/PrefetchNavLink';
 
 export default function MobileBottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, hasRole } = useUser();
   const { hasAccess } = useFeatureAccess();
+  const toast = useToast();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<NavItemConfig | null>(null);
 
   const isAdmin = hasRole(['admin', 'owner']);
   const companyPlan = user?.subscriptionPlan || 'trial';
 
-  // Filter accessible items
-  const getAccessibleItems = (items: NavItemConfig[]) => {
+  const getVisibleItems = (items: NavItemConfig[]) => {
     return items.filter(item => {
       if (item.adminOnly && !isAdmin) return false;
-      if (item.feature && !hasAccess(item.feature)) return false;
       return true;
     });
   };
 
-  const allNavItems = useMemo(() => getAccessibleItems(navigationConfig), [user, companyPlan]);
-  const allReportingItems = useMemo(() => getAccessibleItems(reportingConfig), [user, companyPlan]);
+  const allNavItems = useMemo(() => getVisibleItems(navigationConfig), [user, companyPlan]);
+  const allReportingItems = useMemo(() => getVisibleItems(reportingConfig), [user, companyPlan]);
 
   // Select top items for the bar
   const primaryItems = allNavItems.slice(0, 4);
@@ -69,11 +70,20 @@ export default function MobileBottomNav() {
     const active = isActive(item.href);
     const Icon = item.icon;
     const label = getMobileLabel(item.label);
+    const locked = Boolean(item.feature && !hasAccess(item.feature));
 
     return (
-      <Link
+      <PrefetchNavLink
         to={item.href}
-        onClick={onClick}
+        prefetchUrl={`/api${item.href.replace('/dashboard', '')}`}
+        onClick={(e) => {
+          if (locked) {
+            e.preventDefault();
+            toast.warning('This feature is unavailable on your current plan.');
+            return;
+          }
+          onClick?.();
+        }}
         className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 group ${active ? 'text-[#0F5D5D]' : 'text-gray-400 hover:text-gray-600'
           }`}
       >
@@ -85,7 +95,7 @@ export default function MobileBottomNav() {
           }`}>
           {label}
         </span>
-      </Link>
+      </PrefetchNavLink>
     );
   };
 
@@ -158,11 +168,20 @@ export default function MobileBottomNav() {
               {activeSubmenu ? (
                 /* Submenu View */
                 <div className="space-y-1">
-                  {getAccessibleItems(activeSubmenu.submenu || []).map((subItem) => (
+                  {getVisibleItems(activeSubmenu.submenu || []).map((subItem) => {
+                    const locked = Boolean(subItem.feature && !hasAccess(subItem.feature));
+                    return (
                     <Link
                       key={subItem.href}
                       to={subItem.href}
-                      onClick={handleCloseMore}
+                      onClick={(e) => {
+                        if (locked) {
+                          e.preventDefault();
+                          toast.warning('This feature is unavailable on your current plan.');
+                          return;
+                        }
+                        handleCloseMore();
+                      }}
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
@@ -173,7 +192,8 @@ export default function MobileBottomNav() {
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Root Menu View */
@@ -202,7 +222,14 @@ export default function MobileBottomNav() {
                             ) : (
                               <Link
                                 to={item.href}
-                                onClick={handleCloseMore}
+                                onClick={(e) => {
+                                  if (item.feature && !hasAccess(item.feature)) {
+                                    e.preventDefault();
+                                    toast.warning('This feature is unavailable on your current plan.');
+                                    return;
+                                  }
+                                  handleCloseMore();
+                                }}
                                 className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
                               >
                                 <div className="flex items-center gap-3">

@@ -595,7 +595,7 @@ export class EmployeeInvitationService {
         action: 'accept_invitation',
         entityType: 'user',
         entityId: userId,
-        newValue: { email: invitation.email, role: invitation.role, biometric: biometricsEnabled }
+        metadata: { email: invitation.email, role: invitation.role, biometric: biometricsEnabled }
       });
 
       return {

@@ -17,6 +17,7 @@ import { companyRoutes } from '../src/routes/company.routes';
 import filesRoutes from '../src/routes/files.routes';
 import adminAddressAuditRoutes from '../src/routes/admin-address-audit.routes';
 import userRoutes from '../src/routes/user.routes';
+import auditRoutes from '../src/routes/audit.routes';
 
 let app: any = null;
 
@@ -121,6 +122,7 @@ export async function buildServerlessApp() {
   await fastify.register(filesRoutes, { prefix: '/api/files' });
   await fastify.register(adminAddressAuditRoutes, { prefix: '/api/admin/address-audit' });
   await fastify.register(userRoutes, { prefix: '/api/user' });
+  await fastify.register(auditRoutes, { prefix: '/api/audit' });
 
   // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('../src/routes/employee-invitation.routes');

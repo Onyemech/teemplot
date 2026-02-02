@@ -14,6 +14,7 @@ interface CompanySettings {
   breaks_enabled: boolean;
   max_break_duration_minutes: number;
   allow_remote_clockin: boolean;
+  allow_remote_clockin_on_non_working_days: boolean;
 }
 
 export default function AttendanceGeneralSettings() {
@@ -58,6 +59,7 @@ export default function AttendanceGeneralSettings() {
         geofenceRadiusMeters: newSettings.geofence_radius_meters,
         requireGeofenceForCheckin: newSettings.require_geofence_for_clockin,
         allowRemoteClockin: newSettings.allow_remote_clockin,
+        allowRemoteClockinOnNonWorkingDays: newSettings.allow_remote_clockin_on_non_working_days,
       });
 
       if (response.data.success) {
@@ -242,6 +244,25 @@ export default function AttendanceGeneralSettings() {
                 onChange={(e) => updateAutoAttendance('allow_remote_clockin', e.target.checked)}
                 className="sr-only peer"
                 disabled={savingAuto}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between pt-6 border-t border-gray-100">
+            <div className="space-y-1">
+              <label className="text-base font-semibold text-gray-900">Allow Remote on Non-working Days</label>
+              <p className="text-sm text-gray-500 max-w-md">
+                When enabled, employees with remote clocking permission can check in on non-working days only if they are outside the geofence.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.allow_remote_clockin_on_non_working_days}
+                onChange={(e) => updateAutoAttendance('allow_remote_clockin_on_non_working_days', e.target.checked)}
+                className="sr-only peer"
+                disabled={savingAuto || !settings.allow_remote_clockin}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>

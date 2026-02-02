@@ -6,6 +6,7 @@ import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
+import { determineCompanyPlan, getEnabledFeaturesForPlan, getTrialDaysLeft } from '../config/featureGating';
 import {
   sanitizeInput,
   validatePasswordStrength,
@@ -361,6 +362,10 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Get company info
       const company = await db.findOne('companies', { id: user.company_id });
 
+      const subscriptionPlan = determineCompanyPlan(company);
+      const trialDaysLeft = getTrialDaysLeft(company);
+      const features = getEnabledFeaturesForPlan(subscriptionPlan);
+
       return reply.code(200).send({
         success: true,
         data: {
@@ -372,7 +377,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           companyId: user.company_id,
           companyName: company?.name,
           companyLogo: company?.logo_url || null,
-          subscriptionPlan: company?.subscription_plan,
+          subscriptionPlan,
+          subscriptionStatus: company?.subscription_status || null,
+          trialDaysLeft,
+          features,
           avatarUrl: user.avatar_url || null,
           emailVerified: user.email_verified,
           onboardingCompleted: company?.onboarding_completed || false,

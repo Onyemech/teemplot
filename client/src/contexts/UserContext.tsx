@@ -14,6 +14,7 @@ interface User {
   subscriptionPlan?: string;
   subscriptionStatus?: string;
   trialDaysLeft?: number | null;
+  features?: string[];
   emailVerified: boolean;
   onboardingCompleted: boolean;
   jobTitle?: string;
@@ -77,6 +78,51 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    if (!user?.companyId) return;
+
+    let active = true;
+
+    const syncSubscription = async () => {
+      try {
+        const res = await apiClient.get('/api/company/subscription-info');
+        if (!active) return;
+        if (!res.data?.success) return;
+        const d = res.data.data;
+        setUser(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            subscriptionPlan: d.subscriptionPlan ?? prev.subscriptionPlan,
+            subscriptionStatus: d.subscriptionStatus ?? prev.subscriptionStatus,
+            trialDaysLeft: d.trialDaysLeft ?? prev.trialDaysLeft,
+            features: d.features ?? prev.features,
+          };
+        });
+      } catch {
+        // ignore
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncSubscription();
+      }
+    };
+
+    syncSubscription();
+    const intervalId = window.setInterval(syncSubscription, 20000);
+    window.addEventListener('focus', syncSubscription);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', syncSubscription);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [user?.companyId]);
 
   const refetch = async () => {
     console.log('🔄 Refetching user data...');

@@ -8,22 +8,22 @@ export function useFeatureAccess() {
     if (!user) return 'silver';
     
     const subscriptionPlan = user.subscriptionPlan || '';
-    
-    if (subscriptionPlan.includes('gold')) {
-      return 'gold';
-    }
-    
-    if (subscriptionPlan === 'trial') {
-      return 'trial';
-    }
-    
+    if (user.subscriptionStatus === 'trial') return 'trial';
+    if (subscriptionPlan === 'trial') return 'trial';
+    if (subscriptionPlan === 'gold' || subscriptionPlan.includes('gold')) return 'gold';
     return 'silver';
   };
 
   const currentPlan = getCurrentPlan();
 
   return {
-    hasAccess: (feature: Feature) => hasFeatureAccess(currentPlan, feature),
+    hasAccess: (feature: Feature) => {
+      const serverFeatures = user?.features;
+      if (Array.isArray(serverFeatures) && serverFeatures.length > 0) {
+        return serverFeatures.includes(feature);
+      }
+      return hasFeatureAccess(currentPlan, feature);
+    },
     currentPlan,
     plan: currentPlan, // Alias for legacy code
     loading,

@@ -11,8 +11,44 @@ export class AuditService {
     console.log(`Audit: Invitation cancelled by ${cancelledBy} for company ${companyId}, invitation ${invitationId}`);
   }
 
-  async logAction(data: any): Promise<void> {
-    console.log('Audit Action:', data);
+  async logAction(data: {
+    userId: string;
+    companyId: string;
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    metadata?: any;
+  }): Promise<void> {
+    try {
+      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
+      const db = DatabaseFactory.getPrimaryDatabase();
+
+      const isUuid = (value: unknown): value is string =>
+        typeof value === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+      const entityId = isUuid(data.entityId) ? data.entityId : null;
+      const metadata =
+        !entityId && data.entityId
+          ? { ...(data.metadata || {}), entityIdRaw: data.entityId }
+          : data.metadata || null;
+
+      await db.query(
+        `INSERT INTO audit_logs (user_id, company_id, action, entity_type, entity_id, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          data.userId,
+          data.companyId,
+          data.action,
+          data.entityType,
+          entityId,
+          metadata ? JSON.stringify(metadata) : null
+        ]
+      );
+    } catch (error) {
+      console.error('Failed to log audit action:', error);
+      // Don't throw to avoid breaking the main flow
+    }
   }
 
   async logInvitationSentWithClient(invitedBy: string, companyId: string, invitationId: string, client: any): Promise<void> {

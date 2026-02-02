@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
 import { notificationService } from './NotificationService';
+import { auditService } from './AuditService';
 
 interface CheckInRequest {
   userId: string;
@@ -61,11 +62,24 @@ class EnhancedAttendanceService {
 
       // Get company settings
       const companyResult = await query(
-        `SELECT auto_clockin_enabled, require_geofence_for_clockin, 
-                office_latitude, office_longitude, geofence_radius_meters,
-                timezone, work_start_time, grace_period_minutes,
-                biometrics_required, allow_remote_clockin
-         FROM companies WHERE id = $1`,
+        `SELECT 
+          c.auto_clockin_enabled,
+          c.require_geofence_for_clockin,
+          c.office_latitude,
+          c.office_longitude,
+          c.geofence_radius_meters,
+          c.timezone,
+          c.work_start_time,
+          c.grace_period_minutes,
+          c.biometrics_required,
+          COALESCE(c.allow_remote_clockin, cs.allow_remote_clockin, false) AS allow_remote_clockin,
+          c.allow_remote_clockin_on_non_working_days,
+          c.working_days AS working_days_json,
+          cs.working_days AS working_days_array,
+          COALESCE(cs.allow_remote_clockin_on_non_working_days, false) AS allow_remote_clockin_on_non_working_days_settings
+         FROM companies c
+         LEFT JOIN company_settings cs ON c.id = cs.company_id
+         WHERE c.id = $1`,
         [companyId]
       );
 
@@ -88,80 +102,111 @@ class EnhancedAttendanceService {
         throw new Error('Auto check-in is disabled for this company');
       }
 
-      // Check Working Days - STRICT ENFORCEMENT
-      if (company.working_days) {
-        const today = new Date().getDay(); // 0 = Sunday
-        let isWorkingDay = false;
-
-        try {
-          // Handle different formats (Array or JSON)
-          const workingDays = typeof company.working_days === 'string'
-            ? JSON.parse(company.working_days)
-            : company.working_days;
-
-          if (Array.isArray(workingDays)) {
-            // [1, 2, 3, 4, 5] format (1=Mon, 7=Sun or 0=Sun?)
-            // Assuming standard JS: 0=Sun. Postgres might be 1=Mon, 7=Sun.
-            // Let's assume standard mapping if array: 1..5 is Mon-Fri.
-            // If today is 0 (Sun), check if 7 or 0 is in array?
-            // Safest to rely on JSON object format from our new UI
-            isWorkingDay = workingDays.includes(today) || (today === 0 && workingDays.includes(7));
-          } else {
-            // JSON Object { "1": true ... } where 1=Mon, 0=Sun
-            isWorkingDay = !!workingDays[today.toString()];
-          }
-
-          if (!isWorkingDay) {
-            // Strict enforcement: Prevent clock-in on non-working days
-            throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
-          }
-        } catch (e: any) {
-          // If it's our thrown error, re-throw it
-          if (e.message.includes('not a working day')) {
-            throw e;
-          }
-          // Otherwise log parsing error and allow
-          logger.error({ error: e, workingDays: company.working_days }, 'Failed to parse working days');
-        }
-      }
-
       // Get user settings (Remote Clock-in permission)
       const userResult = await query(
-        'SELECT allow_remote_clockin FROM users WHERE id = $1 AND deleted_at IS NULL',
+        'SELECT allow_remote_clockin, company_id, is_active FROM users WHERE id = $1 AND deleted_at IS NULL',
         [userId]
       );
       const userSettings = userResult.rows[0];
+      if (!userSettings) {
+        throw new Error('User not found or inactive');
+      }
+      if (String(userSettings.company_id) !== String(companyId)) {
+        throw new Error('Invalid company relationship for this user');
+      }
+      if (userSettings.is_active === false) {
+        throw new Error('User not active');
+      }
+
+      const globalRemoteAllowed = company.allow_remote_clockin === true;
+      const userRemoteAllowed = userSettings?.allow_remote_clockin === true;
+      const remoteAllowed = globalRemoteAllowed || userRemoteAllowed;
+
+      const allowRemoteOnNonWorkingDays =
+        company.allow_remote_clockin_on_non_working_days === true ||
+        company.allow_remote_clockin_on_non_working_days_settings === true;
 
       let isWithinGeofence = true;
       let distanceMeters: number | null = null;
       let locationId: string | null = null;
       let locationName: string | null = null;
+      let requiresRemoteOnNonWorkingDay = false;
+
+      {
+        const tz = company.timezone || 'UTC';
+        const nowIsoDowResult = await query(
+          'SELECT EXTRACT(ISODOW FROM (NOW() AT TIME ZONE $1))::int AS isodow',
+          [tz]
+        );
+        const isodow = nowIsoDowResult.rows[0]?.isodow;
+        const jsDow = isodow % 7;
+
+        const workingDaysList: number[] = Array.isArray(company.working_days_array)
+          ? company.working_days_array.map((n: any) => Number(n)).filter((n: number) => !Number.isNaN(n))
+          : [];
+
+        let workingDaysJson: any = null;
+        if (company.working_days_json) {
+          try {
+            workingDaysJson =
+              typeof company.working_days_json === 'string' ? JSON.parse(company.working_days_json) : company.working_days_json;
+          } catch {
+            workingDaysJson = null;
+          }
+        }
+
+        let isWorkingDay = true;
+        if (workingDaysJson) {
+          if (Array.isArray(workingDaysJson)) {
+            isWorkingDay = workingDaysJson.includes(isodow) || workingDaysJson.includes(jsDow) || (jsDow === 0 && workingDaysJson.includes(7));
+          } else {
+            isWorkingDay = Boolean(workingDaysJson[String(isodow)]) || Boolean(workingDaysJson[String(jsDow)]);
+          }
+        } else if (workingDaysList.length > 0 && typeof isodow === 'number') {
+          isWorkingDay = workingDaysList.includes(isodow);
+        } else if (typeof isodow === 'number') {
+          isWorkingDay = [1, 2, 3, 4, 5].includes(isodow);
+        }
+
+        if (!isWorkingDay) {
+          if (!(method === 'manual' && allowRemoteOnNonWorkingDays && remoteAllowed)) {
+            throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
+          }
+          if (!location) {
+            throw new Error('Location is required to check in remotely on non-working days.');
+          }
+          requiresRemoteOnNonWorkingDay = true;
+        }
+      }
 
       // Check geofence if location provided
       if (location) {
         // v2 check_geofence returns table (is_within, distance_meters, location_id, location_name)
         const geofenceResult = await query(
-          'SELECT * FROM check_geofence($1, $2, $3)',
+          'SELECT * FROM public.check_geofence($1, $2, $3)',
           [companyId, location.latitude, location.longitude]
         );
 
-        if (geofenceResult.rows.length > 0) {
+        if (geofenceResult.rows.length === 0) {
+          if (company.require_geofence_for_clockin || requiresRemoteOnNonWorkingDay) {
+            throw new Error('Office location is not configured for geofence validation. Please contact your administrator.');
+          }
+        } else {
           isWithinGeofence = geofenceResult.rows[0].is_within;
           distanceMeters = geofenceResult.rows[0].distance_meters;
           locationId = geofenceResult.rows[0].location_id;
           locationName = geofenceResult.rows[0].location_name;
         }
 
-        // Enforce geofence for manual check-ins ONLY IF remote clock-in is NOT allowed
-        const globalRemoteAllowed = company.allow_remote_clockin === true;
-        const userRemoteAllowed = userSettings?.allow_remote_clockin === true;
-        const remoteAllowed = globalRemoteAllowed || userRemoteAllowed;
-
         if (method === 'manual' && company.require_geofence_for_clockin && !isWithinGeofence && !remoteAllowed) {
           throw new Error(
             `You must be within the geofence to check in. ` +
             `Distance: ${distanceMeters !== null && !isNaN(distanceMeters) ? Math.round(distanceMeters) + 'm' : 'Unknown'}`
           );
+        }
+
+        if (requiresRemoteOnNonWorkingDay && isWithinGeofence) {
+          throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
         }
 
         // If remote is allowed and they are outside, we still record the distance but set isWithinGeofence to true for record keeping?
@@ -195,6 +240,19 @@ class EnhancedAttendanceService {
       // Notify admin if late arrival
       if (attendance.is_late_arrival && attendance.minutes_late > 0) {
         await this.notifyAdminLateArrival(companyId, userId, attendance);
+        
+        // Audit log for late arrival
+        await auditService.logAction({
+          userId,
+          companyId,
+          action: 'LATE_ARRIVAL',
+          entityType: 'attendance',
+          entityId: attendance.id,
+          metadata: {
+             minutesLate: attendance.minutes_late,
+             clockInTime: attendance.clock_in_time
+          }
+        });
       }
 
       logger.info({
@@ -259,7 +317,7 @@ class EnhancedAttendanceService {
       // Check geofence if location provided
       if (location && company.office_latitude && company.office_longitude) {
         const geofenceResult = await query(
-          'SELECT * FROM check_geofence($1, $2, $3)',
+          'SELECT * FROM public.check_geofence($1, $2, $3)',
           [companyId, location.latitude, location.longitude]
         );
 
@@ -315,6 +373,20 @@ class EnhancedAttendanceService {
           updatedAttendance,
           departureReason
         );
+
+        // Audit log for early departure
+        await auditService.logAction({
+          userId,
+          companyId,
+          action: 'EARLY_DEPARTURE',
+          entityType: 'attendance',
+          entityId: attendanceId,
+          metadata: {
+             minutesEarly: updatedAttendance.minutes_early,
+             clockOutTime: updatedAttendance.clock_out_time,
+             departureReason
+          }
+        });
       }
 
       // Meal eligibility removed per rollback; attendance remains focused on breaks and core status

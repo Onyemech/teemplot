@@ -1,7 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { apiClient } from '@/lib/api'
-import { useUser } from '@/contexts/UserContext'
+import { createContext, useContext, useMemo, useState } from 'react'
 
 type Ctx = {
   visible: boolean
@@ -12,58 +9,50 @@ type Ctx = {
 const LoadingOverlayContext = createContext<Ctx | null>(null)
 
 export function LoadingOverlayProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useUser()
-  const location = useLocation()
   const [visible, setVisible] = useState(false)
-  const inflight = useRef(0)
-  const hideTimer = useRef<any>(null)
-  const isEmployee = (user?.role || '') === 'employee'
-  const inDashboard = location.pathname.startsWith('/dashboard')
 
-  useEffect(() => {
-    if (!isEmployee || !inDashboard) return
-    setVisible(true)
-    clearTimeout(hideTimer.current)
-    hideTimer.current = setTimeout(() => {
-      if (inflight.current === 0) setVisible(false)
-    }, 400)
-  }, [location.pathname])
+  // REMOVED: Automatic navigation blocking
+  // We want seamless transitions, not blocking loaders.
+  // useEffect(() => {
+  //   if (!isEmployee || !inDashboard) return
+  //   setVisible(true)
+  //   const timer = setTimeout(() => setVisible(false), 500)
+  //   return () => clearTimeout(timer)
+  // }, [location.pathname, isEmployee, inDashboard])
 
-  useEffect(() => {
-    const reqId = apiClient.interceptors.request.use((config) => {
-      if (isEmployee && inDashboard) {
-        inflight.current += 1
-        setVisible(true)
-      }
-      return config
-    })
-    const resId = apiClient.interceptors.response.use(
-      (response) => {
-        if (isEmployee && inDashboard) {
-          inflight.current = Math.max(0, inflight.current - 1)
-          if (inflight.current === 0) {
-            clearTimeout(hideTimer.current)
-            hideTimer.current = setTimeout(() => setVisible(false), 150)
-          }
-        }
-        return response
-      },
-      (error) => {
-        if (isEmployee && inDashboard) {
-          inflight.current = Math.max(0, inflight.current - 1)
-          if (inflight.current === 0) {
-            clearTimeout(hideTimer.current)
-            hideTimer.current = setTimeout(() => setVisible(false), 150)
-          }
-        }
-        return Promise.reject(error)
-      }
-    )
-    return () => {
-      apiClient.interceptors.request.eject(reqId)
-      apiClient.interceptors.response.eject(resId)
-    }
-  }, [isEmployee, inDashboard])
+  // REMOVED: Automatic API blocking
+  // Background fetches should be non-intrusive.
+  // useEffect(() => {
+  //   const reqId = apiClient.interceptors.request.use((config) => {
+  //     if (isEmployee && inDashboard) {
+  //       inflight.current += 1
+  //       setVisible(true)
+  //     }
+  //     return config
+  //   })
+  //
+  //   const resId = apiClient.interceptors.response.use(
+  //     (response) => {
+  //       if (isEmployee && inDashboard) {
+  //         inflight.current = Math.max(0, inflight.current - 1)
+  //         if (inflight.current === 0) setVisible(false)
+  //       }
+  //       return response
+  //     },
+  //     (error) => {
+  //       if (isEmployee && inDashboard) {
+  //         inflight.current = Math.max(0, inflight.current - 1)
+  //         if (inflight.current === 0) setVisible(false)
+  //       }
+  //       return Promise.reject(error)
+  //     }
+  //   )
+  //
+  //   return () => {
+  //     apiClient.interceptors.request.eject(reqId)
+  //     apiClient.interceptors.response.eject(resId)
+  //   }
+  // }, [isEmployee, inDashboard])
 
   const value = useMemo<Ctx>(() => ({
     visible,

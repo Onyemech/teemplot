@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { PrefetchNavLink } from '@/components/ui/PrefetchNavLink'
 import {
   Home,
   BarChart3,
@@ -237,10 +238,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       return null
     }
 
-    // Check plan-based feature access (applies to ALL users including admins)
-    if (item.feature && !hasAccess(item.feature)) {
-      return null // Hide if company plan doesn't have access
-    }
     const active = isActive(item.href, isSubmenu)
     const hasSubmenu = item.submenu && item.submenu.length > 0
     const isExpanded = expandedItems.includes(item.label)
@@ -268,34 +265,38 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/tasks',
       '/dashboard/tasks/assignments',
       '/dashboard/tasks/settings',
+      '/dashboard/performance',
+      '/dashboard/analytics',
       '/dashboard/wallet',
       '/dashboard/wallet/transactions',
       '/dashboard/attendance/payroll',
+      '/dashboard/reports',
+      '/dashboard/audit-logs',
     ]
     const isImplemented = implementedRoutes.includes(item.href)
 
     return (
       <div>
-        <Link
-          to={hasSubmenu ? '#' : (isLocked ? '#' : (isImplemented ? item.href : '#'))}
+        <PrefetchNavLink
+          to={hasSubmenu ? '#' : (isImplemented ? item.href : '#')}
+          prefetchUrl={!hasSubmenu && isImplemented ? `/api${item.href.replace('/dashboard', '')}` : undefined}
           onClick={(e) => {
             if (hasSubmenu) {
               e.preventDefault()
               toggleExpand(item.label)
-            } else if (isLocked) {
-              e.preventDefault()
-              // Show upgrade modal or redirect to billing
-              window.location.href = '/dashboard/settings/billing'
             } else if (!isImplemented) {
               e.preventDefault()
               // Show coming soon toast
               toast.info(`${item.label} - Coming Soon! 🚀`)
+            } else if (isLocked) {
+              e.preventDefault()
+              toast.warning('This feature is unavailable on your current plan.')
             }
           }}
           className={`
             flex items-center justify-between px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg transition-all duration-200
             ${isSubmenu ? 'pl-10 lg:pl-12 text-sm' : ''}
-            ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
+            ${isLocked ? 'opacity-60' : ''}
             ${active && !isLocked
               ? (isSubmenu 
                   ? 'text-accent font-medium' 
@@ -317,7 +318,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <ChevronRight className="w-4 h-4" />
             )
           )}
-        </Link>
+        </PrefetchNavLink>
 
         {hasSubmenu && isExpanded && !isLocked && (
           <div className="mt-1 space-y-1">

@@ -28,7 +28,11 @@ export default function EmployeePerformancePage() {
   const [stats, setStats] = useState<any>(null);
 
   // Check for Gold Plan or Trial
-  const hasAccess = user?.subscriptionPlan === 'gold' || (user?.trialDaysLeft != null && user?.trialDaysLeft > 0);
+  const hasAccess =
+    user?.subscriptionPlan === 'gold' ||
+    user?.subscriptionPlan === 'trial' ||
+    user?.subscriptionStatus === 'trial' ||
+    (user?.trialDaysLeft != null && user?.trialDaysLeft > 0);
 
   useEffect(() => {
     if (hasAccess) {
@@ -65,23 +69,17 @@ export default function EmployeePerformancePage() {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'Platinum': return 'text-slate-800 bg-slate-100 border-slate-200';
-      case 'Gold': return 'text-yellow-800 bg-yellow-50 border-yellow-200';
+      case 'Diamond': return 'text-slate-900 bg-slate-100 border-slate-200';
+      case 'Gold': return 'text-yellow-900 bg-yellow-50 border-yellow-200';
       case 'Silver': return 'text-gray-800 bg-gray-100 border-gray-200';
-      case 'Bronze': return 'text-orange-800 bg-orange-50 border-orange-200';
+      case 'Bronze': return 'text-orange-900 bg-orange-50 border-orange-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
-  // Mock trend data for visualization (since we just started collecting history)
-  // In a real scenario, this would come from the API's historical snapshots
-  const mockTrendData = [
-    { day: 'Mon', score: Math.max(0, stats.score - 5) },
-    { day: 'Tue', score: Math.max(0, stats.score - 2) },
-    { day: 'Wed', score: Math.max(0, stats.score + 1) },
-    { day: 'Thu', score: Math.max(0, stats.score - 1) },
-    { day: 'Fri', score: stats.score },
-  ];
+  const trendData = Array.isArray(stats.trend) && stats.trend.length > 0
+    ? stats.trend.map((d: any) => ({ day: (d.date || '').slice(5) || d.date, score: d.score }))
+    : [{ day: 'Today', score: stats.score }];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 space-y-8">
@@ -95,7 +93,7 @@ export default function EmployeePerformancePage() {
         <div className="lg:col-span-1 space-y-8">
           <Card className="p-8 flex flex-col items-center text-center relative overflow-hidden">
              <div className={`absolute top-0 left-0 w-full h-2 ${
-                stats.tier === 'Platinum' ? 'bg-slate-800' : 
+                stats.tier === 'Diamond' ? 'bg-slate-900' : 
                 stats.tier === 'Gold' ? 'bg-yellow-400' : 
                 stats.tier === 'Silver' ? 'bg-gray-400' : 
                 'bg-orange-400'
@@ -111,8 +109,9 @@ export default function EmployeePerformancePage() {
              </div>
              
              <p className="text-sm text-gray-500">
-               You are performing better than {Math.max(0, stats.rank * 10)}% of your peers.
-               <br/>Keep up the consistency!
+               Rank <span className="font-semibold text-gray-900">#{stats.rank}</span> out of{' '}
+               <span className="font-semibold text-gray-900">{stats.totalEmployees}</span>.
+               <br />Keep up the consistency!
              </p>
           </Card>
 
@@ -124,7 +123,7 @@ export default function EmployeePerformancePage() {
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Progress to {stats.tier === 'Gold' ? 'Platinum' : stats.tier === 'Silver' ? 'Gold' : 'Silver'}</span>
+                  <span className="text-gray-600">Progress to {stats.tier === 'Gold' ? 'Diamond' : stats.tier === 'Silver' ? 'Gold' : 'Silver'}</span>
                   <span className="font-medium text-gray-900">{stats.score}/100</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
@@ -132,7 +131,7 @@ export default function EmployeePerformancePage() {
                 </div>
               </div>
               <p className="text-xs text-gray-500">
-                Improve your attendance punctuality or complete 2 more tasks to reach the next tier.
+                Improve punctuality and on-time delivery to reach the next tier.
               </p>
             </div>
           </Card>
@@ -141,33 +140,33 @@ export default function EmployeePerformancePage() {
         {/* Right Column: Metrics & Trends */}
         <div className="lg:col-span-2 space-y-8">
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Card className="p-6 border-l-4 border-l-blue-500">
+              <Card className="p-6 border-l-4 border-l-[#0F5D5D]">
                  <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Attendance Score</p>
                       <h3 className="text-2xl font-bold text-gray-900">{stats.metrics.attendanceScore}%</h3>
                     </div>
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <Clock className="w-6 h-6 text-blue-500" />
+                    <div className="p-2 bg-[#0F5D5D]/10 rounded-lg">
+                      <Clock className="w-6 h-6 text-[#0F5D5D]" />
                     </div>
                  </div>
                  <div className="text-sm text-gray-600">
-                   <span className="font-medium text-gray-900">{stats.metrics.daysPresent}</span> days present recently
+                   <span className="font-medium text-gray-900">{stats.metrics.daysPresent}</span> days present (last 30 days)
                  </div>
               </Card>
 
-              <Card className="p-6 border-l-4 border-l-green-500">
+              <Card className="p-6 border-l-4 border-l-slate-800">
                  <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Task Completion</p>
                       <h3 className="text-2xl font-bold text-gray-900">{stats.metrics.taskScore}%</h3>
                     </div>
-                    <div className="p-2 bg-green-50 rounded-lg">
-                      <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    <div className="p-2 bg-slate-800/10 rounded-lg">
+                      <CheckCircle2 className="w-6 h-6 text-slate-800" />
                     </div>
                  </div>
                  <div className="text-sm text-gray-600">
-                   <span className="font-medium text-gray-900">{stats.metrics.tasksCompleted}</span> tasks completed
+                   <span className="font-medium text-gray-900">{stats.metrics.tasksCompleted}</span> tasks completed (last 30 days)
                  </div>
               </Card>
            </div>
@@ -182,7 +181,7 @@ export default function EmployeePerformancePage() {
              </div>
              <div className="h-[300px] w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <AreaChart data={mockTrendData}>
+                 <AreaChart data={trendData}>
                    <defs>
                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                        <stop offset="5%" stopColor="#0F5D5D" stopOpacity={0.1}/>

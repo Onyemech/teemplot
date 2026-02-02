@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger';
 import { IPaymentProvider } from './IPaymentProvider';
 import { PaystackProvider } from './PaystackProvider';
 import { FlutterwaveProvider } from './FlutterwaveProvider';
+import { auditService } from '../AuditService';
 
 type PaymentPurpose = 'subscription' | 'employee_limit_upgrade' | 'plan_upgrade';
 
@@ -169,12 +170,12 @@ export class PaymentService {
 
     switch (payment.purpose) {
       case 'employee_limit_upgrade':
-        await this.fulfillEmployeeLimitUpgrade(payment.company_id, metadata);
+        await this.fulfillEmployeeLimitUpgrade(payment.company_id, payment.user_id, metadata, reference);
         break;
       
       case 'subscription':
       case 'plan_upgrade':
-        await this.fulfillSubscription(payment.company_id, metadata);
+        await this.fulfillSubscription(payment.company_id, payment.user_id, metadata, reference);
         break;
       
       default:
@@ -189,7 +190,7 @@ export class PaymentService {
   /**
    * Fulfill employee limit upgrade
    */
-  private async fulfillEmployeeLimitUpgrade(companyId: string, metadata: any) {
+  private async fulfillEmployeeLimitUpgrade(companyId: string, actorUserId: string, metadata: any, reference: string) {
     const { additionalEmployees } = metadata;
 
     const company = await this.db.findOne('companies', { id: companyId });
@@ -204,13 +205,19 @@ export class PaymentService {
       employee_limit: newLimit,
     }, { id: companyId });
 
+    void auditService.logAction({
+      companyId,
+      userId: actorUserId,
+      action: 'employee_limit_changed',
+      entityType: 'company',
+      entityId: companyId,
+      metadata: { oldLimit: baseLimit, newLimit, reference }
+    });
+
     logger.info({ companyId, oldLimit: baseLimit, newLimit }, 'Employee limit upgraded');
   }
 
-  /**
-   * Fulfill subscription payment
-   */
-  private async fulfillSubscription(companyId: string, metadata: any) {
+  private async fulfillSubscription(companyId: string, actorUserId: string, metadata: any, reference: string) {
     const { plan } = metadata;
     const now = new Date();
 
@@ -222,6 +229,8 @@ export class PaymentService {
     const company = await this.db.findOne('companies', { id: companyId });
     const currentEnd = company?.current_period_end ? new Date(company.current_period_end) : now;
     const trialEnd = company?.trial_end_date ? new Date(company.trial_end_date) : null;
+    const oldPlan = company?.subscription_plan || null;
+    const oldStatus = company?.subscription_status || null;
 
     // Extend from max(current_end, trial_end, now)
     let base = currentEnd > now ? currentEnd : now;
@@ -242,6 +251,22 @@ export class PaymentService {
         processedAt: now.toISOString(),
       }),
     }, { id: companyId });
+
+    void auditService.logAction({
+      companyId,
+      userId: actorUserId,
+      action: 'plan_changed',
+      entityType: 'company',
+      entityId: companyId,
+      metadata: {
+        oldPlan,
+        newPlan: plan,
+        oldStatus,
+        newStatus: 'active',
+        currentPeriodEnd: extended.toISOString(),
+        reference
+      }
+    });
 
     logger.info({ companyId, plan, current_period_end: extended.toISOString() }, 'Subscription activated and extended');
   }

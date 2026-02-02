@@ -236,6 +236,26 @@ export class LeaveService {
       );
 
       await client.query('COMMIT');
+      
+      // Log audit
+      try {
+        await auditService.logAction({
+          userId: employeeId,
+          companyId,
+          action: 'LEAVE_REQUESTED',
+          entityType: 'leave_request',
+          entityId: insertRes.rows[0].id,
+          metadata: {
+            startDate: start_date,
+            endDate: end_date,
+            days: days_requested,
+            leaveTypeId: leave_type_id
+          }
+        });
+      } catch (err) {
+        logger.error({ err, employeeId }, 'Failed to log leave request audit');
+      }
+
       return insertRes.rows[0];
     } catch (e) {
       await client.query('ROLLBACK');
@@ -356,7 +376,7 @@ export class LeaveService {
       });
       
       // Audit Log
-      auditService.logAction({
+      await auditService.logAction({
         userId: approverId,
         companyId,
         action: `LEAVE_REQUEST_${status.toUpperCase()}`,
@@ -371,33 +391,6 @@ export class LeaveService {
         }
       });
       
-      // Manually insert into audit_logs table via client if AuditService doesn't do it automatically or if we want to be explicit
-      // The provided AuditService has a logAction that just console.logs, but logInvitationSentWithClient does DB insert.
-      // We should probably extend AuditService or just do a direct insert here for now to ensure it is saved as requested.
-      // Since AuditService.logAction is just a console log, I will insert directly here to satisfy the user requirement.
-      
-      // Actually, I should check if I can update AuditService to save to DB, but user complained about time.
-      // I will insert directly here for speed and reliability.
-      
-      await this.db.query(
-        `INSERT INTO audit_logs (user_id, company_id, action, entity_type, entity_id, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        [
-          approverId, 
-          companyId, 
-          `LEAVE_${status.toUpperCase()}`, 
-          'leave_request', 
-          requestId, 
-          JSON.stringify({ 
-            requester_id: request.employee_id,
-            requester_name: `${request.first_name} ${request.last_name}`,
-            leave_type: typeName,
-            days: request.days_requested,
-            reason: reason 
-          })
-        ]
-      );
-
       return updateRes.rows[0];
 
     } catch (e) {

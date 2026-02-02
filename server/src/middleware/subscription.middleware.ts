@@ -1,49 +1,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
-
-type Feature =
-  | 'attendance'
-  | 'leave'
-  | 'employees'
-  | 'departments'
-  | 'performance'
-  | 'tasks'
-  | 'analytics'
-  | 'reports'
-  | 'wallet'
-  | 'audit_logs';
-
-type SubscriptionPlan = 'trial' | 'silver' | 'gold';
-
-// Feature access matrix
-const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
-  trial: [
-    'attendance',
-    'leave',
-    'employees',
-    'departments',
-    'performance',
-    'tasks',
-    'analytics',
-    'reports',
-    'wallet',
-    'audit_logs'
-  ],
-  silver: ['attendance', 'leave', 'departments', 'employees', 'audit_logs'],
-  gold: [
-    'attendance',
-    'leave',
-    'employees',
-    'departments',
-    'performance',
-    'tasks',
-    'analytics',
-    'reports',
-    'wallet',
-    'audit_logs'
-  ]
-};
+import { auditService } from '../services/AuditService';
+import {
+  type Feature,
+  type SubscriptionPlan,
+  determineCompanyPlan,
+  getEnabledFeaturesForPlan,
+  getTrialDaysLeft
+} from '../config/featureGating';
 
 
 export function checkPlanFeature(feature: Feature) {
@@ -90,6 +55,19 @@ export function requireFeature(feature: Feature) {
       }
 
       if (!['active', 'trial'].includes(company.subscription_status)) {
+        void auditService.logAction({
+          companyId: company.id,
+          userId: user.userId,
+          action: 'feature_access_denied',
+          entityType: 'feature',
+          entityId: feature,
+          metadata: {
+            reason: 'subscription_inactive',
+            subscriptionStatus: company.subscription_status,
+            path: (request as any)?.routerPath || request.url,
+            method: request.method
+          }
+        });
         return reply.code(403).send({
           success: false,
           message: 'Your subscription is not active. Please update your payment method.',
@@ -97,18 +75,25 @@ export function requireFeature(feature: Feature) {
         });
       }
 
-      // Determine current plan
-      let currentPlan: SubscriptionPlan = 'silver';
-      if (company.subscription_status === 'trial') {
-        currentPlan = 'trial';
-      } else if (company.subscription_plan?.includes('gold')) {
-        currentPlan = 'gold';
-      }
+      const currentPlan: SubscriptionPlan = determineCompanyPlan(company);
 
       // Check feature access
-      const hasAccess = PLAN_FEATURES[currentPlan].includes(feature);
+      const enabledFeatures = getEnabledFeaturesForPlan(currentPlan);
+      const hasAccess = enabledFeatures.includes(feature);
 
       if (!hasAccess) {
+        void auditService.logAction({
+          companyId: company.id,
+          userId: user.userId,
+          action: 'feature_access_denied',
+          entityType: 'feature',
+          entityId: feature,
+          metadata: {
+            plan: currentPlan,
+            path: (request as any)?.routerPath || request.url,
+            method: request.method
+          }
+        });
         return reply.code(403).send({
           success: false,
           message: `This feature is not available on your current plan. Upgrade to Gold to access ${feature}.`,
@@ -119,6 +104,18 @@ export function requireFeature(feature: Feature) {
 
       // Feature access granted
       logger.info({ companyId: company.id, feature, plan: currentPlan }, 'Feature access granted');
+      void auditService.logAction({
+        companyId: company.id,
+        userId: user.userId,
+        action: 'feature_access_granted',
+        entityType: 'feature',
+        entityId: feature,
+        metadata: {
+          plan: currentPlan,
+          path: (request as any)?.routerPath || request.url,
+          method: request.method
+        }
+      });
     } catch (error: any) {
       logger.error({ err: error }, 'Feature access check failed');
       return reply.code(500).send({
@@ -174,24 +171,14 @@ export async function getSubscriptionInfo(companyId: string) {
     throw new Error('Company not found');
   }
 
-  let currentPlan: SubscriptionPlan = 'silver';
-  let trialDaysLeft: number | null = null;
-
-  if (company.subscription_status === 'trial' && company.trial_end_date) {
-    currentPlan = 'trial';
-    const trialEnd = new Date(company.trial_end_date);
-    const now = new Date();
-    const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    trialDaysLeft = Math.max(0, daysLeft);
-  } else if (company.subscription_plan?.includes('gold')) {
-    currentPlan = 'gold';
-  }
+  const currentPlan: SubscriptionPlan = determineCompanyPlan(company);
+  const trialDaysLeft: number | null = getTrialDaysLeft(company);
 
   return {
     plan: currentPlan,
     status: company.subscription_status,
     trialDaysLeft,
-    features: PLAN_FEATURES[currentPlan],
+    features: getEnabledFeaturesForPlan(currentPlan),
     employeeLimit: parseInt(company.employee_count) || 1,
     subscriptionPlan: company.subscription_plan
   };

@@ -7,6 +7,7 @@ import OnboardingGuard from './components/OnboardingGuard'
 import DashboardGuard from './components/DashboardGuard'
 import LandingGuard from './components/LandingGuard'
 import ProtectedRoute from './components/ProtectedRoute'
+import FeatureRoute from './components/FeatureRoute'
 import { UserProvider } from './contexts/UserContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotificationProvider } from './contexts/NotificationContext'
@@ -151,26 +152,28 @@ function App() {
                 <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
                 <Route path="leave/calendar" element={<LeaveCalendarPage />} />
                 <Route path="leave/settings" element={<LeaveSettingsPage />} />
-                <Route path="tasks" element={<TaskWorkspacePage />} />
-                <Route path="tasks/assign" element={<TaskAssignPage />} />
-                <Route path="tasks/complete" element={<TaskCompletePage />} />
-                <Route path="tasks/verify" element={<TaskVerifyPage />} />
-                <Route path="tasks/status" element={<TaskStatusPage />} />
-                <Route path="tasks/assignments" element={<TaskAssignmentDashboardPage />} />
-                <Route path="tasks/assignments/:id" element={<TaskAssignmentDetailPage />} />
-                <Route path="tasks/settings" element={<TaskPolicySettingsPage />} />
-                <Route path="analytics" element={<AnalyticsDashboardPage />} />
+                <Route path="tasks/assign" element={<FeatureRoute feature="tasks"><TaskAssignPage /></FeatureRoute>} />
+                <Route path="tasks/complete" element={<FeatureRoute feature="tasks"><TaskCompletePage /></FeatureRoute>} />
+                <Route path="tasks/verify" element={<FeatureRoute feature="tasks"><TaskVerifyPage /></FeatureRoute>} />
+                <Route path="tasks/status" element={<FeatureRoute feature="tasks"><TaskStatusPage /></FeatureRoute>} />
+                <Route path="tasks/assignments" element={<FeatureRoute feature="tasks"><TaskAssignmentDashboardPage /></FeatureRoute>} />
+                <Route path="tasks/assignments/:id" element={<FeatureRoute feature="tasks"><TaskAssignmentDetailPage /></FeatureRoute>} />
+                <Route path="tasks/settings" element={<FeatureRoute feature="tasks"><TaskPolicySettingsPage /></FeatureRoute>} />
+                <Route path="tasks" element={<FeatureRoute feature="tasks"><TaskWorkspacePage /></FeatureRoute>} />
+                <Route path="analytics" element={<FeatureRoute feature="analytics"><AnalyticsDashboardPage /></FeatureRoute>} />
                 <Route path="performance" element={
-                  <ProtectedRoute>
-                    <RoleBasedRedirect />
-                  </ProtectedRoute>
+                  <FeatureRoute feature="performance">
+                    <ProtectedRoute>
+                      <RoleBasedRedirect />
+                    </ProtectedRoute>
+                  </FeatureRoute>
                 } />
                 <Route path="inbox" element={<InboxPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="settings/billing" element={<ManagePlanPage />} />
-                <Route path="wallet" element={<WalletTransactionsPage />} />
-                <Route path="wallet/transactions" element={<WalletTransactionsPage />} />
-                <Route path="audit-logs" element={<AuditLogsPage />} />
+                <Route path="wallet" element={<FeatureRoute feature="wallet"><WalletTransactionsPage /></FeatureRoute>} />
+                <Route path="wallet/transactions" element={<FeatureRoute feature="wallet"><WalletTransactionsPage /></FeatureRoute>} />
+                <Route path="audit-logs" element={<FeatureRoute feature="audit_logs"><AuditLogsPage /></FeatureRoute>} />
               </Route>
 
               <Route path="/superadmin" element={<SuperAdminPage />} />

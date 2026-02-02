@@ -16,5 +16,15 @@ export const analyticsApi = {
   getAdminOverview: async () => {
     const response = await apiClient.get('/api/analytics/admin/overview');
     return response.data.data;
+  },
+
+  getAdminDashboard: async (params?: { departmentId?: string; startDate?: string; endDate?: string }) => {
+    const response = await apiClient.get('/api/analytics/admin/dashboard', { params });
+    return response.data.data;
+  },
+
+  runSnapshots: async () => {
+    const response = await apiClient.post('/api/analytics/admin/snapshots/run');
+    return response.data;
   }
 };

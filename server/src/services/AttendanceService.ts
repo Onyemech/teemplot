@@ -34,7 +34,11 @@ export class AttendanceService {
           c.timezone,
           c.work_start_time,
           c.grace_period_minutes,
-          cs.allow_remote_clockin
+          COALESCE(c.allow_remote_clockin, cs.allow_remote_clockin, false) AS allow_remote_clockin,
+          c.allow_remote_clockin_on_non_working_days,
+          c.working_days AS working_days_json,
+          cs.working_days AS working_days_array,
+          COALESCE(cs.allow_remote_clockin_on_non_working_days, false) AS allow_remote_clockin_on_non_working_days_settings
         FROM companies c
         LEFT JOIN company_settings cs ON c.id = cs.company_id
         WHERE c.id = $1 AND c.deleted_at IS NULL
@@ -69,14 +73,66 @@ export class AttendanceService {
       }
 
       // Check remote work permissions
-      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin FROM users WHERE id = $1`;
+      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin, allow_remote_clockin, company_id, is_active FROM users WHERE id = $1 AND deleted_at IS NULL`;
       const userSettingsResult = await client.query(userSettingsQuery, [data.userId]);
       const userSettings = userSettingsResult.rows[0];
+      if (!userSettings) {
+        throw new Error('User not found or inactive');
+      }
+      if (String(userSettings.company_id) !== String(data.companyId)) {
+        throw new Error('Invalid company relationship for this user');
+      }
+      if (userSettings.is_active === false) {
+        throw new Error('User not active');
+      }
       const userRemoteDays = userSettings?.remote_work_days || [];
       const allowMultiLocation = userSettings?.allow_multi_location_clockin || false;
 
-      const currentDay = new Date().getDay() || 7; // 1-7 (Mon-Sun)
-      const isRemoteAllowed = company.allow_remote_clockin && userRemoteDays.includes(currentDay);
+      const tz = company.timezone || 'UTC';
+      const isoDowResult = await client.query(
+        'SELECT EXTRACT(ISODOW FROM (NOW() AT TIME ZONE $1))::int AS isodow',
+        [tz]
+      );
+      const isodow: number | undefined = isoDowResult.rows[0]?.isodow;
+      const jsDow = (isodow || 7) % 7;
+
+      const workingDaysList: number[] = Array.isArray(company.working_days_array)
+        ? company.working_days_array.map((n: any) => Number(n)).filter((n: number) => !Number.isNaN(n))
+        : [];
+
+      let workingDaysJson: any = null;
+      if (company.working_days_json) {
+        try {
+          workingDaysJson =
+            typeof company.working_days_json === 'string' ? JSON.parse(company.working_days_json) : company.working_days_json;
+        } catch {
+          workingDaysJson = null;
+        }
+      }
+
+      let isWorkingDay = true;
+      if (workingDaysJson) {
+        if (Array.isArray(workingDaysJson)) {
+          isWorkingDay = workingDaysJson.includes(isodow) || workingDaysJson.includes(jsDow) || (jsDow === 0 && workingDaysJson.includes(7));
+        } else {
+          isWorkingDay = Boolean(workingDaysJson[String(isodow)]) || Boolean(workingDaysJson[String(jsDow)]);
+        }
+      } else if (workingDaysList.length > 0 && typeof isodow === 'number') {
+        isWorkingDay = workingDaysList.includes(isodow);
+      } else if (typeof isodow === 'number') {
+        isWorkingDay = [1, 2, 3, 4, 5].includes(isodow);
+      }
+
+      const allowRemoteOnNonWorkingDays =
+        company.allow_remote_clockin_on_non_working_days === true ||
+        company.allow_remote_clockin_on_non_working_days_settings === true;
+
+      const remotePermitted = company.allow_remote_clockin === true || userSettings.allow_remote_clockin === true;
+
+      let isRemoteAllowed = remotePermitted && userRemoteDays.includes(isodow || 0);
+      if (!isWorkingDay && allowRemoteOnNonWorkingDays && remotePermitted) {
+        isRemoteAllowed = true;
+      }
 
       // Validate geofence if required
       let isWithinFence = true;
@@ -84,9 +140,8 @@ export class AttendanceService {
       let locationName = 'Main Office';
 
       if (
-        !isRemoteAllowed && // Skip geofence check if remote clock-in is allowed for today
-        company.require_geofence_for_clockin &&
-        data.location
+        data.location &&
+        (company.require_geofence_for_clockin || !isWorkingDay)
       ) {
         const validLocations: { name: string; latitude: number; longitude: number; radius: number }[] = [];
 
@@ -120,8 +175,7 @@ export class AttendanceService {
         }
 
         if (validLocations.length === 0) {
-           // Fallback to original logic if no locations found (though main office should exist if required)
-           // If main office is missing but required, logic below handles it
+          throw new Error('Office location is not configured for geofence validation. Please contact your administrator.');
         }
 
         let matchedLocation = null;
@@ -148,30 +202,44 @@ export class AttendanceService {
           isWithinFence = true;
         } else {
           isWithinFence = false;
-          distance = minDistance; // Closest distance for reporting
+          distance = minDistance;
+        }
 
-          // Get user info for notification
-        const userQuery = `
-          SELECT first_name, last_name
-          FROM users
-          WHERE id = $1 AND company_id = $2
-        `;
-        const userResult = await client.query(userQuery, [data.userId, data.companyId]);
-        const user = userResult.rows[0];
+        if (!isWorkingDay) {
+          if (!(allowRemoteOnNonWorkingDays && remotePermitted && isRemoteAllowed && !isWithinFence)) {
+            throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
+          }
+        }
 
-          // Notify admins about geofence violation
+        if (!isRemoteAllowed && !isWithinFence) {
+          const reportedDistance = typeof distance === 'number' && Number.isFinite(distance) ? distance : 0;
+          const userQuery = `
+            SELECT first_name, last_name
+            FROM users
+            WHERE id = $1 AND company_id = $2
+          `;
+          const userResult = await client.query(userQuery, [data.userId, data.companyId]);
+          const user = userResult.rows[0];
+
           await notificationService.notifyGeofenceViolation({
             companyId: data.companyId,
             userId: data.userId,
             userName: `${user.first_name} ${user.last_name}`,
-            distance,
+            distance: reportedDistance,
             allowedRadius: company.geofence_radius_meters,
           });
 
           throw new Error(
-            `You must be within allowed office locations to clock in. You are ${Math.round(distance)}m away from the nearest point.`
+            `You must be within allowed office locations to clock in. You are ${Math.round(reportedDistance)}m away from the nearest point.`
           );
         }
+      }
+
+      if (!isWorkingDay && !data.location) {
+        if (!(allowRemoteOnNonWorkingDays && remotePermitted && isRemoteAllowed)) {
+          throw new Error('Today is not a working day according to company policy. Please contact your administrator if you need to work today.');
+        }
+        throw new Error('Location is required to check in remotely on non-working days.');
       }
 
       // Determine if late

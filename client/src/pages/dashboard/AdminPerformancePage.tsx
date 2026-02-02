@@ -10,7 +10,7 @@ import {
   Filter,
   ArrowUp,
   ArrowDown,
-  Crown,
+  Gem,
   UserPlus,
   Users,
   Award
@@ -45,7 +45,11 @@ export default function AdminPerformancePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Check for Gold Plan or Trial
-  const hasAccess = user?.subscriptionPlan === 'gold' || (user?.trialDaysLeft != null && user?.trialDaysLeft > 0);
+  const hasAccess =
+    user?.subscriptionPlan === 'gold' ||
+    user?.subscriptionPlan === 'trial' ||
+    user?.subscriptionStatus === 'trial' ||
+    (user?.trialDaysLeft != null && user?.trialDaysLeft > 0);
 
   useEffect(() => {
     if (hasAccess) {
@@ -104,17 +108,17 @@ export default function AdminPerformancePage() {
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
-      case 'Platinum': return 'bg-slate-800 text-white border-slate-700';
-      case 'Gold': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Diamond': return 'bg-slate-900 text-white border-slate-800';
+      case 'Gold': return 'bg-yellow-50 text-yellow-900 border-yellow-200';
       case 'Silver': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'Bronze': return 'bg-orange-50 text-orange-800 border-orange-200';
+      case 'Bronze': return 'bg-orange-50 text-orange-900 border-orange-200';
       default: return 'bg-gray-50 text-gray-600';
     }
   };
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
-      case 1: return <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />;
+      case 1: return <Gem className="w-5 h-5 text-slate-900" />;
       case 2: return <Medal className="w-5 h-5 text-gray-400 fill-gray-200" />;
       case 3: return <Medal className="w-5 h-5 text-orange-400 fill-orange-200" />;
       default: return <span className="font-bold text-gray-500 w-5 text-center">#{rank}</span>;
@@ -137,10 +141,10 @@ export default function AdminPerformancePage() {
         {slots.map((emp, idx) => {
           const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
           const height = rank === 1 ? 'h-48' : rank === 2 ? 'h-36' : 'h-24';
-          const color = rank === 1 ? 'bg-gradient-to-b from-yellow-100 to-yellow-50 border-yellow-200' 
+          const color = rank === 1 ? 'bg-gradient-to-b from-slate-900 to-slate-800 border-slate-800' 
                        : rank === 2 ? 'bg-gradient-to-b from-gray-100 to-gray-50 border-gray-200' 
                        : 'bg-gradient-to-b from-orange-100 to-orange-50 border-orange-200';
-          const iconColor = rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : 'text-orange-400';
+          const iconColor = rank === 1 ? 'text-white' : rank === 2 ? 'text-gray-600' : 'text-orange-600';
           
           if (!emp) return <div key={idx} className="w-1/3 max-w-[200px] invisible" />;
 
@@ -148,7 +152,7 @@ export default function AdminPerformancePage() {
             <div key={emp.user.id} className="flex flex-col items-center w-1/3 max-w-[240px] relative group">
                {/* Avatar */}
                <div className={`relative mb-4 transition-transform transform group-hover:-translate-y-2 duration-300`}>
-                 <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-4 shadow-lg overflow-hidden ${rank === 1 ? 'border-yellow-400 ring-4 ring-yellow-100' : rank === 2 ? 'border-gray-300' : 'border-orange-300'}`}>
+                 <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-4 shadow-lg overflow-hidden ${rank === 1 ? 'border-slate-900 ring-4 ring-slate-100' : rank === 2 ? 'border-gray-300' : 'border-orange-300'}`}>
                     {emp.user.avatar ? (
                       <img src={emp.user.avatar} alt={emp.user.name} className="w-full h-full object-cover" />
                     ) : (
@@ -157,7 +161,7 @@ export default function AdminPerformancePage() {
                       </div>
                     )}
                  </div>
-                 <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 rounded-full shadow-md text-white font-bold ${rank === 1 ? 'bg-yellow-500' : rank === 2 ? 'bg-gray-400' : 'bg-orange-400'}`}>
+                 <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 rounded-full shadow-md text-white font-bold ${rank === 1 ? 'bg-slate-900' : rank === 2 ? 'bg-gray-500' : 'bg-orange-500'}`}>
                    {rank}
                  </div>
                </div>
@@ -307,13 +311,13 @@ export default function AdminPerformancePage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                          <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${emp.scores.attendance}%` }}></div>
+                          <div className="bg-[#0F5D5D] h-1.5 rounded-full" style={{ width: `${emp.scores.attendance}%` }}></div>
                         </div>
                         <span className="text-xs text-gray-500 mt-1 block">{emp.scores.attendance}%</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                          <div className="bg-green-600 h-1.5 rounded-full" style={{ width: `${emp.scores.tasks}%` }}></div>
+                          <div className="bg-slate-800 h-1.5 rounded-full" style={{ width: `${emp.scores.tasks}%` }}></div>
                         </div>
                         <span className="text-xs text-gray-500 mt-1 block">{emp.scores.tasks}%</span>
                       </td>

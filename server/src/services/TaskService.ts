@@ -82,7 +82,7 @@ export class TaskService {
 
     // Validate assignee and role hierarchy constraints
     const assigneeRes = await this.db.query(
-      'SELECT id, role, department_id FROM users WHERE id = $1 AND company_id = $2 AND is_active = true',
+      'SELECT id, role, department_id, first_name, last_name FROM users WHERE id = $1 AND company_id = $2 AND is_active = true',
       [assignedTo, companyId]
     );
 
@@ -90,6 +90,7 @@ export class TaskService {
       throw new Error('Assigned user not found or not active');
     }
     const assignee = assigneeRes.rows[0];
+    const assigneeName = `${assignee.first_name} ${assignee.last_name}`;
     const assigneeRole = String(assignee.role || '').toLowerCase();
     const canAssign =
       role === 'owner' ? ['admin', 'manager', 'employee'].includes(assigneeRole) :
@@ -134,7 +135,7 @@ export class TaskService {
     await this.db.query(
       `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id, metadata)
        VALUES ($1, $2, 'created', 'task', $3, $4)`,
-      [companyId, userId, task.id, JSON.stringify({ title, assignedTo })]
+      [companyId, userId, task.id, JSON.stringify({ title, assignedTo, assignedToName: assigneeName })]
     );
 
     // Create notification for assigned user
