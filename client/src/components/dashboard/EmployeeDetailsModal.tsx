@@ -91,7 +91,6 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
           {/* Header Background - Reduced height */}
           <div className="h-20 bg-gradient-to-r from-primary/10 to-primary/5 -mx-6 -mt-6 mb-10"></div>
 
-          {/* Avatar - overlapping header */}
           <div className="absolute top-6 left-6">
             <div className="p-1 bg-white rounded-full shadow-md inline-block cursor-pointer group" onClick={() => setIsFullImageOpen(true)}>
               {employee.avatar ? (
