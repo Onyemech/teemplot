@@ -108,17 +108,17 @@ export default function AdminPerformancePage() {
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
-      case 'Diamond': return 'bg-slate-900 text-white border-slate-800';
-      case 'Gold': return 'bg-yellow-50 text-yellow-900 border-yellow-200';
-      case 'Silver': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'Bronze': return 'bg-orange-50 text-orange-900 border-orange-200';
-      default: return 'bg-gray-50 text-gray-600';
+      case 'Diamond': return 'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white border-white/10';
+      case 'Gold': return 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 border-amber-200';
+      case 'Silver': return 'bg-gradient-to-r from-slate-200 to-gray-300 text-slate-800 border-gray-200';
+      case 'Bronze': return 'bg-gradient-to-r from-orange-400 to-rose-400 text-white border-white/10';
+      default: return 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border-gray-200';
     }
   };
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
-      case 1: return <Gem className="w-5 h-5 text-slate-900" />;
+      case 1: return <Gem className="w-5 h-5 text-violet-600" />;
       case 2: return <Medal className="w-5 h-5 text-gray-400 fill-gray-200" />;
       case 3: return <Medal className="w-5 h-5 text-orange-400 fill-orange-200" />;
       default: return <span className="font-bold text-gray-500 w-5 text-center">#{rank}</span>;
@@ -141,7 +141,7 @@ export default function AdminPerformancePage() {
         {slots.map((emp, idx) => {
           const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
           const height = rank === 1 ? 'h-48' : rank === 2 ? 'h-36' : 'h-24';
-          const color = rank === 1 ? 'bg-gradient-to-b from-slate-900 to-slate-800 border-slate-800' 
+          const color = rank === 1 ? 'bg-gradient-to-b from-violet-700 to-fuchsia-600 border-violet-700' 
                        : rank === 2 ? 'bg-gradient-to-b from-gray-100 to-gray-50 border-gray-200' 
                        : 'bg-gradient-to-b from-orange-100 to-orange-50 border-orange-200';
           const iconColor = rank === 1 ? 'text-white' : rank === 2 ? 'text-gray-600' : 'text-orange-600';
@@ -186,7 +186,7 @@ export default function AdminPerformancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 p-4 md:p-8">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
@@ -196,7 +196,7 @@ export default function AdminPerformancePage() {
           <p className="text-gray-500">Performance leaderboard based on attendance & task completion.</p>
         </div>
         {employees.length > 0 && (
-          <div className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+          <div className="text-sm text-gray-600 bg-white/80 backdrop-blur px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
              Total Employees Evaluated: <span className="font-bold text-gray-900">{employees.length}</span>
           </div>
         )}
@@ -207,8 +207,8 @@ export default function AdminPerformancePage() {
           <Podium />
 
           {/* Search and Filter */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-8">
-            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center bg-gray-50/50">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-8">
+            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center bg-gradient-to-r from-slate-50 to-white">
               <div className="relative w-full sm:w-96">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input

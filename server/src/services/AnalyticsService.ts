@@ -102,7 +102,7 @@ export class AnalyticsService {
       const taskThisMonthResult = await client.query<{ total: string; completed: string }>(
         `SELECT
            COUNT(*)::text AS total,
-           COUNT(*) FILTER (WHERE status = 'completed')::text AS completed
+           COUNT(*) FILTER (WHERE t.status = 'completed')::text AS completed
          FROM tasks t
          JOIN users u ON u.id = t.assigned_to
          WHERE t.company_id = $1
@@ -255,17 +255,17 @@ export class AnalyticsService {
         `SELECT
            COUNT(*)::text AS due_total,
            COUNT(*) FILTER (
-             WHERE status = 'completed'
+             WHERE t.status = 'completed'
                AND completed_at IS NOT NULL
                AND completed_at <= due_date
            )::text AS completed_on_time,
            COUNT(*) FILTER (
-             WHERE status = 'completed'
+             WHERE t.status = 'completed'
                AND completed_at IS NOT NULL
                AND completed_at > due_date
            )::text AS completed_late,
            COUNT(*) FILTER (
-             WHERE status != 'completed'
+             WHERE t.status != 'completed'
                AND due_date < NOW()
            )::text AS overdue_open
          FROM tasks t
@@ -292,17 +292,17 @@ export class AnalyticsService {
            to_char((t.due_date AT TIME ZONE $2)::date, 'YYYY-MM-DD') AS date,
            COUNT(*)::text AS due_total,
            COUNT(*) FILTER (
-             WHERE status = 'completed'
+             WHERE t.status = 'completed'
                AND completed_at IS NOT NULL
                AND completed_at <= due_date
            )::text AS completed_on_time,
            COUNT(*) FILTER (
-             WHERE status = 'completed'
+             WHERE t.status = 'completed'
                AND completed_at IS NOT NULL
                AND completed_at > due_date
            )::text AS completed_late,
            COUNT(*) FILTER (
-             WHERE status != 'completed'
+             WHERE t.status != 'completed'
                AND due_date < NOW()
            )::text AS overdue_open
          FROM tasks t
@@ -508,7 +508,7 @@ export class AnalyticsService {
          WHERE company_id = $1
            AND assigned_to = $2
            AND deleted_at IS NULL
-           AND status = 'completed'
+           AND tasks.status = 'completed'
            AND completed_at IS NOT NULL
            AND (completed_at AT TIME ZONE $3)::date BETWEEN $4::date AND $5::date`,
         [companyId, userId, timezone, startDate, endDate]
@@ -639,7 +639,7 @@ export class AnalyticsService {
           const taskResult = await client.query(
             `SELECT 
                COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
-               COUNT(*) FILTER (WHERE status = 'completed' AND completed_at <= due_date) as completed_on_time
+               COUNT(*) FILTER (WHERE tasks.status = 'completed' AND completed_at <= due_date) as completed_on_time
              FROM tasks 
              WHERE company_id = $1 AND assigned_to = $2 
                AND deleted_at IS NULL

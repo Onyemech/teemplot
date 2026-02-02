@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app';
 import { logger } from './utils/logger';
 import { taskSchedulerService } from './services/TaskSchedulerService';
+import { birthdayJobService } from './services/BirthdayJobService';
 
 const PORT = parseInt(process.env.PORT || '5000');
 const HOST = process.env.HOST || '0.0.0.0';
@@ -31,6 +32,9 @@ async function start() {
 
     // Start Task Scheduler
     taskSchedulerService.start();
+    
+    // Initialize Birthday Job
+    birthdayJobService.initialize();
   } catch (error: any) {
     logger.error('Failed to start server');
     console.error('FULL ERROR:', error);

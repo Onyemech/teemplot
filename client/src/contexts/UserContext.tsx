@@ -20,6 +20,7 @@ interface User {
   jobTitle?: string;
   bio?: string;
   phoneNumber?: string;
+  dateOfBirth?: string;
 }
 
 interface UserContextType {

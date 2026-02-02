@@ -63,7 +63,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
   }, async (request, reply) => {
     try {
-      const { firstName, lastName, phoneNumber, jobTitle, bio } = request.body as any;
+      const { firstName, lastName, phoneNumber, jobTitle, bio, dateOfBirth } = request.body as any;
       const userId = request.user.userId;
 
       // Update user record with provided fields
@@ -74,10 +74,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
              phone_number = COALESCE($3, phone_number),
              job_title = COALESCE($4, job_title),
              bio = COALESCE($5, bio),
+             date_of_birth = COALESCE($6, date_of_birth),
              updated_at = NOW() 
-         WHERE id = $6
+         WHERE id = $7
          RETURNING *`,
-        [firstName, lastName, phoneNumber, jobTitle, bio, userId]
+        [firstName, lastName, phoneNumber, jobTitle, bio, dateOfBirth, userId]
       );
 
       if (result.rowCount === 0) {

@@ -1,7 +1,12 @@
+
 import { useState } from 'react';
-import { X, Mail, Phone, Briefcase, Calendar, User } from 'lucide-react';
+import { X, Mail, Phone, Briefcase, Calendar, User, Shield, Power } from 'lucide-react';
 import Modal from '../ui/Modal';
+import Select from '../ui/Select';
 import { format } from 'date-fns';
+import { useUser } from '@/contexts/UserContext';
+import { apiClient } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Employee {
   id: string;
@@ -16,18 +21,68 @@ interface Employee {
   phoneNumber?: string;
   createdAt: string;
   status: 'active' | 'inactive';
+  dateOfBirth?: string;
 }
 
 interface EmployeeDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   employee: Employee | null;
+  onUpdate?: () => void;
 }
 
-export default function EmployeeDetailsModal({ isOpen, onClose, employee }: EmployeeDetailsModalProps) {
+export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpdate }: EmployeeDetailsModalProps) {
+  const { user: currentUser } = useUser();
+  const { success, error: toastError } = useToast();
   const [isFullImageOpen, setIsFullImageOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   if (!employee) return null;
+
+  const canManage = currentUser && 
+    (currentUser.role === 'owner' || currentUser.role === 'admin') && 
+    currentUser.id !== employee.id;
+
+  const handleRoleChange = async (newRole: string) => {
+    if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
+    
+    setIsUpdating(true);
+    try {
+      await apiClient.put(`/api/employees/${employee.id}`, {
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        role: newRole,
+        position: employee.position
+      });
+      success('User role updated successfully');
+      onUpdate?.();
+      onClose();
+    } catch (err: any) {
+      toastError(err.message || 'Failed to update role');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleStatusChange = async () => {
+    const action = employee.status === 'active' ? 'suspend' : 'activate';
+    if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+
+    setIsUpdating(true);
+    try {
+      const newStatus = employee.status === 'active' ? 'inactive' : 'active';
+      await apiClient.patch(`/api/employees/${employee.id}/status`, {
+        status: newStatus
+      });
+      success(`User ${action}ed successfully`);
+      onUpdate?.();
+      onClose();
+    } catch (err: any) {
+      toastError(err.message || 'Failed to update status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <>
@@ -114,6 +169,47 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee }: Empl
                     </div>
                   </div>
                 </div>
+                
+                {/* Access Management (Admins/Owners only) */}
+                {canManage && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-primary" />
+                      Access & Security
+                    </h3>
+                    <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-3">
+                      <div>
+                        <Select
+                          label="Role"
+                          value={employee.role}
+                          onChange={(value) => handleRoleChange(value)}
+                          disabled={isUpdating}
+                          options={[
+                            { value: 'employee', label: 'Employee' },
+                            { value: 'manager', label: 'Manager' },
+                            { value: 'admin', label: 'Admin' },
+                            ...(currentUser.role === 'owner' ? [{ value: 'owner', label: 'Owner' }] : [])
+                          ]}
+                        />
+                      </div>
+                      
+                      <div className="pt-2 border-t border-gray-50">
+                        <button
+                          onClick={handleStatusChange}
+                          disabled={isUpdating}
+                          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            employee.status === 'active'
+                              ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                              : 'bg-green-50 text-green-600 hover:bg-green-100'
+                          }`}
+                        >
+                          <Power className="w-4 h-4" />
+                          {employee.status === 'active' ? 'Suspend Account' : 'Activate Account'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Column */}
@@ -155,9 +251,9 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee }: Empl
                 <div>
                   <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-primary" />
-                    History
+                    History & Personal
                   </h3>
-                  <div className="bg-white rounded-lg border border-gray-100 p-3">
+                  <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                         <Calendar className="w-3.5 h-3.5" />
@@ -169,6 +265,20 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee }: Empl
                         </p>
                       </div>
                     </div>
+                    
+                    {employee.dateOfBirth && (
+                      <div className="flex items-center gap-3 pt-3 border-t border-gray-50">
+                        <div className="w-7 h-7 rounded-full bg-pink-50 flex items-center justify-center text-pink-500">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase">Birthday</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {format(new Date(employee.dateOfBirth), 'MMMM d')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

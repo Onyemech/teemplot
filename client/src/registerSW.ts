@@ -4,9 +4,7 @@ export function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     const updateSW = registerSW({
       onNeedRefresh() {
-        if (confirm('New content available. Reload?')) {
-          updateSW(true)
-        }
+        void updateSW
       },
       onOfflineReady() {
         console.log('App is ready to work offline')

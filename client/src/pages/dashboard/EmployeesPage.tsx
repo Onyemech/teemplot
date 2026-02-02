@@ -20,6 +20,7 @@ interface Employee {
   status: 'active' | 'inactive'
   avatar?: string
   createdAt: string
+  dateOfBirth?: string
 }
 
 interface Invitation {
@@ -288,6 +289,7 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         employee={selectedEmployee}
+        onUpdate={fetchData}
       />
     </div>
   )

@@ -534,7 +534,7 @@ export class EmployeeInvitationService {
       const userResult = await client.query(
         `INSERT INTO users (
           company_id, email, password_hash, first_name, last_name, 
-          role, position, phone_number, date_of_birth, status, email_verified, biometric_data
+          role, position, phone_number, date_of_birth, is_active, email_verified, biometric_data
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id`,
         [
@@ -547,7 +547,7 @@ export class EmployeeInvitationService {
           invitation.position,
           data.phoneNumber,
           data.dateOfBirth || null, // Handle empty string by converting to null
-          true, // 'status' column is boolean (manually added by user), set to true for active
+          true, // 'is_active' column is boolean, set to true for active
           true,
           (() => {
             if (!biometricsEnabled || !data.biometric) return null;

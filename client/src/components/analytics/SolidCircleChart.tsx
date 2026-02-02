@@ -19,11 +19,11 @@ export default function SolidCircleChart({ score, label = "Score", size = 200 }:
   ];
 
   // Colors: Dynamic based on score, and a muted gray for the remainder
-  let scoreColor = '#3b82f6'; // Blue default
-  if (score >= 90) scoreColor = '#15803d'; // Green (Platinum/Gold-ish high)
-  else if (score >= 80) scoreColor = '#ca8a04'; // Yellow/Gold
+  let scoreColor = '#4f46e5'; // Indigo default
+  if (score >= 90) scoreColor = '#7c3aed'; // Diamond vibe (violet)
+  else if (score >= 80) scoreColor = '#f59e0b'; // Gold
   else if (score >= 60) scoreColor = '#94a3b8'; // Silver/Gray
-  else scoreColor = '#b45309'; // Bronze/Orange
+  else scoreColor = '#f97316'; // Bronze/Orange
 
   const COLORS = [scoreColor, '#e2e8f0']; // Remainder is light gray
 

@@ -5,8 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './styles/globals.css'
 
-import { registerServiceWorker } from './registerSW'
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -16,9 +14,6 @@ const queryClient = new QueryClient({
     },
   },
 })
-
-// Register PWA Service Worker
-registerServiceWorker()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

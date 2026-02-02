@@ -19,7 +19,7 @@ import {
   BarChart,
   Bar
 } from 'recharts'
-import { Award, CalendarDays, Filter, Gem, RefreshCcw, TrendingUp } from 'lucide-react'
+import { Award, CalendarDays, Filter, Gem, RefreshCcw, TrendingUp, Users, CheckCircle2, Clock } from 'lucide-react'
 
 type DepartmentOption = { id: string; name: string }
 
@@ -64,6 +64,8 @@ const BRAND = {
   amber: '#F59E0B',
   slate: '#334155',
   blue: '#3B82F6',
+  indigo: '#4F46E5',
+  purple: '#7C3AED',
 }
 
 function formatIsoDate(value: string | null | undefined): string {
@@ -79,10 +81,10 @@ function leaderboardMessage(rank: number): string {
 }
 
 function tierStyles(tier: string) {
-  if (tier === 'Diamond') return { bg: 'bg-slate-900', chip: 'bg-slate-900 text-white border-slate-800' }
-  if (tier === 'Gold') return { bg: 'bg-yellow-400', chip: 'bg-yellow-50 text-yellow-900 border-yellow-200' }
-  if (tier === 'Silver') return { bg: 'bg-gray-300', chip: 'bg-gray-100 text-gray-800 border-gray-200' }
-  return { bg: 'bg-orange-400', chip: 'bg-orange-50 text-orange-900 border-orange-200' }
+  if (tier === 'Diamond') return { bg: 'bg-gradient-to-br from-violet-700 to-fuchsia-600', chip: 'bg-gradient-to-r from-violet-700 to-fuchsia-600 text-white border-white/10' }
+  if (tier === 'Gold') return { bg: 'bg-gradient-to-br from-amber-400 to-yellow-500', chip: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 border-amber-200' }
+  if (tier === 'Silver') return { bg: 'bg-gradient-to-br from-slate-200 to-gray-300', chip: 'bg-gradient-to-r from-slate-200 to-gray-300 text-slate-800 border-gray-200' }
+  return { bg: 'bg-gradient-to-br from-orange-400 to-rose-400', chip: 'bg-gradient-to-r from-orange-400 to-rose-400 text-white border-white/10' }
 }
 
 function DistributionPie({
@@ -110,10 +112,10 @@ function DistributionPie({
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
       </div>
-      <div className="h-[260px] w-full">
+      <div className="h-[260px] w-full relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey="value" cx="42%" cy="50%" innerRadius={0} outerRadius={90} stroke="none">
+            <Pie data={data} dataKey="value" cx="42%" cy="50%" innerRadius={55} outerRadius={95} stroke="none" paddingAngle={2}>
               {data.map((entry, idx) => (
                 <Cell key={`${entry.name}-${idx}`} fill={colors[entry.name] || BRAND.gray} />
               ))}
@@ -132,6 +134,10 @@ function DistributionPie({
             />
           </PieChart>
         </ResponsiveContainer>
+        <div className="absolute left-[42%] top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+          <div className="text-2xl font-extrabold text-gray-900">{total}</div>
+          <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total</div>
+        </div>
       </div>
     </Card>
   )
@@ -153,6 +159,7 @@ export default function AnalyticsDashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [dashboard, setDashboard] = useState<AdminDashboardPayload | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [departmentId, setDepartmentId] = useState<string>('')
   const [startDate, setStartDate] = useState<string>('')
@@ -161,6 +168,7 @@ export default function AnalyticsDashboardPage() {
   const fetchDashboard = async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsRefreshing(true)
     try {
+      setLoadError(null)
       const data = await analyticsApi.getAdminDashboard({
         departmentId: departmentId || undefined,
         startDate: startDate || undefined,
@@ -170,6 +178,10 @@ export default function AnalyticsDashboardPage() {
       if (!departmentId && data.filters.departmentId) setDepartmentId(data.filters.departmentId)
       if (!startDate && data.filters.startDate) setStartDate(formatIsoDate(data.filters.startDate))
       if (!endDate && data.filters.endDate) setEndDate(formatIsoDate(data.filters.endDate))
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to load analytics dashboard'
+      setLoadError(message)
+      if (!opts?.silent) toast.error(message)
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -207,30 +219,57 @@ export default function AnalyticsDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]" />
       </div>
     )
   }
 
-  if (!dashboard) return null
+  if (!dashboard) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 p-4 md:p-8">
+        <div className="max-w-xl mx-auto pt-10">
+          <Card className="p-6 overflow-hidden">
+            <div className="relative">
+              <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-teal-200/30 blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-indigo-200/30 blur-3xl" />
+              <div className="relative">
+                <div className="text-sm font-semibold text-gray-900">Analytics</div>
+                <div className="mt-1 text-xs text-gray-600">
+                  {loadError || 'No data available yet.'}
+                </div>
+                <button
+                  onClick={() => fetchDashboard()}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0F5D5D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0B4A4A] transition-colors"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Retry
+                </button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
 
   const attendanceColors = {
-    'On time': BRAND.teal,
-    Late: BRAND.red,
+    'On time': BRAND.indigo,
+    Late: '#F43F5E',
     Absent: BRAND.gray,
   }
 
   const taskColors = {
-    'Completed on time': BRAND.teal,
+    'Completed on time': BRAND.indigo,
     'Completed late': BRAND.amber,
-    Overdue: BRAND.red,
+    Overdue: '#F43F5E',
   }
 
   const leaderboard = dashboard.leaderboard
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 p-4 md:p-8 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -269,7 +308,7 @@ export default function AnalyticsDashboardPage() {
         </div>
       </div>
 
-      <Card className="p-5">
+      <Card className="p-5 overflow-hidden">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Filter className="h-4 w-4 text-gray-500" />
@@ -329,31 +368,56 @@ export default function AnalyticsDashboardPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="p-6">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Employees</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900">{dashboard.overview.totalEmployees}</div>
-          <div className="mt-3 text-sm text-gray-600">
-            Attendance today: <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.present}</span> present
+        <Card className="p-6 relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-teal-200/40 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Employees</div>
+              <div className="mt-2 text-3xl font-extrabold text-gray-900">{dashboard.overview.totalEmployees}</div>
+              <div className="mt-3 text-sm text-gray-600">
+                Attendance today:{' '}
+                <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.present}</span> present
+              </div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-100">
+              <Users className="h-6 w-6 text-[#0F5D5D]" />
+            </div>
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">On-time today</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900">{dashboard.overview.attendanceToday.onTime}</div>
-          <div className="mt-3 flex items-center gap-3 text-sm">
-            <span className="text-gray-600">Late:</span>
-            <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.late}</span>
-            <span className="text-gray-600">Absent:</span>
-            <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.absent}</span>
+        <Card className="p-6 relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-indigo-200/40 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">On-time today</div>
+              <div className="mt-2 text-3xl font-extrabold text-gray-900">{dashboard.overview.attendanceToday.onTime}</div>
+              <div className="mt-3 flex items-center gap-3 text-sm">
+                <span className="text-gray-600">Late:</span>
+                <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.late}</span>
+                <span className="text-gray-600">Absent:</span>
+                <span className="font-semibold text-gray-900">{dashboard.overview.attendanceToday.absent}</span>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+              <Clock className="h-6 w-6 text-indigo-600" />
+            </div>
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Task completion</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900">{dashboard.overview.taskCompletionRate}%</div>
-          <div className="mt-3 h-2 w-full rounded-full bg-gray-100">
-            <div
-              className="h-2 rounded-full bg-[#0F5D5D] transition-all"
-              style={{ width: `${dashboard.overview.taskCompletionRate}%` }}
-            />
+        <Card className="p-6 relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-amber-200/40 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Task completion</div>
+              <div className="mt-2 text-3xl font-extrabold text-gray-900">{dashboard.overview.taskCompletionRate}%</div>
+              <div className="mt-3 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-2 rounded-full bg-gradient-to-r from-violet-600 to-[#0F5D5D] transition-all"
+                  style={{ width: `${dashboard.overview.taskCompletionRate}%` }}
+                />
+              </div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-100">
+              <CheckCircle2 className="h-6 w-6 text-amber-600" />
+            </div>
           </div>
         </Card>
       </div>
@@ -386,16 +450,16 @@ export default function AnalyticsDashboardPage() {
             {leaderboard.slice(0, 8).map((emp) => {
               const styles = tierStyles(emp.tier)
               return (
-                <div key={emp.user.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:bg-gray-50 transition-colors">
+                <div key={emp.user.id} className="rounded-2xl border border-gray-200 bg-white p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`h-10 w-10 rounded-full ${styles.bg} flex items-center justify-center text-white font-bold`}>
+                      <div className={`h-10 w-10 rounded-2xl ${styles.bg} flex items-center justify-center text-white font-extrabold shadow-sm`}>
                         {emp.user.name.charAt(0)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="truncate text-sm font-semibold text-gray-900">{emp.user.name}</div>
-                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${styles.chip}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase shadow-sm ${styles.chip}`}>
                             <Award className="h-3 w-3" />
                             {emp.tier}
                           </span>
@@ -441,20 +505,20 @@ export default function AnalyticsDashboardPage() {
               <AreaChart data={dashboard.attendance.trend}>
                 <defs>
                   <linearGradient id="onTimeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor={BRAND.teal} stopOpacity={0.18} />
-                    <stop offset="95%" stopColor={BRAND.teal} stopOpacity={0} />
+                    <stop offset="10%" stopColor={BRAND.indigo} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={BRAND.indigo} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="lateFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor={BRAND.red} stopOpacity={0.12} />
-                    <stop offset="95%" stopColor={BRAND.red} stopOpacity={0} />
+                    <stop offset="10%" stopColor="#F43F5E" stopOpacity={0.12} />
+                    <stop offset="95%" stopColor="#F43F5E" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="onTime" stroke={BRAND.teal} strokeWidth={2} fill="url(#onTimeFill)" />
-                <Area type="monotone" dataKey="late" stroke={BRAND.red} strokeWidth={2} fill="url(#lateFill)" />
+                <Area type="monotone" dataKey="onTime" stroke={BRAND.indigo} strokeWidth={2} fill="url(#onTimeFill)" />
+                <Area type="monotone" dataKey="late" stroke="#F43F5E" strokeWidth={2} fill="url(#lateFill)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -472,9 +536,9 @@ export default function AnalyticsDashboardPage() {
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Bar dataKey="completedOnTime" stackId="a" fill={BRAND.teal} radius={[6, 6, 0, 0]} />
-                <Bar dataKey="completedLate" stackId="a" fill={BRAND.amber} radius={[6, 6, 0, 0]} />
-                <Bar dataKey="overdue" stackId="a" fill={BRAND.red} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="completedOnTime" stackId="a" fill={BRAND.indigo} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="completedLate" stackId="a" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="overdue" stackId="a" fill="#F43F5E" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -492,15 +556,25 @@ export default function AnalyticsDashboardPage() {
               <AreaChart data={dashboard.scoreTrend}>
                 <defs>
                   <linearGradient id="overallFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor={BRAND.teal} stopOpacity={0.18} />
+                    <stop offset="10%" stopColor={BRAND.purple} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={BRAND.purple} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="attendanceFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="10%" stopColor={BRAND.teal} stopOpacity={0.14} />
                     <stop offset="95%" stopColor={BRAND.teal} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="tasksFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="10%" stopColor={BRAND.indigo} stopOpacity={0.12} />
+                    <stop offset="95%" stopColor={BRAND.indigo} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} domain={[0, 100]} />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="overall" stroke={BRAND.teal} strokeWidth={3} fill="url(#overallFill)" />
+                <Area type="monotone" dataKey="overall" stroke={BRAND.purple} strokeWidth={3} fill="url(#overallFill)" />
+                <Area type="monotone" dataKey="attendance" stroke={BRAND.teal} strokeWidth={2} fill="url(#attendanceFill)" />
+                <Area type="monotone" dataKey="tasks" stroke={BRAND.indigo} strokeWidth={2} fill="url(#tasksFill)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

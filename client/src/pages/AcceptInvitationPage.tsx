@@ -61,6 +61,7 @@ export default function AcceptInvitationPage() {
     lastName: '',
     password: '',
     confirmPassword: '',
+    dateOfBirth: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -252,7 +253,7 @@ export default function AcceptInvitationPage() {
         token,
         password: formData.password,
         phoneNumber: '', // Optional
-        dateOfBirth: undefined, // Optional - Send undefined instead of empty string
+        dateOfBirth: formData.dateOfBirth || undefined,
         biometric: biometricCaptured || undefined,
       })
 
@@ -395,6 +396,17 @@ export default function AcceptInvitationPage() {
                 placeholder="Doe"
                 fullWidth
               />
+
+              <div className="col-span-2">
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  required
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  fullWidth
+                />
+              </div>
             </div>
 
             <Input

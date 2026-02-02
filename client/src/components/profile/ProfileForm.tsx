@@ -15,6 +15,7 @@ const profileSchema = z.object({
   jobTitle: z.string().optional(),
   bio: z.string().max(500, 'Bio must be less than 500 characters').optional(),
   phoneNumber: z.string().optional(),
+  dateOfBirth: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -36,6 +37,7 @@ export default function ProfileForm() {
       jobTitle: '',
       bio: '',
       phoneNumber: '',
+      dateOfBirth: '',
     },
   });
 
@@ -48,6 +50,7 @@ export default function ProfileForm() {
         jobTitle: user.jobTitle || '', 
         bio: user.bio || '',
         phoneNumber: user.phoneNumber || '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
       });
     }
   }, [user, reset]);
@@ -113,17 +116,46 @@ export default function ProfileForm() {
         </div>
       </div>
 
-      {/* Job Title */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Job Title */}
+        <div className="space-y-2">
+          <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700">
+            Job Title / Role
+          </label>
+          <input
+            id="jobTitle"
+            type="text"
+            {...register('jobTitle')}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+            placeholder="Senior Software Engineer"
+          />
+        </div>
+
+        {/* Phone Number */}
+        <div className="space-y-2">
+          <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+            Phone Number
+          </label>
+          <input
+            id="phoneNumber"
+            type="tel"
+            {...register('phoneNumber')}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+            placeholder="+1 (555) 000-0000"
+          />
+        </div>
+      </div>
+
+      {/* Date of Birth */}
       <div className="space-y-2">
-        <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700">
-          Job Title / Role
+        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+          Date of Birth
         </label>
         <input
-          id="jobTitle"
-          type="text"
-          {...register('jobTitle')}
+          id="dateOfBirth"
+          type="date"
+          {...register('dateOfBirth')}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-          placeholder="Senior Software Engineer"
         />
       </div>
 
