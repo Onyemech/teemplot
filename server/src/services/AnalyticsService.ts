@@ -10,6 +10,25 @@ type AnalyticsFilters = {
 type DepartmentOption = { id: string; name: string };
 
 export class AnalyticsService {
+  private static taskAssigneeColumn: 'assigned_to' | 'assignee_id' | null = null;
+
+  private async resolveTaskAssigneeColumn(client: PoolClient): Promise<'assigned_to' | 'assignee_id'> {
+    if (AnalyticsService.taskAssigneeColumn) return AnalyticsService.taskAssigneeColumn;
+
+    const res = await client.query<{ column_name: string }>(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'tasks'
+         AND column_name IN ('assignee_id', 'assigned_to')`
+    );
+
+    const columns = new Set(res.rows.map(r => r.column_name));
+    const selected: 'assigned_to' | 'assignee_id' = columns.has('assignee_id') ? 'assignee_id' : 'assigned_to';
+    AnalyticsService.taskAssigneeColumn = selected;
+    return selected;
+  }
+
   private async getCompanyTimezone(client: PoolClient, companyId: string): Promise<string> {
     const res = await client.query<{ timezone: string | null }>(
       `SELECT timezone FROM companies WHERE id = $1`,
@@ -54,6 +73,7 @@ export class AnalyticsService {
     const client = await pool.connect();
     try {
       const { timezone } = await this.resolveDateRange(client, companyId, filters, 30);
+      const taskAssigneeColumn = await this.resolveTaskAssigneeColumn(client);
       const todayResult = await client.query<{ today: string }>(
         `SELECT (NOW() AT TIME ZONE $1)::date::text AS today`,
         [timezone]
@@ -104,7 +124,7 @@ export class AnalyticsService {
            COUNT(*)::text AS total,
            COUNT(*) FILTER (WHERE t.status = 'completed')::text AS completed
          FROM tasks t
-         JOIN users u ON u.id = t.assigned_to
+         JOIN users u ON u.id = t.${taskAssigneeColumn}
          WHERE t.company_id = $1
            AND t.deleted_at IS NULL
            AND u.company_id = $1
@@ -250,6 +270,7 @@ export class AnalyticsService {
     const client = await pool.connect();
     try {
       const { timezone, startDate, endDate } = await this.resolveDateRange(client, companyId, filters, 30);
+      const taskAssigneeColumn = await this.resolveTaskAssigneeColumn(client);
 
       const distributionResult = await client.query<{ completed_on_time: string; completed_late: string; overdue_open: string; due_total: string }>(
         `SELECT
@@ -269,10 +290,10 @@ export class AnalyticsService {
                AND due_date < NOW()
            )::text AS overdue_open
          FROM tasks t
-         JOIN users u ON u.id = t.assigned_to
+         JOIN users u ON u.id = t.${taskAssigneeColumn}
          WHERE t.company_id = $1
            AND t.deleted_at IS NULL
-           AND t.assigned_to IS NOT NULL
+           AND t.${taskAssigneeColumn} IS NOT NULL
            AND t.due_date IS NOT NULL
            AND u.company_id = $1
            AND u.deleted_at IS NULL
@@ -306,10 +327,10 @@ export class AnalyticsService {
                AND due_date < NOW()
            )::text AS overdue_open
          FROM tasks t
-         JOIN users u ON u.id = t.assigned_to
+         JOIN users u ON u.id = t.${taskAssigneeColumn}
          WHERE t.company_id = $1
            AND t.deleted_at IS NULL
-           AND t.assigned_to IS NOT NULL
+           AND t.${taskAssigneeColumn} IS NOT NULL
            AND t.due_date IS NOT NULL
            AND u.company_id = $1
            AND u.deleted_at IS NULL
@@ -409,7 +430,7 @@ export class AnalyticsService {
   async getCompanyScoreTrend(companyId: string, filters?: AnalyticsFilters) {
     const client = await pool.connect();
     try {
-      const { startDate, endDate } = await this.resolveDateRange(client, companyId, filters, 90);
+      const { startDate, endDate } = await this.resolveDateRange(client, companyId, filters, 180);
 
       const result = await client.query<{ month: string; overall: string; attendance: string; tasks: string }>(
         `SELECT
@@ -431,8 +452,37 @@ export class AnalyticsService {
         [companyId, startDate, endDate, filters?.departmentId || null]
       );
 
-      return result.rows.map(r => ({
-        month: r.month,
+      if (result.rows.length >= 2) {
+        return result.rows.map(r => ({
+          month: r.month,
+          overall: Math.round(parseFloat(r.overall || '0')),
+          attendance: Math.round(parseFloat(r.attendance || '0')),
+          tasks: Math.round(parseFloat(r.tasks || '0'))
+        }));
+      }
+
+      const daily = await client.query<{ day: string; overall: string; attendance: string; tasks: string }>(
+        `SELECT
+           to_char(ps.date, 'MM-DD') AS day,
+           AVG(ps.overall_score)::text AS overall,
+           AVG(ps.attendance_score)::text AS attendance,
+           AVG(ps.task_completion_score)::text AS tasks
+         FROM performance_snapshots ps
+         JOIN users u ON u.id = ps.user_id
+         WHERE ps.company_id = $1
+           AND period_type = 'daily'
+           AND ps.date BETWEEN ($2::date - INTERVAL '13 days')::date AND $2::date
+           AND u.deleted_at IS NULL
+           AND u.is_active = true
+           AND u.role != 'owner'
+           AND ($3::uuid IS NULL OR u.department_id = $3::uuid)
+         GROUP BY ps.date
+         ORDER BY ps.date ASC`,
+        [companyId, endDate, filters?.departmentId || null]
+      );
+
+      return daily.rows.map(r => ({
+        month: r.day,
         overall: Math.round(parseFloat(r.overall || '0')),
         attendance: Math.round(parseFloat(r.attendance || '0')),
         tasks: Math.round(parseFloat(r.tasks || '0'))
@@ -446,6 +496,7 @@ export class AnalyticsService {
     const client = await pool.connect();
     try {
       const { timezone, startDate, endDate } = await this.resolveDateRange(client, companyId, undefined, 30);
+      const taskAssigneeColumn = await this.resolveTaskAssigneeColumn(client);
       const localTodayResult = await client.query<{ today: string }>(
         `SELECT (NOW() AT TIME ZONE $1)::date::text AS today`,
         [timezone]
@@ -506,7 +557,7 @@ export class AnalyticsService {
         `SELECT COUNT(*)::text AS completed
          FROM tasks
          WHERE company_id = $1
-           AND assigned_to = $2
+           AND ${taskAssigneeColumn} = $2
            AND deleted_at IS NULL
            AND tasks.status = 'completed'
            AND completed_at IS NOT NULL
@@ -556,6 +607,7 @@ export class AnalyticsService {
       const client = await pool.connect();
       try {
         const { timezone, startDate, endDate } = await this.resolveDateRange(client, companyId, filters, 30);
+        const taskAssigneeColumn = await this.resolveTaskAssigneeColumn(client);
         const localEndDate = filters?.endDate || endDate;
 
         const snapshotRows = await client.query<any>(
@@ -641,7 +693,7 @@ export class AnalyticsService {
                COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
                COUNT(*) FILTER (WHERE tasks.status = 'completed' AND completed_at <= due_date) as completed_on_time
              FROM tasks 
-             WHERE company_id = $1 AND assigned_to = $2 
+             WHERE company_id = $1 AND ${taskAssigneeColumn} = $2 
                AND deleted_at IS NULL
                AND due_date IS NOT NULL
                AND created_at >= NOW() - INTERVAL '30 days'`,

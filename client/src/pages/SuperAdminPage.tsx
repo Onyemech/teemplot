@@ -1,302 +1,294 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { 
+  Building2, 
+  Users, 
+  DollarSign, 
+  TrendingUp,
+  Video,
+  Activity,
+  LogOut,
+  LayoutDashboard
+} from 'lucide-react';
+import { apiClient } from '../lib/api';
+import { VideoUpload } from '../components/superadmin/VideoUpload';
+import { VideoList } from '../components/superadmin/VideoList';
 
-interface CompanyStats {
+interface Company {
   id: string;
   name: string;
-  email: string;
   plan: string;
-  status: string;
-  employeeCount: number;
-  monthlyRevenue: number;
-  yearlyRevenue: number;
-  onboardingCompleted: boolean;
+  users_count: number;
+  created_at: string;
 }
 
-interface RevenueStats {
-  totalMonthlyRevenue: number;
-  totalYearlyRevenue: number;
-  silverCompanies: number;
-  goldCompanies: number;
-  trialCompanies: number;
-  totalCompanies: number;
-  totalEmployees: number;
-}
-
-export default function SuperAdminDashboard() {
+export default function SuperAdminPage() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<'all' | 'silver' | 'gold'>('all');
-  const [companies, setCompanies] = useState<CompanyStats[]>([]);
-  const [stats, setStats] = useState<RevenueStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'companies' | 'revenue' | 'videos'>('overview');
+  const [videoListKey, setVideoListKey] = useState(0); // To refresh video list
 
   useEffect(() => {
-    fetchData();
-  }, [filter]);
+    // Basic check - in production middleware should handle this
+    // Assuming role check is handled by backend or AuthContext primarily
+    fetchCompanies();
+  }, [user]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    
-    // TODO: Replace with actual API calls
-    // const token = localStorage.getItem('token');
-    
-    // Fetch revenue stats
-    // const statsResponse = await fetch('http://localhost:5000/api/superadmin/revenue-stats', {
-    //   headers: { 'Authorization': `Bearer ${token}` }
-    // });
-    // const statsData = await statsResponse.json();
-    // setStats(statsData.data);
-
-    // Fetch companies
-    // const companiesResponse = await fetch(`http://localhost:5000/api/superadmin/companies?plan=${filter}`, {
-    //   headers: { 'Authorization': `Bearer ${token}` }
-    // });
-    // const companiesData = await companiesResponse.json();
-    // setCompanies(companiesData.data);
-
-    // Mock data for now
-    setStats({
-      totalMonthlyRevenue: 150000,
-      totalYearlyRevenue: 1800000,
-      silverCompanies: 5,
-      goldCompanies: 10,
-      trialCompanies: 3,
-      totalCompanies: 18,
-      totalEmployees: 250,
-    });
-
-    setCompanies([
-      {
-        id: '1',
-        name: 'Acme Corp',
-        email: 'admin@acme.com',
-        plan: 'gold_monthly',
-        status: 'active',
-        employeeCount: 10,
-        monthlyRevenue: 25000,
-        yearlyRevenue: 300000,
-        onboardingCompleted: true,
-      },
-      {
-        id: '2',
-        name: 'Tech Solutions',
-        email: 'admin@techsolutions.com',
-        plan: 'silver_monthly',
-        status: 'active',
-        employeeCount: 5,
-        monthlyRevenue: 6000,
-        yearlyRevenue: 72000,
-        onboardingCompleted: true,
-      },
-    ]);
-
-    setIsLoading(false);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
-  const formatCurrency = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
+  const fetchCompanies = async () => {
+    try {
+      // Mock data for UI development if API fails or not ready
+      try {
+        const res = await apiClient.get('/api/super-admin/companies');
+        setCompanies(res.data.data);
+      } catch (e) {
+        console.log('Using mock data for companies');
+        setCompanies([
+           { id: '1', name: 'Acme Corp', plan: 'Enterprise', users_count: 150, created_at: '2023-01-15' },
+           { id: '2', name: 'TechStart Inc', plan: 'Pro', users_count: 45, created_at: '2023-03-22' },
+           { id: '3', name: 'Global Logistics', plan: 'Enterprise', users_count: 320, created_at: '2023-05-10' },
+           { id: '4', name: 'Small Biz LLC', plan: 'Basic', users_count: 8, created_at: '2023-08-05' },
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const getPlanBadgeColor = (plan: string) => {
-    if (plan.startsWith('gold')) return 'bg-yellow-100 text-yellow-800';
-    if (plan.startsWith('silver')) return 'bg-gray-100 text-gray-800';
-    return 'bg-blue-100 text-blue-800';
-  };
+  const stats = [
+    { label: 'Total Companies', value: companies.length, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Total Revenue', value: '$12,450', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Active Users', value: companies.reduce((acc, c) => acc + (c.users_count || 0), 0), icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Growth', value: '+12%', icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-50' },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">🌱 Teemplot Super Admin</h1>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              Back to Dashboard
-            </button>
+    <div className="min-h-screen bg-gray-50 flex font-sans">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 fixed h-full z-10 flex flex-col">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#0F5D5D] rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold">SA</span>
+            </div>
+            <span className="font-bold text-gray-900 text-lg">Super Admin</span>
           </div>
         </div>
-      </div>
+        
+        <nav className="p-4 space-y-1 flex-1">
+          <button 
+            onClick={() => setActiveTab('overview')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'overview' ? 'bg-[#0F5D5D]/10 text-[#0F5D5D]' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            Overview
+          </button>
+          <button 
+            onClick={() => setActiveTab('companies')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'companies' ? 'bg-[#0F5D5D]/10 text-[#0F5D5D]' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Building2 className="w-5 h-5" />
+            Companies
+          </button>
+          <button 
+            onClick={() => setActiveTab('revenue')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'revenue' ? 'bg-[#0F5D5D]/10 text-[#0F5D5D]' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <DollarSign className="w-5 h-5" />
+            Revenue
+          </button>
+          <button 
+            onClick={() => setActiveTab('videos')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'videos' ? 'bg-[#0F5D5D]/10 text-[#0F5D5D]' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Video className="w-5 h-5" />
+            Video Management
+          </button>
+        </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="text-sm text-gray-600 mb-1">Total Monthly Revenue</div>
-              <div className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalMonthlyRevenue)}</div>
-              <div className="text-xs text-gray-500 mt-1">Per month</div>
+        <div className="p-4 border-t border-gray-100">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64 p-8">
+        <header className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {activeTab === 'overview' && 'Dashboard Overview'}
+              {activeTab === 'companies' && 'Company Management'}
+              {activeTab === 'revenue' && 'Revenue Analytics'}
+              {activeTab === 'videos' && 'Video Management'}
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">Manage your platform efficiently</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+              <span className="font-semibold text-gray-600">AD</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Render */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => (
+                <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-transform hover:-translate-y-1 duration-200">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`p-3 rounded-lg ${stat.bg}`}>
+                      <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
+                    {stat.label === 'Growth' && (
+                      <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded-full">
+                        {stat.value}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="text-sm text-gray-600 mb-1">Total Yearly Revenue</div>
-              <div className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalYearlyRevenue)}</div>
-              <div className="text-xs text-gray-500 mt-1">Per year</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="text-sm text-gray-600 mb-1">Total Companies</div>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.silverCompanies} Silver • {stats.goldCompanies} Gold • {stats.trialCompanies} Trial
+            {/* Platform Activity Placeholder */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-gray-400" />
+                Platform Activity
+              </h2>
+              <div className="h-64 flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                <p>Activity Chart Placeholder</p>
               </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="text-sm text-gray-600 mb-1">Total Employees</div>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalEmployees}</div>
-              <div className="text-xs text-gray-500 mt-1">Across all companies</div>
             </div>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">Filter by plan:</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'all'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter('silver')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'silver'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Silver
-              </button>
-              <button
-                onClick={() => setFilter('gold')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === 'gold'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Gold
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Companies Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Companies</h2>
-          </div>
-
-          {isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Company
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Plan
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employees
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Monthly Revenue
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {companies.map((company) => (
-                    <tr key={company.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{company.name}</div>
-                          <div className="text-sm text-gray-500">{company.email}</div>
+        {activeTab === 'companies' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600">Company Name</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600">Plan</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600">Users</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600">Joined Date</th>
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {companies.map((company) => (
+                  <tr key={company.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[#0F5D5D]/10 rounded flex items-center justify-center text-[#0F5D5D] font-bold text-sm">
+                          {company.name.charAt(0)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPlanBadgeColor(company.plan)}`}>
-                          {company.plan.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          {company.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {company.employeeCount}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {formatCurrency(company.monthlyRevenue)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => navigate(`/superadmin/companies/${company.id}`)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <span className="font-medium text-gray-900">{company.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        company.plan === 'Enterprise' ? 'bg-purple-100 text-purple-800' : 
+                        company.plan === 'Pro' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {company.plan || 'Free'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-600">{company.users_count || 0}</td>
+                    <td className="py-4 px-6 text-sm text-gray-600">
+                      {new Date(company.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                        Active
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'revenue' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+             {/* Revenue Filters */}
+             <div className="flex gap-4 mb-6">
+                <select className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F5D5D]/20">
+                  <option>Last 30 Days</option>
+                  <option>Last Quarter</option>
+                  <option>Year to Date</option>
+                </select>
+                <select className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F5D5D]/20">
+                  <option>All Plans</option>
+                  <option>Enterprise</option>
+                  <option>Pro</option>
+                </select>
+             </div>
+             
+             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-gray-500" />
+                  Revenue Trend
+                </h3>
+                <div className="h-80 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-gray-400">
+                   Revenue Chart Implementation Needed
+                </div>
+             </div>
+          </div>
+        )}
+
+        {activeTab === 'videos' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Video Library</h2>
+                 <VideoList key={videoListKey} />
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <button
-            onClick={() => navigate('/superadmin/expenses')}
-            className="bg-white rounded-lg shadow-sm p-6 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-2xl mb-2">💰</div>
-            <div className="font-semibold text-gray-900 mb-1">Expense Tracking</div>
-            <div className="text-sm text-gray-600">Record and view expenses</div>
-          </button>
-
-          <button
-            onClick={() => navigate('/superadmin/profit')}
-            className="bg-white rounded-lg shadow-sm p-6 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-2xl mb-2">📊</div>
-            <div className="font-semibold text-gray-900 mb-1">Profit Analysis</div>
-            <div className="text-sm text-gray-600">View revenue vs expenses</div>
-          </button>
-
-          <button
-            onClick={() => navigate('/superadmin/documents')}
-            className="bg-white rounded-lg shadow-sm p-6 text-left hover:shadow-md transition-shadow"
-          >
-            <div className="text-2xl mb-2">📄</div>
-            <div className="font-semibold text-gray-900 mb-1">Document Review</div>
-            <div className="text-sm text-gray-600">Review company documents</div>
-          </button>
-        </div>
-      </div>
+            <div className="lg:col-span-1 space-y-6">
+              <VideoUpload onUploadComplete={() => setVideoListKey(prev => prev + 1)} />
+              
+              <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  Video Guidelines
+                </h4>
+                <ul className="text-sm text-blue-800 space-y-2 pl-4 list-disc marker:text-blue-500">
+                  <li>Supported formats: <strong>MP4, WebM, MOV</strong></li>
+                  <li>Maximum file size: <strong>500MB</strong></li>
+                  <li>Recommended resolution: <strong>1080p</strong></li>
+                  <li>Videos are automatically optimized for streaming</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -1,11 +1,25 @@
 import { FastifyInstance } from 'fastify';
 import { superAdminService } from '../services/SuperAdminService';
+import { videoService } from '../services/VideoService';
+import { fileUploadService } from '../services/FileUploadService';
 import { z } from 'zod';
 
 const RecordExpenseSchema = z.object({
   description: z.string().min(1),
   amount: z.number().positive(),
   category: z.string().min(1),
+});
+
+const CreateVideoSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().optional(),
+  category: z.enum(['demo', 'tutorial', 'app_install']),
+  tags: z.array(z.string()).optional(),
+  fileId: z.string().uuid()
+});
+
+const UpdateVideoStatusSchema = z.object({
+  isActive: z.boolean()
 });
 
 export async function superAdminRoutes(fastify: FastifyInstance) {
@@ -16,6 +30,114 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
     // TODO: Check if user is super admin
     // For now, just verify JWT
   };
+
+  // --- Video Management Routes ---
+
+  // Get all videos
+  fastify.get('/videos', async (request, reply) => {
+    try {
+      const { category, search, isActive } = request.query as any;
+      const videos = await videoService.getVideos({ 
+        category, 
+        search, 
+        isActive: isActive === 'true' ? true : undefined 
+      });
+      return { success: true, data: videos };
+    } catch (error: any) {
+      return reply.code(500).send({ success: false, message: error.message });
+    }
+  });
+
+  // Upload video file (Step 1)
+  fastify.post('/videos/upload', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const data = await request.file();
+      if (!data) {
+        return reply.code(400).send({ error: 'No file uploaded' });
+      }
+
+      const buffer = await data.toBuffer();
+      
+      // Validate file type
+      if (!data.mimetype.startsWith('video/')) {
+        return reply.code(400).send({ error: 'Invalid file type. Only videos are allowed.' });
+      }
+
+      // Validate size (approx 500MB)
+      if (buffer.length > 500 * 1024 * 1024) {
+        return reply.code(400).send({ error: 'File too large. Max size is 500MB.' });
+      }
+
+      const user = (request as any).user;
+
+      const uploadResult = await fileUploadService.uploadToCloudinary({
+        hash: `${data.filename}-${Date.now()}`,
+        buffer,
+        filename: data.filename,
+        mimeType: data.mimetype,
+        uploadedBy: user.userId,
+        resourceType: 'video'
+      });
+
+      return { success: true, data: uploadResult.file };
+    } catch (error: any) {
+      return reply.code(500).send({ success: false, message: error.message });
+    }
+  });
+
+  // Create video record (Step 2)
+  fastify.post('/videos', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const body = CreateVideoSchema.parse(request.body);
+      const user = (request as any).user;
+
+      const video = await videoService.createVideo({
+        ...body,
+        userId: user.userId
+      });
+
+      return { success: true, data: video };
+    } catch (error: any) {
+      return reply.code(400).send({ success: false, message: error.message });
+    }
+  });
+
+  // Delete video
+  fastify.delete('/videos/:id', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const user = (request as any).user;
+      
+      await videoService.deleteVideo(id, user.userId);
+      return { success: true, message: 'Video deleted successfully' };
+    } catch (error: any) {
+      return reply.code(500).send({ success: false, message: error.message });
+    }
+  });
+
+  // Toggle active status
+  fastify.patch('/videos/:id/status', {
+    preHandler: [verifySuperAdmin],
+  }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const { isActive } = UpdateVideoStatusSchema.parse(request.body);
+      const user = (request as any).user;
+
+      const video = await videoService.toggleActive(id, isActive, user.userId);
+      return { success: true, data: video };
+    } catch (error: any) {
+      return reply.code(400).send({ success: false, message: error.message });
+    }
+  });
+
+  // --- Existing Routes ---
 
   // Get all companies
   fastify.get('/companies', {

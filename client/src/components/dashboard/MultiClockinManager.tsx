@@ -98,7 +98,7 @@ export default function MultiClockinManager() {
             ? 'text-gray-400 hover:text-green-600 hover:bg-green-50' 
             : 'text-green-600 hover:text-red-600 hover:bg-red-50'
         }`}
-        title={type === 'standard' ? "Enable Multi-Location" : "Disable Multi-Location"}
+        title={type === 'standard' ? "Enable Multiple Clock-in" : "Disable Multiple Clock-in"}
       >
         {processingId === employee.id ? (
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -123,8 +123,10 @@ export default function MultiClockinManager() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Multiple Clock-in Management</h2>
-          <p className="text-sm text-gray-500">Manage which employees can clock in from any company location.</p>
+          <h2 className="text-xl font-bold text-gray-900">Multiple Clock-in Management</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Enable employees to clock in multiple times per day (e.g., for shifts or breaks).
+          </p>
         </div>
         
         <div className="relative w-full md:w-64">
@@ -145,12 +147,12 @@ export default function MultiClockinManager() {
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="font-semibold text-gray-700 flex items-center gap-2">
               <User className="w-4 h-4" />
-              Standard Access
+              Single Clock-in
               <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
                 {standardUsers.length}
               </span>
             </h3>
-            <span className="text-xs text-gray-400">Main Office Only</span>
+            <span className="text-xs text-gray-400">One shift per day</span>
           </div>
           
           <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 p-3 overflow-y-auto">
@@ -171,12 +173,12 @@ export default function MultiClockinManager() {
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="font-semibold text-primary flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              Multi-Location Access
+              Multiple Clock-in
               <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
                 {multiLocUsers.length}
               </span>
             </h3>
-            <span className="text-xs text-primary/70">All Locations</span>
+            <span className="text-xs text-primary/70">Unlimited shifts per day</span>
           </div>
           
           <div className="flex-1 bg-primary/5 rounded-xl border border-primary/10 p-3 overflow-y-auto">
@@ -196,10 +198,10 @@ export default function MultiClockinManager() {
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
-          <p className="font-medium mb-1">About Multi-Location Access</p>
+          <p className="font-medium mb-1">About Multiple Clock-in Access</p>
           <p>
-            Employees with Multi-Location Access can clock in from any active company location defined in Settings. 
-            Standard employees can only clock in from the Main Office.
+            Employees with Multiple Clock-in Access can clock in and out multiple times in a single day (e.g., morning shift, break, evening shift).
+            Standard employees are restricted to one clock-in and one clock-out per day.
           </p>
         </div>
       </div>

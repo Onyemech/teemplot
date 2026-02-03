@@ -62,7 +62,10 @@ export default function AcceptInvitationPage() {
     password: '',
     confirmPassword: '',
     dateOfBirth: '',
+    departmentId: '', // New field
   })
+  const [departments, setDepartments] = useState<any[]>([])
+  const [departmentsLoading, setDepartmentsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordValidation, setPasswordValidation] = useState({
@@ -87,6 +90,19 @@ export default function AcceptInvitationPage() {
   const [biometricError, setBiometricError] = useState('')
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+
+  useEffect(() => {
+    // Fetch departments if invitation loaded
+    if (invitation) {
+      setDepartmentsLoading(true)
+      apiClient.get('/api/departments')
+        .then(res => {
+          if (res.data.success) setDepartments(res.data.data)
+        })
+        .catch(() => {})
+        .finally(() => setDepartmentsLoading(false))
+    }
+  }, [invitation])
 
   // Validate password on change
   useEffect(() => {
@@ -254,6 +270,7 @@ export default function AcceptInvitationPage() {
         password: formData.password,
         phoneNumber: '', // Optional
         dateOfBirth: formData.dateOfBirth || undefined,
+        departmentId: formData.departmentId,
         biometric: biometricCaptured || undefined,
       })
 
@@ -398,6 +415,22 @@ export default function AcceptInvitationPage() {
               />
 
               <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <select
+                  required
+                  value={formData.departmentId}
+                  onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-[#0F5D5D] focus:border-[#0F5D5D]"
+                  disabled={departmentsLoading}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-span-2">
                 <Input
                   label="Date of Birth"
                   type="date"
@@ -536,6 +569,7 @@ export default function AcceptInvitationPage() {
               disabled={
                 !passwordValidation.isValid || 
                 formData.password !== formData.confirmPassword ||
+                !formData.departmentId || 
                 (invitation?.biometricsEnabled && invitation?.biometricsMandatory && !biometricCaptured)
               }
             >

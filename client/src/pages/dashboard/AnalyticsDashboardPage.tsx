@@ -10,7 +10,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
   AreaChart,
   Area,
   CartesianGrid,
@@ -98,7 +97,14 @@ function DistributionPie({
   data: Array<{ name: string; value: number }>
   colors: Record<string, string>
 }) {
-  const total = useMemo(() => data.reduce((acc, d) => acc + d.value, 0), [data])
+  const normalizedData = useMemo(() => {
+    const byName = new Map<string, number>(data.map(d => [d.name, d.value]))
+    const ordered = Object.keys(colors).map(name => ({ name, value: byName.get(name) ?? 0 }))
+    const extras = data.filter(d => !colors[d.name])
+    return [...ordered, ...extras]
+  }, [data, colors])
+
+  const total = useMemo(() => normalizedData.reduce((acc, d) => acc + d.value, 0), [normalizedData])
 
   const tooltipFormatter = (value: TooltipValue, name: TooltipName): [TooltipValue, TooltipName] => {
     const v = typeof value === 'number' ? value : Number(value)
@@ -112,31 +118,43 @@ function DistributionPie({
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
       </div>
-      <div className="h-[260px] w-full relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} dataKey="value" cx="42%" cy="50%" innerRadius={55} outerRadius={95} stroke="none" paddingAngle={2}>
-              {data.map((entry, idx) => (
-                <Cell key={`${entry.name}-${idx}`} fill={colors[entry.name] || BRAND.gray} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={tooltipFormatter as any}
-              contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }}
-              cursor={{ fill: 'rgba(15, 93, 93, 0.05)' }}
-            />
-            <Legend
-              layout="vertical"
-              align="right"
-              verticalAlign="middle"
-              iconType="circle"
-              formatter={(value) => <span className="text-sm text-gray-700">{value}</span>}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute left-[42%] top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-          <div className="text-2xl font-extrabold text-gray-900">{total}</div>
-          <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total</div>
+      <div className="w-full flex flex-col md:flex-row md:items-center gap-4">
+        <div className="relative h-[240px] w-full md:flex-1 min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={normalizedData} dataKey="value" cx="50%" cy="50%" innerRadius={62} outerRadius={96} stroke="none" paddingAngle={2}>
+                {normalizedData.map((entry, idx) => (
+                  <Cell key={`${entry.name}-${idx}`} fill={colors[entry.name] || BRAND.gray} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={tooltipFormatter as any}
+                contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }}
+                cursor={{ fill: 'rgba(15, 93, 93, 0.05)' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+            <div className="text-2xl font-extrabold text-gray-900 tabular-nums">{total}</div>
+            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total</div>
+          </div>
+        </div>
+
+        <div className="md:w-[210px]">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+            {normalizedData.map((d) => {
+              const pct = total > 0 ? Math.round((d.value / total) * 100) : 0
+              return (
+                <div key={d.name} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[d.name] || BRAND.gray }} />
+                    <span className="text-sm text-gray-700 truncate">{d.name}</span>
+                  </div>
+                  <div className="text-xs font-semibold text-gray-500 tabular-nums">{d.value} ({pct}%)</div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </Card>
@@ -255,16 +273,19 @@ export default function AnalyticsDashboardPage() {
   }
 
   const attendanceColors = {
-    'On time': BRAND.indigo,
+    'On time': BRAND.blue,
     Late: '#F43F5E',
-    Absent: BRAND.gray,
+    Absent: '#6B7280',
   }
 
   const taskColors = {
-    'Completed on time': BRAND.indigo,
+    'Completed on time': BRAND.blue,
     'Completed late': BRAND.amber,
     Overdue: '#F43F5E',
   }
+
+  const attendanceTrendEmpty = dashboard.attendance.trend.every(d => (d.onTime ?? 0) === 0 && (d.late ?? 0) === 0)
+  const taskTrendEmpty = dashboard.tasks.trend.every(d => (d.completedOnTime ?? 0) === 0 && (d.completedLate ?? 0) === 0 && (d.overdue ?? 0) === 0)
 
   const leaderboard = dashboard.leaderboard
 
@@ -500,13 +521,18 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Attendance trend</h3>
             <p className="mt-1 text-xs text-gray-500">On-time vs late over time</p>
           </div>
-          <div className="h-[320px] w-full">
+          <div className="h-[320px] w-full -mx-2 relative">
+            {attendanceTrendEmpty && (
+              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
+                No attendance activity in this range
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.attendance.trend}>
+              <AreaChart data={dashboard.attendance.trend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
                 <defs>
                   <linearGradient id="onTimeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor={BRAND.indigo} stopOpacity={0.18} />
-                    <stop offset="95%" stopColor={BRAND.indigo} stopOpacity={0} />
+                    <stop offset="10%" stopColor={BRAND.blue} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={BRAND.blue} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="lateFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="10%" stopColor="#F43F5E" stopOpacity={0.12} />
@@ -514,11 +540,27 @@ export default function AnalyticsDashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(v) => String(v).slice(5)}
+                  tickMargin={12}
+                  height={34}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickMargin={12}
+                  width={44}
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="onTime" stroke={BRAND.indigo} strokeWidth={2} fill="url(#onTimeFill)" />
-                <Area type="monotone" dataKey="late" stroke="#F43F5E" strokeWidth={2} fill="url(#lateFill)" />
+                <Area type="monotone" dataKey="onTime" stroke={BRAND.blue} strokeWidth={2} fill="url(#onTimeFill)" dot={false} />
+                <Area type="monotone" dataKey="late" stroke="#F43F5E" strokeWidth={2} fill="url(#lateFill)" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -529,12 +571,33 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Task delivery trend</h3>
             <p className="mt-1 text-xs text-gray-500">Completed on time vs late vs overdue</p>
           </div>
-          <div className="h-[320px] w-full">
+          <div className="h-[320px] w-full -mx-2 relative">
+            {taskTrendEmpty && (
+              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
+                No task activity in this range
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dashboard.tasks.trend}>
+              <BarChart data={dashboard.tasks.trend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(v) => String(v).slice(5)}
+                  tickMargin={12}
+                  height={34}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickMargin={12}
+                  width={44}
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
                 <Bar dataKey="completedOnTime" stackId="a" fill={BRAND.indigo} radius={[6, 6, 0, 0]} />
                 <Bar dataKey="completedLate" stackId="a" fill="#F59E0B" radius={[6, 6, 0, 0]} />
@@ -551,9 +614,14 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Monthly performance trend</h3>
             <p className="mt-1 text-xs text-gray-500">Overall score trend for the company</p>
           </div>
-          <div className="h-[320px] w-full">
+          <div className="h-[320px] w-full -mx-2 relative">
+            {dashboard.scoreTrend.length < 2 && (
+              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
+                Not enough history yet — showing latest only
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.scoreTrend}>
+              <AreaChart data={dashboard.scoreTrend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
                 <defs>
                   <linearGradient id="overallFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="10%" stopColor={BRAND.purple} stopOpacity={0.18} />
@@ -569,12 +637,34 @@ export default function AnalyticsDashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} domain={[0, 100]} />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickMargin={12}
+                  height={34}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickMargin={12}
+                  width={44}
+                  domain={[0, 100]}
+                />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="overall" stroke={BRAND.purple} strokeWidth={3} fill="url(#overallFill)" />
-                <Area type="monotone" dataKey="attendance" stroke={BRAND.teal} strokeWidth={2} fill="url(#attendanceFill)" />
-                <Area type="monotone" dataKey="tasks" stroke={BRAND.indigo} strokeWidth={2} fill="url(#tasksFill)" />
+                <Area
+                  type="monotone"
+                  dataKey="overall"
+                  stroke={BRAND.purple}
+                  strokeWidth={3}
+                  fill="url(#overallFill)"
+                  dot={{ r: 3, stroke: '#ffffff', strokeWidth: 2 }}
+                  activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
+                />
+                <Area type="monotone" dataKey="attendance" stroke={BRAND.teal} strokeWidth={2} fill="url(#attendanceFill)" dot={false} />
+                <Area type="monotone" dataKey="tasks" stroke={BRAND.indigo} strokeWidth={2} fill="url(#tasksFill)" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

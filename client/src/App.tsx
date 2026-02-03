@@ -45,6 +45,7 @@ import ProfilePage from './pages/dashboard/ProfilePage'
 import AnalyticsDashboardPage from './pages/dashboard/AnalyticsDashboardPage'
 import EmployeePerformancePage from './pages/dashboard/EmployeePerformancePage'
 import AdminPerformancePage from './pages/dashboard/AdminPerformancePage'
+import DepartmentsPage from './pages/dashboard/DepartmentsPage'
 import AuditLogsPage from './pages/dashboard/AuditLogsPage'
 import WalletTransactionsPage from './pages/wallet/WalletTransactionsPage'
 import PayrollPage from './pages/dashboard/PayrollPage'
@@ -140,6 +141,7 @@ function App() {
               }>
                 <Route index element={<DashboardPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
+                <Route path="departments" element={<FeatureRoute feature="departments"><DepartmentsPage /></FeatureRoute>} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="attendance" element={<AttendanceOverviewPage />} />
                 <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />

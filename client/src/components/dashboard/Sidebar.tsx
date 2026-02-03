@@ -256,6 +256,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/attendance/multiple-clockin',
       '/dashboard/attendance/remote-clockin',
       '/dashboard/employees',
+      '/dashboard/departments',
       '/dashboard/settings',
       '/dashboard/settings/billing',
       '/dashboard/leave',

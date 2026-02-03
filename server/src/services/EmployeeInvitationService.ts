@@ -479,6 +479,7 @@ export class EmployeeInvitationService {
     password: string;
     phoneNumber?: string;
     dateOfBirth?: string;
+    departmentId?: string;
     biometric?: {
       type: 'webauthn';
       credentialId: string;
@@ -534,8 +535,8 @@ export class EmployeeInvitationService {
       const userResult = await client.query(
         `INSERT INTO users (
           company_id, email, password_hash, first_name, last_name, 
-          role, position, phone_number, date_of_birth, is_active, email_verified, biometric_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          role, position, phone_number, date_of_birth, department_id, is_active, email_verified, biometric_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING id`,
         [
           invitation.company_id,
@@ -547,6 +548,7 @@ export class EmployeeInvitationService {
           invitation.position,
           data.phoneNumber,
           data.dateOfBirth || null, // Handle empty string by converting to null
+          data.departmentId || null,
           true, // 'is_active' column is boolean, set to true for active
           true,
           (() => {
@@ -571,6 +573,16 @@ export class EmployeeInvitationService {
       );
 
       const userId = userResult.rows[0].id;
+
+      // 4.5 Add to department_members if department selected
+      if (data.departmentId) {
+          await client.query(
+            `INSERT INTO department_members (company_id, department_id, user_id)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (department_id, user_id) DO NOTHING`,
+            [invitation.company_id, data.departmentId, userId]
+          );
+      }
 
       // 5. Update invitation status
       await client.query(

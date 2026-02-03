@@ -6,11 +6,12 @@ import AnalyticsUpgradePrompt from '@/components/dashboard/AnalyticsUpgradePromp
 import SolidCircleChart from '@/components/analytics/SolidCircleChart';
 import { useToast } from '@/contexts/ToastContext';
 import { 
-  Award, 
   CheckCircle2, 
   TrendingUp,
   Target,
-  Clock
+  Clock,
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import {
@@ -120,15 +121,28 @@ export default function EmployeePerformancePage() {
     );
   }
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'Diamond': return 'text-white bg-gradient-to-r from-violet-600 to-fuchsia-500 border-white/10';
-      case 'Gold': return 'text-slate-900 bg-gradient-to-r from-amber-400 to-yellow-500 border-amber-200';
-      case 'Silver': return 'text-slate-800 bg-gradient-to-r from-slate-200 to-gray-300 border-gray-200';
-      case 'Bronze': return 'text-white bg-gradient-to-r from-orange-400 to-rose-400 border-white/10';
-      default: return 'text-gray-700 bg-gradient-to-r from-gray-100 to-gray-50 border-gray-200';
-    }
-  };
+  const tierRing = (() => {
+    if (stats.tier === 'Diamond') return { start: '#A855F7', end: '#EC4899' };
+    if (stats.tier === 'Gold') return { start: '#FFD700', end: '#F59E0B' };
+    if (stats.tier === 'Silver') return { start: '#CBD5E1', end: '#94A3B8' };
+    return { start: '#FB923C', end: '#F97316' };
+  })();
+
+  const tierBadge = (() => {
+    if (stats.tier === 'Gold') return 'bg-gradient-to-r from-[#FFD700] to-[#F59E0B] text-[#0F1215] border-white/10 shadow-[0_10px_30px_rgba(245,158,11,0.25)]';
+    if (stats.tier === 'Diamond') return 'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white border-white/10 shadow-[0_10px_30px_rgba(168,85,247,0.25)]';
+    if (stats.tier === 'Silver') return 'bg-gradient-to-r from-slate-200 to-gray-300 text-slate-900 border-white/10 shadow-[0_10px_30px_rgba(148,163,184,0.18)]';
+    return 'bg-gradient-to-r from-orange-400 to-rose-400 text-white border-white/10 shadow-[0_10px_30px_rgba(244,63,94,0.18)]';
+  })();
+
+  const motivation = (() => {
+    const rank = Number(stats.rank) || 0;
+    const total = Number(stats.totalEmployees) || 0;
+    if (rank === 1) return { title: `${stats.tier} Tier Achieved`, subtitle: `You're #1 of ${total} — Lead with Excellence` };
+    if (rank > 0 && rank <= 3) return { title: `${stats.tier} Tier Achieved`, subtitle: `Top ${rank} of ${total} — Elite Performer` };
+    if (rank > 0 && rank <= 10) return { title: `${stats.tier} Tier Unlocked`, subtitle: `Top ${rank} of ${total} — Keep pushing for the podium` };
+    return { title: `${stats.tier} Tier`, subtitle: `Rank #${rank} of ${total} — Consistency builds champions` };
+  })();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 p-4 md:p-8 space-y-8">
@@ -140,30 +154,32 @@ export default function EmployeePerformancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Score & Tier */}
         <div className="lg:col-span-1 space-y-8">
-          <Card className="p-8 flex flex-col items-center text-center relative overflow-hidden">
-             <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-teal-200/35 blur-3xl" />
-             <div className="absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl" />
-             <div className={`absolute top-0 left-0 w-full h-2 ${
-                stats.tier === 'Diamond' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-500' : 
-                stats.tier === 'Gold' ? 'bg-yellow-400' : 
-                stats.tier === 'Silver' ? 'bg-gray-400' : 
-                'bg-orange-400'
-             }`} />
-             
-             <div className="mb-6">
-               <SolidCircleChart score={stats.score} size={220} label="Overall Score" />
-             </div>
+          <Card className="p-8 relative overflow-hidden bg-[#0F1215] border border-white/10 text-white shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/40" />
+            <div className="absolute -right-32 -top-32 h-72 w-72 rounded-full blur-3xl opacity-70 motion-safe:animate-[pulse_4s_ease-in-out_infinite]" style={{ background: `radial-gradient(circle at 30% 30%, ${tierRing.start}55, transparent 60%)` }} />
+            <div className="absolute -left-32 -bottom-32 h-72 w-72 rounded-full blur-3xl opacity-70" style={{ background: `radial-gradient(circle at 70% 70%, ${tierRing.end}55, transparent 60%)` }} />
+            <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="relative flex flex-col items-center text-center">
+              <div className="mb-6">
+                <SolidCircleChart score={stats.score} size={220} label="Overall Score" theme="dark" accent={tierRing} trackColor="#4B5563" />
+              </div>
 
-             <div className={`inline-flex items-center px-4 py-2 rounded-xl border font-extrabold text-lg uppercase tracking-wide mb-4 shadow-sm ${getTierColor(stats.tier)}`}>
-               <Award className="w-5 h-5 mr-2" />
-               {stats.tier} Tier
-             </div>
-             
-             <p className="text-sm text-gray-500">
-               Rank <span className="font-semibold text-gray-900">#{stats.rank}</span> out of{' '}
-               <span className="font-semibold text-gray-900">{stats.totalEmployees}</span>.
-               <br />Keep up the consistency!
-             </p>
+              <div className={`inline-flex items-center gap-2 px-5 py-2 rounded-2xl border font-extrabold uppercase tracking-widest ${tierBadge}`}>
+                <Crown className="w-5 h-5" />
+                <span className="text-sm">{stats.tier} Tier</span>
+              </div>
+
+              <div className="mt-5">
+                <div className="flex items-center justify-center gap-2 text-base font-semibold text-white">
+                  <Sparkles className="h-4 w-4 text-[#FBBF24]" />
+                  {motivation.title}
+                </div>
+                <div className="mt-1 text-sm text-white/70">{motivation.subtitle}</div>
+                <div className="mt-3 text-xs text-white/55">
+                  Rank <span className="font-semibold text-white">#{stats.rank}</span> of <span className="font-semibold text-white">{stats.totalEmployees}</span>
+                </div>
+              </div>
+            </div>
           </Card>
 
           <Card className="p-6">
@@ -244,25 +260,30 @@ export default function EmployeePerformancePage() {
                  Performance Trend (This Week)
                </h3>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-[180px,1fr] gap-6 items-stretch">
-               <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-violet-50 p-4">
+             <div className="flex flex-col md:flex-row md:items-stretch gap-4">
+               <div className="md:w-[150px] shrink-0 rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-violet-50 p-3">
                  <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Today</div>
                  <div className="mt-1 text-4xl font-extrabold text-gray-900 tabular-nums">{trendSummary.today}</div>
                  <div className="mt-1 text-xs text-gray-600">score</div>
-                 <div className="mt-4 grid grid-cols-2 gap-3">
-                   <div className="rounded-xl bg-white/70 border border-white/60 p-3">
+                 <div className="mt-4 grid grid-cols-2 gap-2">
+                   <div className="rounded-xl bg-white/70 border border-white/60 p-2">
                      <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Average</div>
                      <div className="mt-1 text-lg font-extrabold text-gray-900 tabular-nums">{trendSummary.avg}</div>
                    </div>
-                   <div className="rounded-xl bg-white/70 border border-white/60 p-3">
+                   <div className="rounded-xl bg-white/70 border border-white/60 p-2">
                      <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Best</div>
                      <div className="mt-1 text-lg font-extrabold text-gray-900 tabular-nums">{trendSummary.best}</div>
                    </div>
                  </div>
                </div>
-               <div className="h-[300px] w-full">
+              <div className="h-[300px] w-full md:flex-1 -mx-2 md:mx-0 relative">
+                {trendData.length < 2 && (
+                  <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
+                    Not enough history yet — showing today only
+                  </div>
+                )}
                  <ResponsiveContainer width="100%" height="100%">
-                   <AreaChart data={trendData} margin={{ left: 12, right: 12, top: 6, bottom: 0 }}>
+                   <AreaChart data={trendData} margin={{ left: 28, right: 8, top: 8, bottom: 32 }}>
                    <defs>
                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                        <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.20}/>
@@ -271,8 +292,22 @@ export default function EmployeePerformancePage() {
                      </linearGradient>
                    </defs>
                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} domain={[0, 100]} width={30} />
+                   <XAxis
+                     dataKey="day"
+                     axisLine={false}
+                     tickLine={false}
+                     tick={{fill: '#94a3b8', fontSize: 12}}
+                     tickMargin={16}
+                     height={40}
+                   />
+                   <YAxis
+                     axisLine={false}
+                     tickLine={false}
+                     tick={{fill: '#94a3b8', fontSize: 12}}
+                     tickMargin={12}
+                     domain={[0, 100]}
+                     width={44}
+                   />
                    <Tooltip 
                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                      cursor={{ stroke: '#e5e7eb', strokeWidth: 1 }}
@@ -284,6 +319,7 @@ export default function EmployeePerformancePage() {
                      strokeWidth={3}
                      fillOpacity={1} 
                      fill="url(#colorScore)" 
+                     dot={{ r: 4, stroke: '#ffffff', strokeWidth: 2 }}
                      activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
                    />
                    </AreaChart>

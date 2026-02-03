@@ -156,6 +156,13 @@ export class AttendanceService {
         }
 
         // Add additional locations if allowed
+        // NOTE: "Multi-Location" flag now refers to "Multiple Clock-ins".
+        // However, if you want to keep the feature that they can ALSO clock in from other locations, keep this.
+        // Based on user input, "Multiple Clock-in" is the primary feature.
+        // We will assume "allow_multi_location_clockin" enables BOTH features for now, or just rename the concept in UI.
+        // The user said: "the whole idea behind multiple clocking is that when enabled an employee of a company can clock in multiple times in a day"
+        // It implies the flag name in DB 'allow_multi_location_clockin' is a bit of a misnomer or overloaded.
+        // We will treat it as "Premium/Advanced Attendance Access" which includes multi-location AND multi-clockin.
         if (allowMultiLocation) {
           const extraLocQuery = `
             SELECT name, latitude, longitude, geofence_radius_meters 

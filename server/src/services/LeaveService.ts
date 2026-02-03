@@ -217,14 +217,18 @@ export class LeaveService {
     try {
       await client.query('BEGIN');
 
+      // Auto-assign department_id from user profile
+      const userDeptRes = await client.query('SELECT department_id FROM users WHERE id = $1', [employeeId]);
+      const departmentId = userDeptRes.rows[0]?.department_id;
+
       // Create Request
       const insertRes = await client.query(
         `INSERT INTO leave_requests (
-          company_id, employee_id, leave_type_id, start_date, end_date,
+          company_id, employee_id, department_id, leave_type_id, start_date, end_date,
           half_day_start, half_day_end, days_requested, reason, attachments, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
         RETURNING *`,
-        [companyId, employeeId, leave_type_id, start_date, end_date, half_day_start, half_day_end, days_requested, reason, JSON.stringify(attachments || [])]
+        [companyId, employeeId, departmentId, leave_type_id, start_date, end_date, half_day_start, half_day_end, days_requested, reason, JSON.stringify(attachments || [])]
       );
 
       // Update Balance (Pending)
@@ -254,6 +258,26 @@ export class LeaveService {
         });
       } catch (err) {
         logger.error({ err, employeeId }, 'Failed to log leave request audit');
+      }
+
+      // Notify managers/admins
+      try {
+        const userRes = await this.db.query('SELECT first_name, last_name FROM users WHERE id = $1', [employeeId]);
+        const requesterName = `${userRes.rows[0]?.first_name || ''} ${userRes.rows[0]?.last_name || ''}`.trim();
+        const typeRes = await this.db.query('SELECT name FROM leave_types WHERE id = $1', [leave_type_id]);
+        const leaveTypeName = typeRes.rows[0]?.name || 'Leave';
+        await notificationService.notifyLeaveRequestCreated({
+          companyId,
+          requesterId: employeeId,
+          requesterName,
+          leaveType: leaveTypeName,
+          startDate: String(start_date),
+          endDate: String(end_date),
+          days: days_requested,
+          reason: reason || ''
+        });
+      } catch (err) {
+        logger.error({ err, employeeId }, 'Failed to send leave request notifications');
       }
 
       return insertRes.rows[0];
@@ -319,6 +343,21 @@ export class LeaveService {
       if (approverRole === 'manager' || approverRole === 'department_head') {
         if (['manager', 'department_head', 'admin', 'owner'].includes(requesterRole)) {
            throw new Error('Managers cannot review leave requests for this role');
+        }
+
+        // Check department match
+        const approverDeptRes = await client.query('SELECT department_id FROM users WHERE id = $1', [approverId]);
+        const approverDept = approverDeptRes.rows[0]?.department_id;
+        
+        // Use request.department_id if available (from new column) or user's dept
+        let requestDept = request.department_id;
+        if (!requestDept) {
+            const requesterDeptRes = await client.query('SELECT department_id FROM users WHERE id = $1', [request.employee_id]);
+            requestDept = requesterDeptRes.rows[0]?.department_id;
+        }
+
+        if (!approverDept || !requestDept || approverDept !== requestDept) {
+             throw new Error('Managers can only review leave requests within their department');
         }
       }
       

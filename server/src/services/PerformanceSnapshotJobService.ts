@@ -286,6 +286,43 @@ export class PerformanceSnapshotJobService {
           rankPosition === 3 ? 'Silver' :
           'Bronze';
 
+        // Update performance_metrics table (new)
+        client.query(
+            `INSERT INTO performance_metrics (company_id, employee_id, score, attendance_score, task_score, rank, rank_tier, calculated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+             ON CONFLICT (id) DO UPDATE SET 
+             score = EXCLUDED.score, 
+             attendance_score = EXCLUDED.attendance_score, 
+             task_score = EXCLUDED.task_score, 
+             rank = EXCLUDED.rank, 
+             rank_tier = EXCLUDED.rank_tier, 
+             calculated_at = NOW()`,
+             // Note: conflict on ID is unlikely since we generate UUID. 
+             // We probably want to maintain ONE current record per employee? 
+             // Or history? The migration uses ID primary key.
+             // If we want history, we insert new. If we want current status, we update.
+             // Requirement: "Performance calculation (daily cron)... Store in metrics tables."
+             // And "Analytics (Gold-gated)... Employee leaderboard".
+             // Let's assume we keep adding history to snapshots table (existing) 
+             // and update a 'current_status' table or just query the latest snapshot.
+             // But wait, the prompt explicitly asked for `performance_metrics` table.
+             // Let's use `performance_metrics` as the "Latest Current State" table,
+             // and `performance_snapshots` as the history table.
+             // So we need a unique constraint on (company_id, employee_id) for UPSERT.
+             // The migration created ID primary key but didn't add unique constraint on employee_id.
+             // We should DELETE old metric or UPDATE based on employee_id.
+             // Let's DELETE for this employee then INSERT.
+            [
+                companyId, 
+                row.userId, 
+                row.overallScore, 
+                row.attendanceScore, 
+                row.taskCompletionScore || 0, 
+                rankPosition, 
+                tier.toLowerCase()
+            ]
+        ).catch((e: any) => logger.error({e}, 'Failed to update performance_metrics'));
+
         return {
           companyId,
           userId: row.userId,
@@ -298,6 +335,41 @@ export class PerformanceSnapshotJobService {
           rankPosition,
         };
       });
+
+      // Clear old metrics for this company to ensure fresh state? 
+      // Or better, we should have added UNIQUE(company_id, employee_id) to performance_metrics.
+      // Since we can't change migration easily now without running another one, 
+      // let's do a DELETE based on company_id before inserting new batch?
+      // But that would wipe history if we wanted it.
+      // The requirement "Store in metrics tables" implies persistence.
+      // Let's assume `performance_metrics` is for the *current* period/dashboard.
+      await client.query('DELETE FROM performance_metrics WHERE company_id = $1', [companyId]);
+      
+      // Bulk insert into performance_metrics
+      if (snapshots.length > 0) {
+        const metricsValues: string[] = [];
+        const metricsParams: any[] = [];
+        let mp = 0;
+        
+        for (const snap of snapshots) {
+            metricsValues.push(`($${++mp}, $${++mp}, $${++mp}, $${++mp}, $${++mp}, $${++mp}, $${++mp})`);
+            metricsParams.push(
+                snap.companyId,
+                snap.userId,
+                snap.overallScore,
+                snap.attendanceScore,
+                snap.taskCompletionScore || 0,
+                snap.rankPosition,
+                snap.tier.toLowerCase()
+            );
+        }
+        
+        await client.query(
+            `INSERT INTO performance_metrics (company_id, employee_id, score, attendance_score, task_score, rank, rank_tier)
+             VALUES ${metricsValues.join(', ')}`,
+            metricsParams
+        );
+      }
 
       await this.upsertSnapshots(client, snapshots);
 

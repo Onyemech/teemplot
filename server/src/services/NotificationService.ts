@@ -538,6 +538,89 @@ export class NotificationService {
     }
   }
 
+  async notifyTaskAssigned(data: {
+    userId: string;
+    assignerName: string;
+    taskTitle: string;
+    dueDate: Date;
+    taskId: string;
+  }): Promise<void> {
+    try {
+      const userRes = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [data.userId]);
+      if (userRes.rows.length === 0) return;
+      const user = userRes.rows[0];
+      
+      const formattedDate = new Date(data.dueDate).toLocaleString();
+
+      // Push
+      await this.sendPushNotification({
+        userId: data.userId,
+        title: 'New Task Assigned',
+        body: `${data.assignerName} assigned you: "${data.taskTitle}"`,
+        data: {
+          type: 'task_assigned',
+          taskId: data.taskId,
+          url: '/dashboard/tasks'
+        }
+      });
+
+      // Email
+      await this.sendEmail({
+        to: user.email,
+        subject: `New Task: ${data.taskTitle}`,
+        html: `
+          <h3>New Task Assigned</h3>
+          <p>Hi ${user.first_name},</p>
+          <p><strong>${data.assignerName}</strong> has assigned you a new task.</p>
+          <p><strong>Task:</strong> ${data.taskTitle}</p>
+          <p><strong>Due:</strong> ${formattedDate}</p>
+          <p><a href="${process.env.FRONTEND_URL}/dashboard/tasks">View Task</a></p>
+        `
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to send task assignment notification');
+    }
+  }
+
+  async notifyTaskCompleted(data: {
+    assignerId: string;
+    assigneeName: string;
+    taskTitle: string;
+    taskId: string;
+  }): Promise<void> {
+    try {
+       const userRes = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [data.assignerId]);
+       if (userRes.rows.length === 0) return;
+       const assigner = userRes.rows[0];
+
+       // Push
+       await this.sendPushNotification({
+         userId: data.assignerId,
+         title: 'Task Completed ✅',
+         body: `${data.assigneeName} completed "${data.taskTitle}"`,
+         data: {
+           type: 'task_completed',
+           taskId: data.taskId,
+           url: '/dashboard/tasks'
+         }
+       });
+
+       // Email
+       await this.sendEmail({
+         to: assigner.email,
+         subject: `Task Completed: ${data.taskTitle}`,
+         html: `
+           <h3>Task Completed</h3>
+           <p>Hi ${assigner.first_name},</p>
+           <p><strong>${data.assigneeName}</strong> has completed the task: <strong>${data.taskTitle}</strong>.</p>
+           <p><a href="${process.env.FRONTEND_URL}/dashboard/tasks">View Task</a></p>
+         `
+       });
+    } catch (error) {
+      logger.error({ error }, 'Failed to send task completion notification');
+    }
+  }
+
   /**
    * Send task due notification
    */

@@ -67,9 +67,20 @@ export function useAuth() {
   const canModifySubscription = isOwner
   const canDeleteCompany = isOwner
 
+  const logout = async () => {
+    try {
+      const { logout } = await import('@/utils/auth')
+      await logout()
+      setUser(null)
+    } catch (error: any) {
+      console.error('Failed to logout:', error)
+    }
+  }
+
   return {
     user,
     loading,
+    logout,
     isOwner,
     isAdmin,
     isDepartmentHead,

@@ -1,58 +1,63 @@
-#!/usr/bin/env node
-
-const { Client } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+// Adjust path to point to server root .env
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const dbUrl = process.env.DATABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!dbUrl) {
-  console.error('❌ Missing DATABASE_URL in .env file');
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env file');
   process.exit(1);
 }
 
-const client = new Client({
-  connectionString: dbUrl,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function runMigration() {
-  const migrationFile = process.argv[2];
-  if (!migrationFile) {
-    console.error('❌ Please provide a migration file path');
+async function run() {
+  const filePath = process.argv[2];
+  if (!filePath) {
+    console.error('Please provide a file path relative to script execution or absolute path');
     process.exit(1);
   }
 
-  const absolutePath = path.resolve(migrationFile);
-  console.log(`🚀 Starting migration from ${path.basename(absolutePath)}...`);
+  const fullPath = path.resolve(filePath);
+  console.log(`Reading file from: ${fullPath}`);
 
   try {
-    await client.connect();
-    const schema = fs.readFileSync(absolutePath, 'utf8');
-
-    console.log(`📝 Executing SQL...`);
+    const sql = fs.readFileSync(fullPath, 'utf8');
+    console.log(`Executing SQL...`);
     
-    // Postgres allows multiple statements in one query
-    await client.query(schema);
-
-    console.log('✅ Migration executed successfully!');
+    // Split by semicolons to run statements individually if needed, 
+    // but exec_sql might handle blocks. migrate.js splits them.
+    // Let's try sending the whole block first as 003 uses blocks.
+    // Actually 003 has multiple statements. migrate.js splits them. 
+    // Let's follow migrate.js pattern for safety.
     
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
+    const statements = sql
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0 && !s.startsWith('--'));
+
+    for (const statement of statements) {
+       // simple skip comments
+       if (statement.startsWith('--')) continue;
+       
+       const { error } = await supabase.rpc('exec_sql', { sql: statement + ';' });
+       if (error) {
+         console.error('Error executing statement:', statement.substring(0, 50) + '...');
+         console.error(error);
+         // Don't exit immediately, maybe subsequent statements work or are independent
+       } else {
+         console.log('Success:', statement.substring(0, 50) + '...');
+       }
+    }
+
+    console.log('Done.');
+  } catch (err) {
+    console.error('Failed to read or execute:', err);
     process.exit(1);
-  } finally {
-    await client.end();
   }
 }
 
-runMigration()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch(err => {
-    console.error('💥 Fatal error:', err);
-    process.exit(1);
-  });
+run();

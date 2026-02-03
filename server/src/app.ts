@@ -266,7 +266,9 @@ export async function buildApp() {
   const auditRoutes = await import('./routes/audit.routes');
   await app.register(auditRoutes.default, { prefix: `${apiPrefix}/audit` });
 
-
+  // Import and register departments routes
+  const departmentsRoutes = await import('./routes/departments.routes');
+  await app.register(departmentsRoutes.default, { prefix: `${apiPrefix}/departments` });
 
   // Initialize auto attendance service
   if (process.env.NODE_ENV === 'production') {
