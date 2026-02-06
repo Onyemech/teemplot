@@ -45,39 +45,17 @@ export function requireFeature(feature: Feature) {
             subscription_status: 'expired',
             updated_at: new Date().toISOString()
           }, { id: company.id });
-
-          return reply.code(403).send({
-            success: false,
-            message: 'Your trial has expired. Please upgrade to continue using this feature.',
-            code: 'TRIAL_EXPIRED'
-          });
+          
+          // Refresh company status in memory for this request
+          company.subscription_status = 'expired';
         }
       }
 
-      if (!['active', 'trial'].includes(company.subscription_status)) {
-        void auditService.logAction({
-          companyId: company.id,
-          userId: user.userId,
-          action: 'feature_access_denied',
-          entityType: 'feature',
-          entityId: feature,
-          metadata: {
-            reason: 'subscription_inactive',
-            subscriptionStatus: company.subscription_status,
-            path: (request as any)?.routerPath || request.url,
-            method: request.method
-          }
-        });
-        return reply.code(403).send({
-          success: false,
-          message: 'Your subscription is not active. Please update your payment method.',
-          code: 'SUBSCRIPTION_INACTIVE'
-        });
-      }
-
       const currentPlan: SubscriptionPlan = determineCompanyPlan(company);
-
-      // Check feature access
+      
+      // 1. Check Feature Availability (Gold vs Silver)
+      // This MUST happen regardless of subscription status.
+      // If a Silver user tries to access a Gold feature, they should be blocked even if expired.
       const enabledFeatures = getEnabledFeaturesForPlan(currentPlan);
       const hasAccess = enabledFeatures.includes(feature);
 
@@ -102,20 +80,44 @@ export function requireFeature(feature: Feature) {
         });
       }
 
-      // Feature access granted
-      logger.info({ companyId: company.id, feature, plan: currentPlan }, 'Feature access granted');
-      void auditService.logAction({
-        companyId: company.id,
-        userId: user.userId,
-        action: 'feature_access_granted',
-        entityType: 'feature',
-        entityId: feature,
-        metadata: {
-          plan: currentPlan,
-          path: (request as any)?.routerPath || request.url,
-          method: request.method
+      // 2. Check Subscription Status (Active vs Expired)
+      if (!['active', 'trial'].includes(company.subscription_status)) {
+        // READ-ONLY MODE: Allow GET requests for data access
+        if (request.method === 'GET') {
+          // Log that we are allowing read-only access
+          // logger.info({ companyId: company.id, feature }, 'Read-only access granted for expired subscription');
+          return; // Proceed
         }
-      });
+
+        // Block WRITE operations
+        void auditService.logAction({
+          companyId: company.id,
+          userId: user.userId,
+          action: 'feature_access_denied',
+          entityType: 'feature',
+          entityId: feature,
+          metadata: {
+            reason: 'subscription_inactive',
+            subscriptionStatus: company.subscription_status,
+            path: (request as any)?.routerPath || request.url,
+            method: request.method
+          }
+        });
+        
+        const message = company.subscription_status === 'expired' 
+          ? 'Your subscription has expired. You can view your data, but cannot perform actions. Please renew to restore full access.'
+          : 'Your subscription is not active. Please update your payment method.';
+
+        return reply.code(403).send({
+          success: false,
+          message,
+          code: 'SUBSCRIPTION_INACTIVE',
+          isReadOnly: true
+        });
+      }
+
+      // Feature access granted (Active Subscription) - do not spam audit logs on each request
+      logger.info({ companyId: company.id, feature, plan: currentPlan }, 'Feature access granted');
     } catch (error: any) {
       logger.error({ err: error }, 'Feature access check failed');
       return reply.code(500).send({

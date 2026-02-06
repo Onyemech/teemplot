@@ -55,16 +55,18 @@ type TooltipValue = number | string | Array<number | string>
 type TooltipName = number | string
 
 const BRAND = {
-  teal: '#0F5D5D',
-  tealDark: '#0B4A4A',
-  gray: '#9CA3AF',
-  grayLight: '#E5E7EB',
-  red: '#EF4444',
-  amber: '#F59E0B',
-  slate: '#334155',
-  blue: '#3B82F6',
-  indigo: '#4F46E5',
-  purple: '#7C3AED',
+  teal: '#10B981', // Emerald 500
+  tealDark: '#047857', // Emerald 700
+  gray: '#94A3B8', // Slate 400
+  grayLight: '#F1F5F9', // Slate 100
+  red: '#F43F5E', // Rose 500
+  amber: '#F59E0B', // Amber 500
+  slate: '#334155', // Slate 700
+  blue: '#3B82F6', // Blue 500
+  indigo: '#6366F1', // Indigo 500
+  purple: '#8B5CF6', // Violet 500
+  pink: '#EC4899', // Pink 500
+  cyan: '#06B6D4', // Cyan 500
 }
 
 function formatIsoDate(value: string | null | undefined): string {
@@ -122,22 +124,37 @@ function DistributionPie({
         <div className="relative h-[240px] w-full md:flex-1 min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={normalizedData} dataKey="value" cx="50%" cy="50%" innerRadius={62} outerRadius={96} stroke="none" paddingAngle={2}>
+              <Pie
+                data={normalizedData}
+                dataKey="value"
+                cx="50%"
+                cy="50%"
+                innerRadius={65}
+                outerRadius={85}
+                stroke="none"
+                paddingAngle={2}
+                startAngle={90}
+                endAngle={-270}
+              >
                 {normalizedData.map((entry, idx) => (
                   <Cell key={`${entry.name}-${idx}`} fill={colors[entry.name] || BRAND.gray} />
                 ))}
               </Pie>
               <Tooltip
                 formatter={tooltipFormatter as any}
-                contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }}
-                cursor={{ fill: 'rgba(15, 93, 93, 0.05)' }}
+                contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
               />
+              <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                <tspan x="50%" dy="-0.5em" className="fill-gray-900 text-3xl font-extrabold tabular-nums" style={{ fontSize: '28px', fontWeight: 800 }}>
+                  {total}
+                </tspan>
+                <tspan x="50%" dy="1.5em" className="fill-gray-500 text-[11px] font-bold uppercase tracking-widest" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
+                  TOTAL
+                </tspan>
+              </text>
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-            <div className="text-2xl font-extrabold text-gray-900 tabular-nums">{total}</div>
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total</div>
-          </div>
         </div>
 
         <div className="md:w-[210px]">
@@ -273,15 +290,15 @@ export default function AnalyticsDashboardPage() {
   }
 
   const attendanceColors = {
-    'On time': BRAND.blue,
-    Late: '#F43F5E',
-    Absent: '#6B7280',
+    'On time': BRAND.teal,
+    Late: BRAND.amber,
+    Absent: BRAND.red,
   }
 
   const taskColors = {
-    'Completed on time': BRAND.blue,
-    'Completed late': BRAND.amber,
-    Overdue: '#F43F5E',
+    'Completed on time': BRAND.indigo,
+    'Completed late': BRAND.cyan,
+    Overdue: BRAND.pink,
   }
 
   const attendanceTrendEmpty = dashboard.attendance.trend.every(d => (d.onTime ?? 0) === 0 && (d.late ?? 0) === 0)
@@ -528,15 +545,15 @@ export default function AnalyticsDashboardPage() {
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.attendance.trend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
+              <AreaChart data={dashboard.attendance.trend} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="onTimeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor={BRAND.blue} stopOpacity={0.18} />
-                    <stop offset="95%" stopColor={BRAND.blue} stopOpacity={0} />
+                    <stop offset="10%" stopColor={BRAND.teal} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={BRAND.teal} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="lateFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="10%" stopColor="#F43F5E" stopOpacity={0.12} />
-                    <stop offset="95%" stopColor="#F43F5E" stopOpacity={0} />
+                    <stop offset="10%" stopColor={BRAND.amber} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={BRAND.amber} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -544,23 +561,25 @@ export default function AnalyticsDashboardPage() {
                   dataKey="date"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
                   tickFormatter={(v) => String(v).slice(5)}
                   tickMargin={12}
                   height={34}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickMargin={12}
-                  width={44}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tickMargin={8}
+                  width={30}
                   allowDecimals={false}
-                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                  domain={[0, 'auto']}
+                  interval="preserveStartEnd"
                 />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Area type="monotone" dataKey="onTime" stroke={BRAND.blue} strokeWidth={2} fill="url(#onTimeFill)" dot={false} />
-                <Area type="monotone" dataKey="late" stroke="#F43F5E" strokeWidth={2} fill="url(#lateFill)" dot={false} />
+                <Area type="monotone" dataKey="onTime" stroke={BRAND.teal} strokeWidth={2.5} fill="url(#onTimeFill)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                <Area type="monotone" dataKey="late" stroke={BRAND.amber} strokeWidth={2.5} fill="url(#lateFill)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -644,14 +663,16 @@ export default function AnalyticsDashboardPage() {
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
                   tickMargin={12}
                   height={34}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickMargin={12}
-                  width={44}
+                  tickMargin={8}
+                  width={30}
                   domain={[0, 100]}
+                  interval="preserveStartEnd"
                 />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
                 <Area

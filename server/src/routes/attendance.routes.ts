@@ -3,6 +3,7 @@ import { enhancedAttendanceService } from '../services/EnhancedAttendanceService
 import { userService } from '../services/UserService';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
+import { requireFeature } from '../middleware/subscription.middleware';
 
 export default async function attendanceRoutes(fastify: FastifyInstance) {
   // Admin: Get company attendance (filtered list)
@@ -65,7 +66,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Export attendance (CSV)
   fastify.get('/export', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       // Check role
@@ -225,7 +226,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Check out
   fastify.post('/check-out', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       const { attendanceId, location, departureReason, biometricsProof } = request.body as {
@@ -277,7 +278,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Start Break
   fastify.post('/break/start', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       const attendanceRecord = await enhancedAttendanceService.startBreak(
@@ -325,7 +326,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Get attendance status (matches frontend expectation)
   fastify.get('/status', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       const attendance = await enhancedAttendanceService.getCurrentAttendance(
@@ -420,7 +421,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Get attendance history
   fastify.get('/history', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       const { startDate, endDate, limit = 30 } = request.query as {
@@ -468,7 +469,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Get company attendance for date
   fastify.get('/company/:date?', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       // Check role
@@ -574,7 +575,7 @@ export default async function attendanceRoutes(fastify: FastifyInstance) {
 
   // Admin: Get late arrivals
   fastify.get('/late-arrivals', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, requireFeature('attendance')],
   }, async (request, reply) => {
     try {
       // Check role

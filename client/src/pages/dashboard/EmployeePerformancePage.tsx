@@ -299,6 +299,7 @@ export default function EmployeePerformancePage() {
                      tick={{fill: '#94a3b8', fontSize: 12}}
                      tickMargin={16}
                      height={40}
+                     interval="preserveStartEnd"
                    />
                    <YAxis
                      axisLine={false}
@@ -306,7 +307,8 @@ export default function EmployeePerformancePage() {
                      tick={{fill: '#94a3b8', fontSize: 12}}
                      tickMargin={12}
                      domain={[0, 100]}
-                     width={44}
+                     width={30}
+                     interval="preserveStartEnd"
                    />
                    <Tooltip 
                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
