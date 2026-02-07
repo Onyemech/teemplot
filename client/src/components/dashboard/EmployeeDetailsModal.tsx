@@ -36,6 +36,9 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
   const { success, error: toastError } = useToast();
   const [isFullImageOpen, setIsFullImageOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>(employee?.role || 'employee');
 
   if (!employee) return null;
 
@@ -43,17 +46,45 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
     (currentUser.role === 'owner' || currentUser.role === 'admin') && 
     currentUser.id !== employee.id;
 
+  // Fetch departments when modal opens for managers assignment
+  if (isOpen && departments.length === 0 && canManage) {
+    void (async () => {
+      try {
+        const res = await apiClient.get('/api/departments');
+        const list = (res.data?.data || []).map((d: any) => ({ id: d.id, name: d.name }));
+        setDepartments(list);
+      } catch (e) {
+        setDepartments([]);
+      }
+    })();
+  }
+
   const handleRoleChange = async (newRole: string) => {
     if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
     
     setIsUpdating(true);
     try {
+      // If selecting manager, require department selection
+      if (newRole === 'manager' && !selectedDeptId) {
+        toastError('Please select a department for this manager');
+        setIsUpdating(false);
+        return;
+      }
+
       await apiClient.put(`/api/employees/${employee.id}`, {
         firstName: employee.firstName,
         lastName: employee.lastName,
         role: newRole,
         position: employee.position
       });
+
+      // Assign as department manager if applicable
+      if (newRole === 'manager' && selectedDeptId) {
+        await apiClient.put(`/api/departments/${selectedDeptId}`, {
+          managerId: employee.id
+        });
+      }
+
       success('User role updated successfully');
       onUpdate?.();
       onClose();
@@ -62,6 +93,24 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const onRoleSelect = async (value: string) => {
+    setSelectedRole(value);
+    if (value === 'manager') {
+      if (departments.length === 0) {
+        try {
+          const res = await apiClient.get('/api/departments');
+          const list = (res.data?.data || []).map((d: any) => ({ id: d.id, name: d.name }));
+          setDepartments(list);
+        } catch {
+          setDepartments([]);
+        }
+      }
+      // Do not apply immediately; wait for department selection and user confirmation
+      return;
+    }
+    await handleRoleChange(value);
   };
 
   const handleStatusChange = async () => {
@@ -84,12 +133,15 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
     }
   };
 
+  const isOwnerViewingSelf = currentUser?.role === 'owner' && currentUser?.id === employee.id;
+  const modalTitle = isOwnerViewingSelf ? 'Your Profile' : 'Employee Profile';
+
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Employee Profile" className="max-w-2xl">
+      <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} className="max-w-3xl">
         <div className="relative">
-          {/* Header Background - Reduced height */}
-          <div className="h-20 bg-gradient-to-r from-primary/10 to-primary/5 -mx-6 -mt-6 mb-10"></div>
+          {/* Header Background */}
+          <div className="h-20 bg-gradient-to-r from-primary/10 to-primary/5 mb-8 rounded-t-xl"></div>
 
           <div className="absolute top-6 left-6">
             <div className="p-1 bg-white rounded-full shadow-md inline-block cursor-pointer group" onClick={() => setIsFullImageOpen(true)}>
@@ -177,11 +229,11 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
                       Access & Security
                     </h3>
                     <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-3">
-                      <div>
+                      <div className="grid grid-cols-1 gap-3">
                         <Select
                           label="Role"
-                          value={employee.role}
-                          onChange={(value) => handleRoleChange(value)}
+                          value={selectedRole}
+                          onChange={(value) => onRoleSelect(value)}
                           disabled={isUpdating}
                           options={[
                             { value: 'employee', label: 'Employee' },
@@ -280,12 +332,37 @@ export default function EmployeeDetailsModal({ isOpen, onClose, employee, onUpda
                     )}
                   </div>
                 </div>
+                
+                {/* Department selection for Manager - placed under History & Personal */}
+                {selectedRole === 'manager' && (
+                  <div>
+                    <div className="bg-white rounded-lg border border-gray-100 p-3">
+                      <Select
+                        label="Department"
+                        value={selectedDeptId || ''}
+                        onChange={async (value) => {
+                          setSelectedDeptId(value);
+                          if (value) {
+                            if (confirm('Assign this user as Manager for the selected department?')) {
+                              await handleRoleChange('manager');
+                            }
+                          }
+                        }}
+                        disabled={isUpdating}
+                        options={[
+                          { value: '', label: 'Select Department' },
+                          ...departments.map(d => ({ value: d.id, label: d.name }))
+                        ]}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
           
-          {/* Footer Action - Compact */}
-          <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+          {/* Footer Action */}
+          <div className="mt-6 pt-2 flex justify-end">
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"

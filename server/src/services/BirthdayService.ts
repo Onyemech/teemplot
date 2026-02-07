@@ -115,7 +115,34 @@ export class BirthdayService {
       }
     }
 
-    // 4. Send Push Notification to ALL company employees
+    // 4. Send aggregated email to ALL company employees (excluding celebrants)
+    try {
+      const allUsersEmailRes = await this.db.query(
+        `SELECT id, email, first_name FROM users WHERE company_id = $1 AND is_active = true AND deleted_at IS NULL`,
+        [companyId]
+      );
+      const celebrantIdSet = new Set(celebrants.map(c => c.id));
+      const celebrantNames = celebrants.map(c => `${c.first_name} ${c.last_name}`).join(', ');
+      const isMultiple = celebrants.length > 1;
+      for (const u of allUsersEmailRes.rows) {
+        if (celebrantIdSet.has(u.id)) continue;
+        try {
+          await emailService.sendEmail({
+            to: u.email,
+            subject: isMultiple
+              ? `Team Birthdays Today 🎂`
+              : `It's ${celebrants[0].first_name}'s Birthday Today! 🎈`,
+            html: this.getCompanyWideEmailTemplate(u.first_name, celebrantNames, companyName, isMultiple)
+          });
+        } catch (err) {
+          logger.error({ err, userId: u.id }, 'Failed to send company-wide birthday email');
+        }
+      }
+    } catch (err) {
+      logger.error({ err, companyId }, 'Failed to prepare company-wide birthday emails');
+    }
+
+    // 5. Send Push Notification to ALL company employees
     // We can group celebrants into one message if multiple
     const celebrantNames = celebrants.map(c => `${c.first_name} ${c.last_name}`).join(', ');
     const isMultiple = celebrants.length > 1;
@@ -215,6 +242,25 @@ export class BirthdayService {
         <div style="text-align: center; padding-top: 20px; border-top: 1px solid #f0f0f0; margin-top: 10px;">
            <a href="${process.env.FRONTEND_URL}/dashboard/employees" style="display: inline-block; background-color: #16a06e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: 500;">View Team</a>
         </div>
+      </div>
+    `;
+  }
+
+  private getCompanyWideEmailTemplate(recipientFirstName: string, celebrantNames: string, companyName: string, isMultiple: boolean): string {
+    const heading = isMultiple ? 'Team Birthdays Today 🎉' : `It's ${celebrantNames}'s Birthday 🎉`;
+    const line = isMultiple
+      ? `Today we celebrate ${celebrantNames}.`
+      : `Today we celebrate ${celebrantNames}.`;
+    return `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 10px; border: 1px solid #e0e0e0;">
+        <h2 style="color: #16a06e; margin-top: 0;">${heading}</h2>
+        <p style="font-size: 16px; color: #333;">Hi <strong>${recipientFirstName}</strong>,</p>
+        <p style="font-size: 16px; color: #333;">${line}</p>
+        <p style="font-size: 14px; color: #666;">Take a moment to send your warm wishes and make their day special.</p>
+        <div style="text-align: center; padding-top: 16px;">
+          <a href="${process.env.FRONTEND_URL}/dashboard/employees" style="display: inline-block; background-color: #16a06e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: 500;">View Team</a>
+        </div>
+        <p style="font-size: 12px; color: #888; margin-top: 16px;">Sent by ${companyName} via Teemplot</p>
       </div>
     `;
   }

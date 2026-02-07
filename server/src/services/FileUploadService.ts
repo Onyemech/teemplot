@@ -135,6 +135,74 @@ class FileUploadService {
   }
 
   /**
+   * Upload video via Integration Service (Cloudflare Wrangler/Worker)
+   */
+  async uploadVideoViaIntegrationService(request: FileUploadRequest): Promise<FileUploadResponse> {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([request.buffer], { type: request.mimeType });
+      formData.append('image', blob, request.filename);
+      formData.append('client', 'teemplot');
+
+      const serviceUrl =
+        process.env.FILE_INTEGRATION_URL ||
+        'https://cf-image-worker.sabimage.workers.dev/upload';
+
+      const response = await axios.post(serviceUrl, formData, {
+        timeout: 300000
+      });
+
+      const data = response.data;
+      const url: string = data.url || data.secure_url || data.location;
+      const publicId: string = data.key || (url ? (url.split('/').pop()?.split('.')[0] || request.hash) : request.hash);
+
+      const result = await query(
+        `INSERT INTO files (
+          hash, public_id, url, secure_url, file_size, mime_type,
+          original_filename, resource_type, format, uploaded_by, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'video', $8, $9, 'uploaded')
+        RETURNING id, hash, public_id, url, secure_url, file_size, mime_type`,
+        [
+          request.hash,
+          publicId,
+          url,
+          url,
+          request.buffer.length,
+          request.mimeType,
+          request.filename,
+          (url && url.includes('.') ? url.split('.').pop() : null),
+          request.uploadedBy
+        ]
+      );
+
+      const file = result.rows[0];
+
+      logger.info({
+        fileId: file.id,
+        hash: request.hash,
+        publicId,
+        size: request.buffer.length
+      }, 'Video uploaded via Integration Service');
+
+      return {
+        success: true,
+        file: {
+          id: file.id,
+          hash: file.hash,
+          public_id: file.public_id,
+          url: file.url,
+          secure_url: file.secure_url,
+          file_size: file.file_size,
+          mime_type: file.mime_type
+        }
+      };
+    } catch (error: any) {
+      logger.error({ err: error?.message || error, filename: request.filename }, 'Integration video upload failed');
+      throw new Error('Failed to upload video via integration service');
+    }
+  }
+
+  /**
    * Check if a file with the given hash already exists
    */
   async checkFileExists(request: FileCheckRequest): Promise<FileCheckResponse> {

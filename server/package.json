@@ -33,6 +33,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@sentry/node": "^8.29.0",
     "@fastify/cookie": "^10.0.1",
     "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^13.0.2",

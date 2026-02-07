@@ -6,8 +6,9 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
-import { Building2, Plus, Users, Trash2, UserPlus, Edit2 } from 'lucide-react'
+import { Building2, Plus, Users, Trash2, UserPlus, Edit2, CheckCircle, AlertCircle } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
+import StatCard from '@/components/dashboard/StatCard'
 
 export default function DepartmentsPage() {
   const toast = useToast()
@@ -117,7 +118,11 @@ export default function DepartmentsPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+    </div>
+  )
 
   // Calculate Overview Stats
   const totalDepts = departments.length
@@ -126,32 +131,40 @@ export default function DepartmentsPage() {
   const deptsWithoutManager = totalDepts - deptsWithManager
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="h-full bg-gray-50 p-3 md:p-6 pb-20 md:pb-6 min-h-screen">
       
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500">Total Departments</p>
-          <p className="text-2xl font-bold text-gray-900">{totalDepts}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500">Total Members</p>
-          <p className="text-2xl font-bold text-gray-900">{totalMembers}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-           <p className="text-sm text-gray-500">Managed</p>
-           <p className="text-2xl font-bold text-green-600">{deptsWithManager}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-           <p className="text-sm text-gray-500">Unassigned</p>
-           <p className="text-2xl font-bold text-orange-600">{deptsWithoutManager}</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <StatCard
+          label="Total Departments"
+          value={totalDepts}
+          icon={Building2}
+          iconColorClass="text-[#0F5D5D]"
+        />
+        <StatCard
+          label="Total Members"
+          value={totalMembers}
+          icon={Users}
+          iconColorClass="text-[#0F5D5D]"
+        />
+        <StatCard
+          label="Managed"
+          value={deptsWithManager}
+          icon={CheckCircle}
+          iconColorClass="text-green-600"
+        />
+        <StatCard
+          label="Unassigned"
+          value={deptsWithoutManager}
+          icon={AlertCircle}
+          iconColorClass="text-orange-600"
+        />
       </div>
 
-      <div className="flex flex-row justify-between items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
-          <p className="text-gray-500">Manage company structure and teams</p>
+          <p className="text-sm text-gray-500">Manage company structure and teams</p>
         </div>
         {canManage && (
           <Button onClick={() => {
@@ -167,17 +180,17 @@ export default function DepartmentsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {departments.map(dept => (
-          <div key={dept.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+          <div key={dept.id} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex justify-between items-start mb-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <Building2 className="w-6 h-6 text-blue-600" />
+              <div className="bg-teal-50 p-3 rounded-lg">
+                <Building2 className="w-6 h-6 text-[#0F5D5D]" />
               </div>
               {canManage && (
                 <div className="flex gap-2">
-                  <button onClick={() => openEdit(dept)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+                  <button onClick={() => openEdit(dept)} className="p-2 hover:bg-gray-50 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleDelete(dept.id)} className="p-2 hover:bg-red-50 rounded-full text-red-500">
+                  <button onClick={() => handleDelete(dept.id)} className="p-2 hover:bg-red-50 rounded-full text-gray-400 hover:text-red-500 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -195,7 +208,7 @@ export default function DepartmentsPage() {
                   <Users className="w-4 h-4" />
                   Members
                 </span>
-                <span className="font-medium bg-gray-100 px-2 py-0.5 rounded-full">{dept.memberCount || 0}</span>
+                <span className="font-medium bg-gray-50 px-2.5 py-0.5 rounded-full text-gray-700">{dept.memberCount || 0}</span>
               </div>
               
               <div className="flex items-center justify-between text-sm">
@@ -203,16 +216,16 @@ export default function DepartmentsPage() {
                 {dept.managerName ? (
                    <div className="flex items-center gap-2">
                      {dept.managerAvatar ? (
-                       <img src={dept.managerAvatar} className="w-5 h-5 rounded-full" />
+                       <img src={dept.managerAvatar} className="w-6 h-6 rounded-full border border-gray-200" />
                      ) : (
-                       <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs">
+                       <div className="w-6 h-6 rounded-full bg-[#0F5D5D] text-white flex items-center justify-center text-xs font-medium">
                          {dept.managerName[0]}
                        </div>
                      )}
-                     <span className="font-medium truncate max-w-[120px]">{dept.managerName}</span>
+                     <span className="font-medium truncate max-w-[120px] text-gray-900">{dept.managerName}</span>
                    </div>
                 ) : (
-                  <span className="text-gray-400 italic">Unassigned</span>
+                  <span className="text-gray-400 italic text-xs">Unassigned</span>
                 )}
               </div>
             </div>
@@ -224,7 +237,7 @@ export default function DepartmentsPage() {
                      setEditingDept(dept)
                      setIsMemberModalOpen(true)
                    }}
-                   className="w-full py-2 text-sm text-primary-600 font-medium hover:bg-primary-50 rounded-lg transition-colors flex items-center justify-center gap-2"
+                   className="w-full py-2.5 text-sm text-[#0F5D5D] font-medium hover:bg-teal-50 rounded-lg transition-colors flex items-center justify-center gap-2"
                  >
                    <UserPlus className="w-4 h-4" />
                    Add Members

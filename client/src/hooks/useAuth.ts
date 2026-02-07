@@ -52,18 +52,18 @@ export function useAuth() {
 
   const isOwner = user?.role === UserRoles.OWNER
   const isAdmin = user?.role === UserRoles.ADMIN
-  const isDepartmentHead = user?.role === UserRoles.DEPARTMENT_HEAD
+  const isManager = user?.role === UserRoles.MANAGER || user?.role === UserRoles.DEPARTMENT_HEAD
   const isEmployee = user?.role === UserRoles.EMPLOYEE
   
   // Backward compatibility alias (deprecated)
   const isStaff = isEmployee
 
   // Role-based permissions
-  const canManageEmployees = isOwner || isAdmin || isDepartmentHead
+  const canManageEmployees = isOwner || isAdmin || isManager
   const canManageOwner = false // No one can manage owner
   const canManageAdmin = isOwner // Only owner can manage admin
   const canManageDepartmentHead = isOwner || isAdmin
-  const canManageStaff = isOwner || isAdmin || isDepartmentHead
+  const canManageStaff = isOwner || isAdmin || isManager
   const canModifySubscription = isOwner
   const canDeleteCompany = isOwner
 
@@ -83,7 +83,7 @@ export function useAuth() {
     logout,
     isOwner,
     isAdmin,
-    isDepartmentHead,
+    isManager,
     isEmployee,
     isStaff,
     canManageEmployees,

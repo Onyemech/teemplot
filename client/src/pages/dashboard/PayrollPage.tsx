@@ -27,34 +27,16 @@ export default function PayrollPage() {
   const fetchPayrollData = async () => {
     setLoading(true)
     try {
-      const response = await apiClient.get('/employees')
-      if (response.data.success) {
-        // Mocking payroll data based on employee list
-        const mappedData = response.data.data.map((emp: any) => ({
-          id: emp.id,
-          name: `${emp.firstName} ${emp.lastName}`,
-          email: emp.email,
-          department: emp.department || 'General',
-          salary: 500000, // Placeholder salary
-          status: 'Pending',
-          lastPaid: '2024-01-25'
-        }))
-        setEmployees(mappedData)
+      const response = await apiClient.get('/api/employees')
+      if (response.data.success && Array.isArray(response.data.data)) {
+        // Until payroll API is implemented, do not synthesize placeholder salaries
+        setEmployees([])
+      } else {
+        setEmployees([])
       }
     } catch (error) {
       console.error('Failed to fetch payroll data:', error)
-      // Fallback mock data
-      setEmployees([
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'john@example.com',
-          department: 'Engineering',
-          salary: 750000,
-          status: 'Paid',
-          lastPaid: new Date().toISOString()
-        }
-      ])
+      setEmployees([])
     } finally {
       setLoading(false)
     }

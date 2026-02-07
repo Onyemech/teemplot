@@ -25,26 +25,27 @@ import EmployeesPage from './pages/dashboard/EmployeesPage'
 import AttendanceOverviewPage from './pages/dashboard/AttendanceOverviewPage'
 import AttendanceSettingsPage from './pages/dashboard/AttendanceSettingsPage'
 import MultipleClockInPage from './pages/dashboard/MultipleClockInPage'
-import RemoteClockinPage from './pages/dashboard/RemoteClockinPage'
-import InboxPage from './pages/mobile/InboxPage'
+import { lazy, Suspense } from 'react'
+const RemoteClockinPage = lazy(() => import('./pages/dashboard/RemoteClockinPage'))
+import InboxPage from './pages/dashboard/InboxPage'
 import SettingsPage from './pages/dashboard/SettingsPage'
-import LeaveDashboardPage from './pages/leave/LeaveDashboardPage'
-import LeaveRequestsPage from './pages/leave/LeaveRequestsPage'
-import LeaveRequestDetailPage from './pages/leave/LeaveRequestDetailPage'
-import LeaveCalendarPage from './pages/leave/LeaveCalendarPage'
-import LeaveSettingsPage from './pages/leave/LeaveSettingsPage'
-import TaskAssignPage from './pages/tasks/TaskAssignPage'
-import TaskCompletePage from './pages/tasks/TaskCompletePage'
-import TaskVerifyPage from './pages/tasks/TaskVerifyPage'
-import TaskStatusPage from './pages/tasks/TaskStatusPage'
-import TaskAssignmentDashboardPage from './pages/tasks/TaskAssignmentDashboardPage'
-import TaskAssignmentDetailPage from './pages/tasks/TaskAssignmentDetailPage'
-import TaskWorkspacePage from './pages/tasks/TaskWorkspacePage'
-import TaskPolicySettingsPage from './pages/tasks/TaskPolicySettingsPage'
+const LeaveDashboardPage = lazy(() => import('./pages/leave/LeaveDashboardPage'))
+const LeaveRequestsPage = lazy(() => import('./pages/leave/LeaveRequestsPage'))
+const LeaveRequestDetailPage = lazy(() => import('./pages/leave/LeaveRequestDetailPage'))
+const LeaveCalendarPage = lazy(() => import('./pages/leave/LeaveCalendarPage'))
+const LeaveSettingsPage = lazy(() => import('./pages/leave/LeaveSettingsPage'))
+const TaskAssignPage = lazy(() => import('./pages/tasks/TaskAssignPage'))
+const TaskCompletePage = lazy(() => import('./pages/tasks/TaskCompletePage'))
+const TaskVerifyPage = lazy(() => import('./pages/tasks/TaskVerifyPage'))
+const TaskStatusPage = lazy(() => import('./pages/tasks/TaskStatusPage'))
+const TaskAssignmentDashboardPage = lazy(() => import('./pages/tasks/TaskAssignmentDashboardPage'))
+const TaskAssignmentDetailPage = lazy(() => import('./pages/tasks/TaskAssignmentDetailPage'))
+const TaskWorkspacePage = lazy(() => import('./pages/tasks/TaskWorkspacePage'))
+const TaskPolicySettingsPage = lazy(() => import('./pages/tasks/TaskPolicySettingsPage'))
 import ProfilePage from './pages/dashboard/ProfilePage'
-import AnalyticsDashboardPage from './pages/dashboard/AnalyticsDashboardPage'
-import EmployeePerformancePage from './pages/dashboard/EmployeePerformancePage'
-import AdminPerformancePage from './pages/dashboard/AdminPerformancePage'
+const AnalyticsDashboardPage = lazy(() => import('./pages/dashboard/AnalyticsDashboardPage'))
+const EmployeePerformancePage = lazy(() => import('./pages/dashboard/EmployeePerformancePage'))
+const AdminPerformancePage = lazy(() => import('./pages/dashboard/AdminPerformancePage'))
 import DepartmentsPage from './pages/dashboard/DepartmentsPage'
 import AuditLogsPage from './pages/dashboard/AuditLogsPage'
 import WalletTransactionsPage from './pages/wallet/WalletTransactionsPage'
@@ -147,26 +148,26 @@ function App() {
                 <Route path="attendance/invites" element={<EmployeesPage initialTab="invitations" />} />
                 <Route path="attendance/setup" element={<AttendanceSettingsPage />} />
                 <Route path="attendance/multiple-clockin" element={<MultipleClockInPage />} />
-                <Route path="attendance/remote-clockin" element={<RemoteClockinPage />} />
+                <Route path="attendance/remote-clockin" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><RemoteClockinPage /></Suspense>} />
                 <Route path="attendance/payroll" element={<PayrollPage />} />
-                <Route path="leave" element={<LeaveDashboardPage />} />
-                <Route path="leave/requests" element={<LeaveRequestsPage />} />
-                <Route path="leave/requests/:id" element={<LeaveRequestDetailPage />} />
-                <Route path="leave/calendar" element={<LeaveCalendarPage />} />
-                <Route path="leave/settings" element={<LeaveSettingsPage />} />
-                <Route path="tasks/assign" element={<FeatureRoute feature="tasks"><TaskAssignPage /></FeatureRoute>} />
-                <Route path="tasks/complete" element={<FeatureRoute feature="tasks"><TaskCompletePage /></FeatureRoute>} />
-                <Route path="tasks/verify" element={<FeatureRoute feature="tasks"><TaskVerifyPage /></FeatureRoute>} />
-                <Route path="tasks/status" element={<FeatureRoute feature="tasks"><TaskStatusPage /></FeatureRoute>} />
-                <Route path="tasks/assignments" element={<FeatureRoute feature="tasks"><TaskAssignmentDashboardPage /></FeatureRoute>} />
-                <Route path="tasks/assignments/:id" element={<FeatureRoute feature="tasks"><TaskAssignmentDetailPage /></FeatureRoute>} />
-                <Route path="tasks/settings" element={<FeatureRoute feature="tasks"><TaskPolicySettingsPage /></FeatureRoute>} />
-                <Route path="tasks" element={<FeatureRoute feature="tasks"><TaskWorkspacePage /></FeatureRoute>} />
-                <Route path="analytics" element={<FeatureRoute feature="analytics"><AnalyticsDashboardPage /></FeatureRoute>} />
+                <Route path="leave" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><LeaveDashboardPage /></Suspense>} />
+                <Route path="leave/requests" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><LeaveRequestsPage /></Suspense>} />
+                <Route path="leave/requests/:id" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><LeaveRequestDetailPage /></Suspense>} />
+                <Route path="leave/calendar" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><LeaveCalendarPage /></Suspense>} />
+                <Route path="leave/settings" element={<Suspense fallback={<div className='p-6'>Loading…</div>}><LeaveSettingsPage /></Suspense>} />
+                <Route path="tasks/assign" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskAssignPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/complete" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskCompletePage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/verify" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskVerifyPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/status" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskStatusPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/assignments" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskAssignmentDashboardPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/assignments/:id" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskAssignmentDetailPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks/settings" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskPolicySettingsPage /></Suspense></FeatureRoute>} />
+                <Route path="tasks" element={<FeatureRoute feature="tasks"><Suspense fallback={<div className='p-6'>Loading…</div>}><TaskWorkspacePage /></Suspense></FeatureRoute>} />
+                <Route path="analytics" element={<FeatureRoute feature="analytics"><Suspense fallback={<div className='p-6'>Loading…</div>}><AnalyticsDashboardPage /></Suspense></FeatureRoute>} />
                 <Route path="performance" element={
                   <FeatureRoute feature="performance">
                     <ProtectedRoute>
-                      <RoleBasedRedirect />
+                      <Suspense fallback={<div className='p-6'>Loading…</div>}><RoleBasedRedirect /></Suspense>
                     </ProtectedRoute>
                   </FeatureRoute>
                 } />

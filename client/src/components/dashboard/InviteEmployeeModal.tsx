@@ -207,10 +207,18 @@ export default function InviteEmployeeModal({
         toast.error(msg);
       } else if (errorData?.code === 'DUPLICATE_EMAIL') {
         const msg = 'This email address is already invited or registered.';
+        
+        // Ensure details is a string or properly handled
+        let detailsMsg = errorData.details;
+        if (typeof detailsMsg === 'object') {
+          // If details is an object, try to extract a message or stringify it safely
+          detailsMsg = detailsMsg.message || JSON.stringify(detailsMsg);
+        }
+
         setInvitationError({
           code: 'DUPLICATE_EMAIL',
           message: msg,
-          details: errorData.details,
+          details: detailsMsg,
           troubleshooting: [
             'Check if the employee is already in your team',
             'Check pending invitations tab',
@@ -465,7 +473,7 @@ export default function InviteEmployeeModal({
                         <Select
                           options={[
                             { value: UserRoles.EMPLOYEE, label: RoleLabels[UserRoles.EMPLOYEE] },
-                            { value: UserRoles.DEPARTMENT_HEAD, label: RoleLabels[UserRoles.DEPARTMENT_HEAD] },
+                            { value: UserRoles.MANAGER, label: RoleLabels[UserRoles.MANAGER] },
                             { value: UserRoles.ADMIN, label: RoleLabels[UserRoles.ADMIN] },
                           ]}
                           value={formData.role}
@@ -475,7 +483,7 @@ export default function InviteEmployeeModal({
                         />
                         <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
                           {formData.role === UserRoles.ADMIN && 'Full system control.'}
-                          {formData.role === UserRoles.DEPARTMENT_HEAD && 'Manage department users.'}
+                          {formData.role === UserRoles.MANAGER && 'Manage department users.'}
                           {formData.role === UserRoles.EMPLOYEE && 'View own tasks only.'}
                         </p>
                       </div>

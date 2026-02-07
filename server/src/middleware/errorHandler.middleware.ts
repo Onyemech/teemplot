@@ -1,5 +1,6 @@
 import { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { logger } from '../utils/logger';
+import { Sentry } from '../utils/sentry';
 import { superAdminNotificationService } from '../services/SuperAdminNotificationService';
 
 /**
@@ -28,6 +29,17 @@ export async function errorHandler(
     code: error.code
   }, 'Unhandled error');
 
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(error, {
+      extra: {
+        url: request.url,
+        method: request.method,
+        ip: request.ip,
+        user: request.user,
+        code: (error as any).code,
+      }
+    });
+  }
   // Notify superadmins for critical errors
   if (error.statusCode && error.statusCode >= 500) {
     superAdminNotificationService.notifyError(error, {
@@ -61,6 +73,11 @@ export function setupUncaughtExceptionHandler(): void {
   process.on('uncaughtException', (error: Error) => {
     logger.error({ error }, 'Uncaught Exception');
 
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureException(error, { extra: { type: 'uncaughtException' } });
+      Sentry.flush(2000).catch(() => {});
+    }
+
     superAdminNotificationService.notifyError(error, {
       type: 'uncaughtException',
       timestamp: new Date().toISOString(),
@@ -83,6 +100,10 @@ export function setupUnhandledRejectionHandler(): void {
     logger.error({ reason, promise }, 'Unhandled Rejection');
 
     const error = reason instanceof Error ? reason : new Error(String(reason));
+
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureException(error, { extra: { type: 'unhandledRejection' } });
+    }
 
     superAdminNotificationService.notifyError(error, {
       type: 'unhandledRejection',

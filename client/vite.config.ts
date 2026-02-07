@@ -98,10 +98,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3001,
+    strictPort: true,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5000',
+        target: process.env.VITE_API_URL || 'http://localhost:3000',
         changeOrigin: true,
       },
     },
@@ -109,5 +110,20 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-  },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          query: ['@tanstack/react-query'],
+          supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+          pdf: ['jspdf', 'jspdf-autotable'],
+          maps: ['@googlemaps/js-api-loader'],
+          icons: ['lucide-react'],
+          utils: ['axios', 'clsx', 'date-fns', 'zustand']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1200
+  }
 })

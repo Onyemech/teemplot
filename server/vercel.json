@@ -3,7 +3,7 @@
   "name": "teemplot-api",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "destination": "/api/index"
     }
   ],

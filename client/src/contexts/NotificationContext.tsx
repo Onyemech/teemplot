@@ -96,14 +96,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const handleNewNotification = (notification: Notification) => {
-    // Play sound
-    playBeep();
+    // Only beep/toast if the notification is actually new (created in the last minute)
+    // This prevents persistent beeping on refresh if server resends recent notifications
+    const now = new Date();
+    const notificationTime = new Date(notification.created_at);
+    const isRecent = (now.getTime() - notificationTime.getTime()) < 60000; // 1 minute
 
-    // Show toast
-    setActiveToast(notification);
+    if (isRecent) {
+       playBeep();
+       setActiveToast(notification);
+    }
 
     // Update state
-    setNotifications(prev => [notification, ...prev]);
+    setNotifications(prev => {
+       // Avoid duplicates
+       if (prev.some(n => n.id === notification.id)) return prev;
+       return [notification, ...prev];
+    });
     setUnreadCount(prev => prev + 1);
   };
 
@@ -191,7 +200,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     markAsRead(activeToast.id);
 
     // Navigate based on type/data
-    if (activeToast.data?.url) {
+    if (activeToast.type === 'birthday') {
+      const ids = activeToast.data?.celebrantIds as string[] | undefined
+      const url = activeToast.data?.url || '/dashboard/employees'
+      if (ids && ids.length > 0) {
+        const qp = new URLSearchParams({ highlight: ids.join(',') })
+        navigate(`${url}?${qp.toString()}`)
+      } else {
+        navigate(url)
+      }
+    } else if (activeToast.data?.url) {
       navigate(activeToast.data.url);
     } else if (activeToast.type === 'attendance' || activeToast.type === 'early_departure' || activeToast.type === 'geofence_violation') {
       navigate('/dashboard/attendance');

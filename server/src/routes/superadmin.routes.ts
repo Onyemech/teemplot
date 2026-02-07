@@ -26,9 +26,10 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
   // Middleware to check super admin role
   const verifySuperAdmin = async (request: any, reply: any) => {
     await request.jwtVerify();
-    
-    // TODO: Check if user is super admin
-    // For now, just verify JWT
+    const role = request.user?.role;
+    if (role !== 'superadmin' && role !== 'owner') {
+      return reply.code(403).send({ success: false, message: 'Forbidden' });
+    }
   };
 
   // --- Video Management Routes ---
@@ -72,7 +73,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
 
       const user = (request as any).user;
 
-      const uploadResult = await fileUploadService.uploadToCloudinary({
+      const uploadResult = await fileUploadService.uploadVideoViaIntegrationService({
         hash: `${data.filename}-${Date.now()}`,
         buffer,
         filename: data.filename,

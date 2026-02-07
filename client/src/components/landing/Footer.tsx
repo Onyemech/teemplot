@@ -36,7 +36,7 @@ const SOCIAL_LINKS = [
 ]
 
 const CONTACT_INFO = [
-  { icon: Mail, label: 'Email', value: 'teemplot.contact@gmail.com' },
+  { icon: Mail, label: 'Email', value: 'admin@teemplot.com' },
   { icon: Phone, label: 'Phone', value: '+234 815 802 5887' },
   { icon: MapPin, label: 'Location', value: 'Lagos, Nigeria' },
 ]

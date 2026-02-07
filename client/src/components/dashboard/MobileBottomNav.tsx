@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ChevronRight, MoreHorizontal, LogOut, Settings } from 'lucide-react';
+import { Menu, X, ChevronRight, MoreHorizontal, LogOut, Settings, Bell } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { navigationConfig, reportingConfig, NavItemConfig } from './Sidebar';
 import { apiClient } from '@/lib/api';
@@ -12,6 +13,7 @@ export default function MobileBottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, hasRole } = useUser();
+  const { unreadCount } = useNotifications();
   const { hasAccess } = useFeatureAccess();
   const toast = useToast();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -273,6 +275,34 @@ export default function MobileBottomNav() {
                   {/* Quick Actions Section */}
                   <div className="space-y-1">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Quick Actions</h3>
+
+                    {/* Inbox Link (Mobile) */}
+                    <Link
+                      to="/dashboard/inbox"
+                      onClick={handleCloseMore}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-teal-50 rounded-lg text-teal-600 relative">
+                          <Bell className="w-5 h-5" />
+                          {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-medium text-gray-900">Inbox</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         {unreadCount > 0 && (
+                           <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                             {unreadCount} new
+                           </span>
+                         )}
+                         <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </Link>
 
                     {/* Settings Button */}
                     <Link

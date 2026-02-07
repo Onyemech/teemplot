@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import cron from 'node-cron';
+import { notificationService } from './NotificationService';
 
 interface CompanyWorkConfig {
   id: string;
@@ -156,7 +157,7 @@ export class AutoAttendanceService {
               ul.created_at
             FROM user_locations ul
             WHERE ul.company_id = $1
-              AND ul.created_at >= NOW() - INTERVAL '5 minutes'
+              AND ul.created_at >= NOW() - INTERVAL '2 minutes'
             ORDER BY ul.user_id, ul.created_at DESC
           )
           SELECT u.id, u.company_id, rl.is_inside_geofence, rl.permission_state
@@ -235,10 +236,10 @@ export class AutoAttendanceService {
               ul.created_at
             FROM user_locations ul
             WHERE ul.company_id = $1
-              AND ul.created_at >= NOW() - INTERVAL '10 minutes'
+              AND ul.created_at >= NOW() - INTERVAL '5 minutes'
             ORDER BY ul.user_id, ul.created_at DESC
           )
-          SELECT ar.id, ar.user_id, ar.company_id, rl.is_inside_geofence, rl.permission_state
+          SELECT ar.id, ar.user_id, ar.company_id, rl.is_inside_geofence, rl.permission_state, rl.created_at AS rl_created_at
           FROM attendance_records ar
           LEFT JOIN recent_location rl ON rl.user_id = ar.user_id
           WHERE ar.company_id = $1
@@ -252,17 +253,91 @@ export class AutoAttendanceService {
         for (const record of employees.rows) {
           const permissionGranted = record.permission_state === 'granted';
           const insideFence = record.is_inside_geofence === true;
+          const lastLocAt: Date | null = record.rl_created_at ? new Date(record.rl_created_at) : null;
 
-          // Only auto clock-out when permission is granted and user is outside geofence
+          // Early departure alert before official end time
+          const currentTime = now.toLocaleTimeString('en-US', {
+            hour12: false,
+            timeZone: company.timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          if (currentTime < company.work_end_time) {
+            if (permissionGranted && !insideFence && company.notify_early_departure) {
+              await notificationService.sendPushNotification({
+                userId: record.user_id,
+                title: 'You left early?',
+                body: 'You appear outside the office before shift end. If you are on a break or errand, ignore.',
+                data: {
+                  type: 'attendance',
+                  action: 'early_departure_check',
+                }
+              });
+              await pool.query(
+                `UPDATE attendance_records 
+                 SET early_departure_notified = true, updated_at = NOW()
+                 WHERE id = $1 AND early_departure_notified IS NOT TRUE`,
+                [record.id]
+              );
+            }
+            continue;
+          }
+
+          // Only auto clock-out when permission is granted, user is outside geofence, and has been outside for >= 30 minutes
           if (!permissionGranted) continue;
           if (insideFence) continue;
+          if (!lastLocAt) continue;
+          const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+          if (lastLocAt > thirtyMinutesAgo) continue;
 
           await this.updateClockOutRecord(record.id, true);
           autoCount++;
+
+          await notificationService.sendPushNotification({
+            userId: record.user_id,
+            title: 'Auto Clock-out',
+            body: 'You were clocked out automatically after leaving the office.',
+            data: {
+              type: 'attendance',
+              action: 'auto_clockout',
+            }
+          });
         }
 
         if (autoCount > 0) {
           logger.info(`Auto clocked-out ${autoCount} employees for company ${company.id}`);
+        }
+
+        // Forgotten clock-out reminder around +60 minutes past end time
+        const endPlus60 = this.addMinutes(company.work_end_time, 60);
+        const endPlus65 = this.addMinutes(company.work_end_time, 65);
+        const currentStr = now.toLocaleTimeString('en-US', {
+          hour12: false,
+          timeZone: company.timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        if (currentStr >= endPlus60 && currentStr <= endPlus65) {
+          const openRes = await pool.query(`
+            SELECT ar.id, ar.user_id 
+            FROM attendance_records ar 
+            WHERE ar.company_id = $1
+              AND DATE(ar.clock_in_time AT TIME ZONE $2) = CURRENT_DATE
+              AND ar.clock_out_time IS NULL
+          `, [company.id, company.timezone]);
+          for (const rec of openRes.rows) {
+            await notificationService.sendPushNotification({
+              userId: rec.user_id,
+              title: 'Reminder: Clock Out',
+              body: 'Your shift has ended. Please remember to clock out.',
+              data: {
+                type: 'attendance',
+                action: 'reminder_clockout',
+              }
+            });
+          }
         }
       }
     } catch (error) {

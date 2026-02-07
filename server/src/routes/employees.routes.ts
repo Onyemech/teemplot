@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { requireOnboarding } from '../middleware/onboarding.middleware';
+import { z } from 'zod';
 
 const db = DatabaseFactory.getPrimaryDatabase();
 
@@ -81,10 +82,22 @@ export async function employeesRoutes(fastify: FastifyInstance) {
     try {
       const user = request.user as any;
       const { id } = request.params as any;
-      const { firstName, lastName, role, position } = request.body as any;
+      const UpdateEmployeeSchema = z.object({
+        firstName: z.string().min(1).optional(),
+        lastName: z.string().min(1).optional(),
+        role: z.enum(['owner', 'admin', 'department_head', 'manager', 'employee']).optional(),
+        position: z.string().optional()
+      });
+      const parsed = UpdateEmployeeSchema.parse(request.body);
+      const roleNormalized = parsed.role ? parsed.role.toLowerCase().trim() as typeof parsed.role : undefined;
 
       if (user.role !== 'owner' && user.role !== 'admin') {
         return reply.code(403).send({ success: false, message: 'Forbidden' });
+      }
+
+      // Prevent self role changes for admins/owners
+      if (id === user.userId && roleNormalized && roleNormalized !== user.role) {
+        return reply.code(403).send({ success: false, message: 'You cannot change your own role' });
       }
 
       // Check target user role to prevent Admin from modifying Owner
@@ -97,17 +110,44 @@ export async function employeesRoutes(fastify: FastifyInstance) {
         }
         
         // Also prevent Admin from promoting someone to Owner
-        if (role === 'owner') {
+        if (roleNormalized === 'owner') {
           return reply.code(403).send({ success: false, message: 'Admins cannot promote users to Owner' });
         }
       }
 
+      const updates: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (parsed.firstName !== undefined) {
+        updates.push(`first_name = $${idx++}`);
+        values.push(parsed.firstName);
+      }
+      if (parsed.lastName !== undefined) {
+        updates.push(`last_name = $${idx++}`);
+        values.push(parsed.lastName);
+      }
+      if (parsed.position !== undefined) {
+        updates.push(`position = $${idx++}`);
+        values.push(parsed.position ?? null);
+      }
+      if (roleNormalized !== undefined) {
+        updates.push(`role = $${idx++}`);
+        values.push(roleNormalized);
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ success: false, message: 'No changes provided' });
+      }
+
+      values.push(id, user.companyId);
+
       const updateQuery = await db.query(
         `UPDATE users 
-         SET first_name = $1, last_name = $2, role = $3, position = $4, updated_at = NOW()
-         WHERE id = $5 AND company_id = $6 AND deleted_at IS NULL
+         SET ${updates.join(', ')}, updated_at = NOW()
+         WHERE id = $${idx} AND company_id = $${idx + 1} AND deleted_at IS NULL
          RETURNING id`,
-        [firstName, lastName, role, position, id, user.companyId]
+        values
       );
 
       if (!updateQuery.rows[0]) {
@@ -117,7 +157,8 @@ export async function employeesRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true, message: 'Employee updated successfully' });
     } catch (error: any) {
       fastify.log.error('Failed to update employee:', error);
-      return reply.code(500).send({ success: false, message: 'Internal server error' });
+      const message = typeof error?.message === 'string' ? error.message : 'Internal server error';
+      return reply.code(400).send({ success: false, message });
     }
   });
 

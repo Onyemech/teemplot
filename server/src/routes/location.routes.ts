@@ -58,6 +58,25 @@ export default async function locationRoutes(fastify: FastifyInstance) {
           }
         });
       }
+      // Proximity prompt when close to office even if just outside the fence
+      if (
+        permissionState === 'granted' &&
+        current?.is_inside_geofence === false &&
+        typeof current?.distance_meters === 'number' &&
+        current.distance_meters <= 100 &&
+        (previous === null || (typeof previous?.distance_meters === 'number' && previous.distance_meters > 100))
+      ) {
+        await notificationService.sendPushNotification({
+          userId,
+          title: 'Near the Office',
+          body: 'You are close to the office. Tap to clock in.',
+          data: {
+            type: 'attendance',
+            action: 'proximity_clockin_prompt',
+            url: '/dashboard/attendance',
+          }
+        });
+      }
 
       return reply.code(200).send({
         success: true,

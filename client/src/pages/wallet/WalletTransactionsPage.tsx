@@ -24,24 +24,13 @@ export default function WalletTransactionsPage() {
 
   const fetchTransactions = async () => {
     try {
-      const response = await apiClient.get('/subscription/payments')
+      const response = await apiClient.get('/api/subscription/payments')
       if (response.data.success) {
         setTransactions(response.data.data || [])
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
-      // Fallback/Mock data if API fails (since backend might not be ready)
-      setTransactions([
-        {
-          id: '1',
-          reference: 'TXN-123456',
-          purpose: 'subscription_upgrade',
-          amount: 5000000, // 50,000.00
-          currency: 'NGN',
-          status: 'completed',
-          created_at: new Date().toISOString()
-        }
-      ])
+      setTransactions([])
     } finally {
       setLoading(false)
     }

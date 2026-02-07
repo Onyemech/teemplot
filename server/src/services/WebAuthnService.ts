@@ -70,7 +70,7 @@ export class WebAuthnService {
         })),
         authenticatorSelection: {
           residentKey: 'discouraged',
-          userVerification: 'preferred',
+          userVerification: 'required',
           authenticatorAttachment: 'platform',
         },
       };
@@ -203,9 +203,10 @@ export class WebAuthnService {
         rpID: this.rpID,
         allowCredentials: credentials.map(cred => ({
           id: cred.credential_id,
+          type: 'public-key',
           transports: cred.transports || ['internal'],
         })),
-        userVerification: 'preferred',
+        userVerification: 'required',
       };
 
       const authenticationOptions = await generateAuthenticationOptions(opts);
@@ -330,6 +331,7 @@ export class WebAuthnService {
 
       return credentials.map(cred => ({
         id: cred.id,
+        credentialId: cred.credential_id,
         deviceName: cred.device_name,
         deviceType: cred.device_type,
         createdAt: cred.created_at,

@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { permissionManager, type PermissionError, PermissionState } from '@/utils/PermissionManager'
 import { format, subDays, startOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns'
+import Dropdown from '@/components/ui/Dropdown'
 
 interface AttendanceRecord {
   id: string
@@ -39,10 +40,12 @@ export default function MobileAttendancePage() {
   const [loadingAction, setLoadingAction] = useState<'checkIn' | 'checkOut' | 'startBreak' | 'endBreak' | null>(null)
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const [permissionError, setPermissionError] = useState<PermissionError | undefined>()
+  const [proximity, setProximity] = useState<{ isInside?: boolean; distance?: number } | null>(null)
 
   // Filter States
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [dateFilter, setDateFilter] = useState<'7days' | '30days' | 'month'>('7days')
+  const [dateFilter, setDateFilter] = useState<'7days' | '30days' | 'month' | 'customDay'>('7days')
+  const [historyDay, setHistoryDay] = useState<Date | null>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -50,7 +53,7 @@ export default function MobileAttendancePage() {
 
   useEffect(() => {
     fetchHistory()
-  }, [activeTab, selectedDate, dateFilter])
+  }, [activeTab, selectedDate, dateFilter, historyDay])
 
   const fetchSettings = async () => {
     setSettingsLoading(true)
@@ -85,10 +88,15 @@ export default function MobileAttendancePage() {
         startDate = startOfDay(selectedDate)
         endDate = endOfDay(selectedDate)
       } else {
-        endDate = endOfDay(new Date())
-        if (dateFilter === '7days') startDate = subDays(new Date(), 7)
-        else if (dateFilter === '30days') startDate = subDays(new Date(), 30)
-        else startDate = startOfMonth(new Date()) // month
+        if (dateFilter === 'customDay' && historyDay) {
+          startDate = startOfDay(historyDay)
+          endDate = endOfDay(historyDay)
+        } else {
+          endDate = endOfDay(new Date())
+          if (dateFilter === '7days') startDate = subDays(new Date(), 7)
+          else if (dateFilter === '30days') startDate = subDays(new Date(), 30)
+          else startDate = startOfMonth(new Date())
+        }
       }
 
       const params = new URLSearchParams()
@@ -128,21 +136,29 @@ export default function MobileAttendancePage() {
       try {
         const perm = await permissionManager.checkLocationPermission()
         if (perm !== PermissionState.GRANTED) {
+          setProximity(null)
           return
         }
 
         const loc = await permissionManager.requestLocation({ timeout: 8000, retries: 0 })
         if (!loc.success) {
+          setProximity(null)
           return
         }
 
-        await apiClient.post('/api/location/update', {
+        const resp = await apiClient.post('/api/location/update', {
           latitude: loc.latitude,
           longitude: loc.longitude,
           accuracy: loc.accuracy,
           permissionState: perm
         })
+        if (resp.data?.success) {
+          const isInside = resp.data?.data?.isInsideGeofence ?? undefined
+          const distance = resp.data?.data?.distanceMeters ?? undefined
+          setProximity({ isInside, distance })
+        }
       } catch {
+        setProximity(null)
         // Silently ignore heartbeat errors
       }
     }
@@ -163,21 +179,29 @@ export default function MobileAttendancePage() {
     }
 
     try {
-      // In a real implementation, we would fetch a challenge from the server
-      // const options = await apiClient.post('/webauthn/authenticate/options', ...)
+      // Build request options that prioritize platform credentials to avoid passkey account confusion
+      const credsRes = await apiClient.get('/api/webauthn/credentials')
+      const allowCredentials: PublicKeyCredentialDescriptor[] = Array.isArray(credsRes.data?.data)
+        ? credsRes.data.data
+            .filter((c: any) => !!c.credentialId)
+            .map((c: any) => ({
+              id: Uint8Array.from(atob(c.credentialId), (ch) => ch.charCodeAt(0)),
+              type: 'public-key',
+              transports: ['internal'],
+            }))
+        : []
 
-      // For now, we simulate the interaction to ensure user intent
-      // We use a dummy challenge just to trigger the OS dialog
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
+      const challenge = new Uint8Array(32)
+      window.crypto.getRandomValues(challenge)
 
       const publicKey: PublicKeyCredentialRequestOptions = {
         challenge,
         timeout: 60000,
-        userVerification: 'required', // This forces biometric prompt (e.g. TouchID/FaceID)
-      };
+        userVerification: 'required',
+        allowCredentials,
+      }
 
-      const credential = await navigator.credentials.get({ publicKey });
+      const credential = await navigator.credentials.get({ publicKey })
 
       if (!credential) return null;
 
@@ -386,6 +410,26 @@ export default function MobileAttendancePage() {
             <h2 className="text-2xl font-bold">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</h2>
           </div>
 
+          {!todayStatus?.isClockedIn && proximity && ((proximity.isInside === true) || (typeof proximity.distance === 'number' && proximity.distance <= 75)) && (
+            <div className="w-full mb-3 bg-white/10 border border-white/20 rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs opacity-80">You’re near the office</p>
+                  <p className="text-sm font-semibold">
+                    {proximity.isInside ? 'Inside geofence' : `~${Math.round(proximity.distance || 0)}m from gate`}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCheckIn}
+                  disabled={loadingAction !== null}
+                  className="px-3 py-2 bg-white text-[#0F5D5D] font-bold rounded-lg shadow-sm disabled:opacity-50"
+                >
+                  Clock In
+                </button>
+              </div>
+            </div>
+          )}
+
           {todayStatus?.isClockedIn ? (
             <button
               onClick={handleCheckOut}
@@ -469,7 +513,7 @@ export default function MobileAttendancePage() {
               : 'text-gray-500 hover:text-gray-700'
               }`}
           >
-            Single Attendance
+            Today
           </button>
           <button
             onClick={() => setActiveTab('multiple')}
@@ -478,7 +522,7 @@ export default function MobileAttendancePage() {
               : 'text-gray-500 hover:text-gray-700'
               }`}
           >
-            Multiple Attendance
+            History
           </button>
         </div>
       </div>
@@ -506,23 +550,56 @@ export default function MobileAttendancePage() {
             </button>
           </div>
         ) : (
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {[
-              { id: '7days', label: 'Last 7 Days' },
-              { id: '30days', label: 'Last 30 Days' },
-              { id: 'month', label: 'This Month' }
-            ].map(filter => (
-              <button
-                key={filter.id}
-                onClick={() => setDateFilter(filter.id as any)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all ${dateFilter === filter.id
-                  ? 'bg-[#0F5D5D] text-white shadow-md'
-                  : 'bg-white text-gray-600 border border-gray-200'
-                  }`}
-              >
-                {filter.label}
-              </button>
-            ))}
+          <div className="space-y-2">
+            <Dropdown
+              label="History Range"
+              options={[
+                { value: '7days', label: 'Last 7 Days' },
+                { value: '30days', label: 'Last 30 Days' },
+                { value: 'month', label: 'This Month' },
+                { value: 'customDay', label: 'Pick a Date' },
+              ]}
+              value={dateFilter}
+              onChange={(val) => {
+                setDateFilter(val as any)
+                if (val !== 'customDay') setHistoryDay(null)
+              }}
+              fullWidth
+            />
+            {dateFilter === 'customDay' && (
+              <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                <label className="text-xs font-semibold text-gray-700 mb-1 block">Select Date</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-500"
+                  value={historyDay ? format(historyDay, 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    const d = e.target.value ? new Date(e.target.value) : null
+                    setHistoryDay(d)
+                  }}
+                />
+              </div>
+            )}
+            {dateFilter !== 'customDay' && (
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                {[
+                  { id: '7days', label: 'Last 7 Days' },
+                  { id: '30days', label: 'Last 30 Days' },
+                  { id: 'month', label: 'This Month' }
+                ].map(filter => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setDateFilter(filter.id as any)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all ${dateFilter === filter.id
+                      ? 'bg-[#0F5D5D] text-white shadow-md'
+                      : 'bg-white text-gray-600 border border-gray-200'
+                      }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

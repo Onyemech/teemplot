@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { UserPlus, Mail, Clock, CheckCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import InviteEmployeeModal from '@/components/dashboard/InviteEmployeeModal'
 import EmployeeDetailsModal from '@/components/dashboard/EmployeeDetailsModal'
@@ -37,12 +37,19 @@ interface Invitation {
 
 export default function EmployeesPage({ initialTab = 'employees' }: { initialTab?: 'employees' | 'invitations' }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { hasAccess } = useFeatureAccess()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   // const [loading, setLoading] = useState(true)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'employees' | 'invitations'>(initialTab)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const highlightIds = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const raw = params.get('highlight') || ''
+    return raw ? raw.split(',').filter(Boolean) : []
+  }, [location.search])
   
   // State for Employee Details Modal
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -88,6 +95,15 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
     setSelectedEmployee(employee);
     setIsDetailsModalOpen(true);
   };
+
+  useEffect(() => {
+    if (employees.length === 0 || highlightIds.length === 0) return
+    const firstId = highlightIds[0]
+    const el = document.getElementById(`employee-card-${firstId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [employees, highlightIds])
 
   return (
     <div className="h-full bg-gray-50 p-3 md:p-6 lg:p-8">
@@ -167,12 +183,17 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                   </button>
                 </div>
               ) : (
-                <div className="grid gap-4">
+                <div ref={listRef} className="grid gap-4">
                   {employees.map((employee) => (
                     <div
                       key={employee.id}
                       onClick={() => handleEmployeeClick(employee)}
-                      className="flex items-center justify-between p-4 md:p-5 bg-white rounded-xl border border-gray-200 hover:border-primary/50 hover:shadow-lg hover:bg-gray-50 transition-all duration-300 cursor-pointer group"
+                      id={`employee-card-${employee.id}`}
+                      className={`flex items-center justify-between p-4 md:p-5 rounded-xl border transition-all duration-300 cursor-pointer group ${
+                        highlightIds.includes(employee.id)
+                          ? 'bg-gray-100 border-gray-300'
+                          : 'bg-white border-gray-200 hover:border-primary/50 hover:shadow-lg hover:bg-gray-50'
+                      }`}
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
                         {employee.avatar ? (

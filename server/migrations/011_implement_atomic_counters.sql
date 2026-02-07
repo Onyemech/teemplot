@@ -24,6 +24,9 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
+DECLARE
+  actor_text text := current_setting('app.current_user_id', true);
+  actor_uuid uuid := NULL;
 BEGIN
   -- Atomically update the pending invitations counter
   -- Ensure we don't go below zero (safety check)
@@ -39,12 +42,18 @@ BEGIN
     details,
     created_at
   ) VALUES (
-    COALESCE(current_setting('app.current_user_id', true), 'system'),
+    CASE 
+      WHEN actor_text IS NOT NULL 
+       AND actor_text ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      THEN actor_text::uuid
+      ELSE NULL
+    END,
     company_uuid,
     'invitation_counter_update',
     jsonb_build_object(
         'delta', delta, 
         'timestamp', NOW(),
+        'actor_text', actor_text,
         'new_value', (SELECT pending_invitations_count FROM companies WHERE id = company_uuid)
     ),
     NOW()
@@ -61,22 +70,22 @@ AS $function$
 BEGIN
   -- Case 1: New pending invitation created
   IF (TG_OP = 'INSERT' AND NEW.status = 'pending') THEN
-    PERFORM update_company_invitation_counter(NEW.company_id, 1);
+    PERFORM public.update_company_invitation_counter(NEW.company_id::uuid, 1::integer);
   
   -- Case 2: Invitation status changed (e.g. accepted, expired, cancelled)
   ELSIF (TG_OP = 'UPDATE') THEN
     -- If moving FROM pending TO non-pending -> Decrement
     IF (OLD.status = 'pending' AND NEW.status != 'pending') THEN
-      PERFORM update_company_invitation_counter(NEW.company_id, -1);
+      PERFORM public.update_company_invitation_counter(NEW.company_id::uuid, (-1)::integer);
     
     -- If moving FROM non-pending TO pending (rare, but possible) -> Increment
     ELSIF (OLD.status != 'pending' AND NEW.status = 'pending') THEN
-      PERFORM update_company_invitation_counter(NEW.company_id, 1);
+      PERFORM public.update_company_invitation_counter(NEW.company_id::uuid, 1::integer);
     END IF;
 
   -- Case 3: Invitation deleted (should ideally be soft-deleted, but handle hard delete too)
   ELSIF (TG_OP = 'DELETE' AND OLD.status = 'pending') THEN
-    PERFORM update_company_invitation_counter(OLD.company_id, -1);
+    PERFORM public.update_company_invitation_counter(OLD.company_id::uuid, (-1)::integer);
   END IF;
 
   RETURN NULL;
@@ -90,7 +99,7 @@ DROP TRIGGER IF EXISTS trg_maintain_invitation_counter ON employee_invitations;
 CREATE TRIGGER trg_maintain_invitation_counter
 AFTER INSERT OR UPDATE OR DELETE ON employee_invitations
 FOR EACH ROW
-EXECUTE FUNCTION trigger_maintain_invitation_counter();
+EXECUTE FUNCTION public.trigger_maintain_invitation_counter();
 
 -- 5. Update get_company_employee_counts to use the cached column for better performance
 CREATE OR REPLACE FUNCTION public.get_company_employee_counts(company_uuid uuid)

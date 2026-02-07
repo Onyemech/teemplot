@@ -19,7 +19,16 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     markAsRead(notification.id);
     onClose();
 
-    if (notification.data?.url) {
+    if (notification.type === 'birthday') {
+      const ids = notification.data?.celebrantIds as string[] | undefined
+      const url = notification.data?.url || '/dashboard/employees'
+      if (ids && ids.length > 0) {
+        const qp = new URLSearchParams({ highlight: ids.join(',') })
+        navigate(`${url}?${qp.toString()}`)
+      } else {
+        navigate(url)
+      }
+    } else if (notification.data?.url) {
       navigate(notification.data.url);
     } else if (notification.type === 'attendance' || notification.type === 'early_departure' || notification.type === 'geofence_violation') {
       navigate('/dashboard/attendance');
@@ -122,8 +131,11 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
 
       <div className="p-3 border-t border-gray-100 bg-gray-50 text-center rounded-b-lg">
         <button
-          onClick={() => {/* Navigate to full list if implemented */ }}
-          className="text-xs font-medium text-gray-600 hover:text-primary transition-colors"
+          onClick={() => {
+            onClose();
+            navigate('/dashboard/inbox');
+          }}
+          className="text-xs font-medium text-[#0F5D5D] hover:text-[#0a4545] transition-colors"
         >
           View all notifications
         </button>

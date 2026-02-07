@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './utils/sentry';
 import { buildApp } from './app';
 import { logger } from './utils/logger';
 import { taskSchedulerService } from './services/TaskSchedulerService';

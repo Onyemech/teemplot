@@ -21,7 +21,8 @@ import {
   TrendingUp,
   Globe,
   CircleDollarSign,
-  X
+  X,
+  Bell
 } from 'lucide-react'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { type Feature } from '@/utils/planFeatures'
@@ -90,6 +91,12 @@ export const navigationConfig: NavItemConfig[] = [
     href: '/dashboard/departments',
     icon: Building2,
     feature: 'departments', // Gold only
+    adminOnly: true,
+  },
+  {
+    label: 'Inbox',
+    href: '/dashboard/inbox',
+    icon: Bell,
     adminOnly: true,
   },
   {
@@ -257,6 +264,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       '/dashboard/attendance/remote-clockin',
       '/dashboard/employees',
       '/dashboard/departments',
+      '/dashboard/inbox',
       '/dashboard/settings',
       '/dashboard/settings/billing',
       '/dashboard/leave',
@@ -282,6 +290,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           to={hasSubmenu ? '#' : (isImplemented ? item.href : '#')}
           prefetchUrl={!hasSubmenu && isImplemented ? `/api${item.href.replace('/dashboard', '')}` : undefined}
           onClick={(e) => {
+            // Admin Wallet (top-level only): show "Coming Soon" and block navigation
+            if (isAdmin && item.href === '/dashboard/wallet') {
+              e.preventDefault()
+              toast.info('Wallet - Coming Soon! 🚀')
+              return
+            }
             if (hasSubmenu) {
               e.preventDefault()
               toggleExpand(item.label)

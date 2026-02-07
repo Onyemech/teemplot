@@ -23,6 +23,8 @@ import { notificationRoutes } from '../src/routes/notifications.routes';
 import locationRoutes from '../src/routes/location.routes';
 import departmentRoutes from '../src/routes/departments.routes';
 import { subscriptionRoutes } from '../src/routes/subscription.routes';
+import { superAdminRoutes } from '../src/routes/superadmin.routes';
+import multipart from '@fastify/multipart';
 
 let app: any = null;
 
@@ -45,6 +47,7 @@ export async function buildServerlessApp() {
         'https://teemplot-frontend.vercel.app',
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:3001',
         'http://localhost:5000',
       ];
 
@@ -133,6 +136,8 @@ export async function buildServerlessApp() {
   await fastify.register(locationRoutes, { prefix: '/api/location' });
   await fastify.register(departmentRoutes, { prefix: '/api/departments' });
   await fastify.register(subscriptionRoutes, { prefix: '/api/subscription' });
+  await fastify.register(multipart);
+  await fastify.register(superAdminRoutes, { prefix: '/api/super-admin' });
 
   // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('../src/routes/employee-invitation.routes');
