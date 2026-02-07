@@ -109,7 +109,7 @@ export class EmployeeInvitationService {
           // or we just log before throwing. But since we are inside a transaction that will rollback on error,
           // the audit log inside this transaction would also rollback. 
           // However, auditService might use its own pool/query. 
-          // Let's assume for now we want to throw immediately.
+          // Let's assume for now we want to throw immediately .
 
           throw new AppError(
             'EMPLOYEE_LIMIT_REACHED',
