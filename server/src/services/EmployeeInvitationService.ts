@@ -62,7 +62,9 @@ export class EmployeeInvitationService {
   ): Promise<InvitationResult> {
     const transactionId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    return await transaction(async (client) => {
+    let invitationForEmail: any | null = null;
+
+    const result = await transaction(async (client) => {
       try {
         await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [companyId]);
         await client.query("SELECT set_config('app.current_user_id', $1, true)", [invitedBy]);
@@ -123,9 +125,7 @@ export class EmployeeInvitationService {
 
         // Step 2: Create invitation within transaction
         const invitation = await this.createInvitation(companyId, invitedBy, invitationData, transactionId, client);
-
-        // Step 4: Send invitation email (queued, non-blocking)
-        await this.queueInvitationEmail(invitation);
+        invitationForEmail = invitation;
 
         // Step 5: Audit log the successful invitation
         if (auditService.logInvitationSentWithClient) {
@@ -134,15 +134,13 @@ export class EmployeeInvitationService {
           await auditService.logInvitationSent(invitedBy, companyId, invitation.id);
         }
 
-        // Step 6: Get updated counters for response
-        const updatedLimits = await this.verifyPlanLimits(companyId, client);
-
+        const remaining = Math.max(0, limits.remaining - 1);
         return {
           invitationId: invitation.id,
           token: invitation.invitation_token,
-          currentCount: updatedLimits.currentCount,
-          declaredLimit: updatedLimits.declaredLimit,
-          remaining: updatedLimits.remaining
+          currentCount: limits.currentCount,
+          declaredLimit: limits.declaredLimit,
+          remaining
         };
 
       } catch (error) {
@@ -159,6 +157,14 @@ export class EmployeeInvitationService {
         throw error;
       }
     });
+
+    if (invitationForEmail) {
+      void this.queueInvitationEmail(invitationForEmail).catch((error) => {
+        console.error('Failed to send invitation email:', error);
+      });
+    }
+
+    return result;
   }
 
   /**
