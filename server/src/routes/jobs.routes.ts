@@ -7,7 +7,12 @@ function verifyJobSecret(request: any): boolean {
   const expected = process.env.JOB_SECRET;
   if (!expected) return false;
 
-  const provided = String(request.headers['x-job-secret'] || '');
+  // Check both header names for compatibility
+  const provided = String(
+    request.headers['x-job-secret'] || 
+    request.headers['job_secret'] || 
+    ''
+  );
 
   // Enhanced logging
   logger.info({
