@@ -48,11 +48,78 @@ interface UserContext {
   role: string;
 }
 
+interface TaskSchemaInfo {
+  primaryAssignerColumn: 'assigner_id' | 'created_by' | null;
+  primaryAssigneeColumn: 'assignee_id' | 'assigned_to' | null;
+  hasAssignerId: boolean;
+  hasCreatedBy: boolean;
+  hasAssigneeId: boolean;
+  hasAssignedTo: boolean;
+  hasDeletedAt: boolean;
+  hasDepartmentId: boolean;
+  hasPriority: boolean;
+  hasEstimatedHours: boolean;
+  hasTags: boolean;
+  hasReviewStatus: boolean;
+  dueDateRequired: boolean;
+  columns: Set<string>;
+}
+
 export class TaskService {
   private db;
+  private taskSchemaPromise?: Promise<TaskSchemaInfo>;
 
   constructor() {
     this.db = DatabaseFactory.getPrimaryDatabase();
+  }
+
+  private async getTaskSchema(): Promise<TaskSchemaInfo> {
+    if (!this.taskSchemaPromise) {
+      this.taskSchemaPromise = (async () => {
+        const result = await this.db.query(
+          `SELECT column_name, is_nullable
+           FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'tasks'`
+        );
+
+        const columns = new Set<string>((result.rows || []).map((r: any) => String(r.column_name)));
+        const nullableMap = new Map<string, string>((result.rows || []).map((r: any) => [String(r.column_name), String(r.is_nullable)]));
+
+        const hasAssignerId = columns.has('assigner_id');
+        const hasCreatedBy = columns.has('created_by');
+        const hasAssigneeId = columns.has('assignee_id');
+        const hasAssignedTo = columns.has('assigned_to');
+
+        const primaryAssignerColumn: TaskSchemaInfo['primaryAssignerColumn'] = hasAssignerId
+          ? 'assigner_id'
+          : hasCreatedBy
+            ? 'created_by'
+            : null;
+        const primaryAssigneeColumn: TaskSchemaInfo['primaryAssigneeColumn'] = hasAssigneeId
+          ? 'assignee_id'
+          : hasAssignedTo
+            ? 'assigned_to'
+            : null;
+
+        return {
+          primaryAssignerColumn,
+          primaryAssigneeColumn,
+          hasAssignerId,
+          hasCreatedBy,
+          hasAssigneeId,
+          hasAssignedTo,
+          hasDeletedAt: columns.has('deleted_at'),
+          hasDepartmentId: columns.has('department_id'),
+          hasPriority: columns.has('priority'),
+          hasEstimatedHours: columns.has('estimated_hours'),
+          hasTags: columns.has('tags'),
+          hasReviewStatus: columns.has('review_status'),
+          dueDateRequired: nullableMap.get('due_date') === 'NO',
+          columns,
+        };
+      })();
+    }
+    return this.taskSchemaPromise;
   }
 
   async createTask(data: CreateTaskData, user: UserContext): Promise<any> {
@@ -78,6 +145,17 @@ export class TaskService {
 
     if (!title || !assignedTo) {
       throw new Error('Title and assigned user are required');
+    }
+
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn) {
+      throw new Error('Tasks schema is missing assignee column. Add assigned_to or assignee_id.');
+    }
+    if (!schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing assigner column. Add created_by or assigner_id.');
+    }
+    if (schema.dueDateRequired && !dueDate) {
+      throw new Error('Due date is required');
     }
 
     // Validate assignee and role hierarchy constraints
@@ -110,23 +188,51 @@ export class TaskService {
       }
     }
 
+    const insertColumns: string[] = ['company_id', 'title', 'description', 'due_date', 'status'];
+    const values: any[] = [companyId, title, description, dueDate ?? null, 'pending'];
+
+    if (schema.hasDepartmentId) {
+      insertColumns.push('department_id');
+      values.push(assignee.department_id ?? null);
+    }
+
+    if (schema.hasAssigneeId) {
+      insertColumns.push('assignee_id');
+      values.push(assignedTo);
+    }
+    if (schema.hasAssignedTo) {
+      insertColumns.push('assigned_to');
+      values.push(assignedTo);
+    }
+    if (schema.hasAssignerId) {
+      insertColumns.push('assigner_id');
+      values.push(userId);
+    }
+    if (schema.hasCreatedBy) {
+      insertColumns.push('created_by');
+      values.push(userId);
+    }
+
+    if (schema.hasPriority) {
+      insertColumns.push('priority');
+      values.push(priority);
+    }
+
+    if (schema.hasEstimatedHours) {
+      insertColumns.push('estimated_hours');
+      values.push(estimatedHours ?? null);
+    }
+    if (schema.hasTags) {
+      insertColumns.push('tags');
+      values.push(tags ? JSON.stringify(tags) : '[]');
+    }
+
+    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
     const result = await this.db.query(
-      `INSERT INTO tasks (
-        company_id, title, description, assigned_to, created_by,
-        priority, due_date, estimated_hours, tags, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
-      RETURNING *`,
-      [
-        companyId,
-        title,
-        description,
-        assignedTo,
-        userId,
-        priority,
-        dueDate,
-        estimatedHours,
-        tags ? JSON.stringify(tags) : null
-      ]
+      `INSERT INTO tasks (${insertColumns.join(', ')})
+       VALUES (${placeholders})
+       RETURNING *`,
+      values
     );
 
     const task = result.rows[0];
@@ -166,11 +272,22 @@ export class TaskService {
 
     logger.info({ taskId: task.id, assignedTo, createdBy: userId }, 'Task created');
 
+    if (schema.primaryAssigneeColumn && schema.primaryAssigneeColumn !== 'assigned_to') {
+      task.assigned_to = task[schema.primaryAssigneeColumn];
+    }
+    if (schema.primaryAssignerColumn && schema.primaryAssignerColumn !== 'created_by') {
+      task.created_by = task[schema.primaryAssignerColumn];
+    }
+
     return task;
   }
 
   async getDepartmentTasks(user: UserContext): Promise<any[]> {
     const { companyId, userId } = user;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
 
     // Get user's department
     const userQuery = await this.db.query(
@@ -183,18 +300,21 @@ export class TaskService {
       return [];
     }
 
+    const notDeletedClause = schema.hasDeletedAt ? 'AND t.deleted_at IS NULL' : '';
     const query = `
       SELECT 
         t.*,
+        t.${schema.primaryAssigneeColumn} as assigned_to,
+        t.${schema.primaryAssignerColumn} as created_by,
         u.first_name || ' ' || u.last_name as assigned_to_name,
         u.avatar_url as assigned_to_avatar,
         c.first_name || ' ' || c.last_name as created_by_name
       FROM tasks t
-      JOIN users u ON t.assigned_to = u.id
-      JOIN users c ON t.created_by = c.id
+      LEFT JOIN users u ON t.${schema.primaryAssigneeColumn} = u.id
+      LEFT JOIN users c ON t.${schema.primaryAssignerColumn} = c.id
       WHERE t.company_id = $1
         AND (u.department_id = $2 OR t.department_id = $2)
-        AND t.deleted_at IS NULL
+        ${notDeletedClause}
       ORDER BY t.created_at DESC
     `;
 
@@ -221,22 +341,28 @@ export class TaskService {
   async getTasks(filters: GetTasksFilters, user: UserContext): Promise<{ tasks: any[]; pagination: any }> {
     const { companyId, userId, role } = user;
     const { status, assignedTo, priority, page = 1, limit = 20 } = filters;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
 
     let query = `
       SELECT 
         t.*,
+        t.${schema.primaryAssigneeColumn} as assigned_to,
+        t.${schema.primaryAssignerColumn} as created_by,
         u.first_name || ' ' || u.last_name as assigned_to_name,
         c.first_name || ' ' || c.last_name as created_by_name
       FROM tasks t
-      JOIN users u ON t.assigned_to = u.id
-      JOIN users c ON t.created_by = c.id
+      LEFT JOIN users u ON t.${schema.primaryAssigneeColumn} = u.id
+      LEFT JOIN users c ON t.${schema.primaryAssignerColumn} = c.id
       WHERE t.company_id = $1
     `;
     const params: any[] = [companyId];
     let paramIndex = 2;
 
     if (role === 'employee') {
-      query += ` AND t.assigned_to = $${paramIndex}`;
+      query += ` AND t.${schema.primaryAssigneeColumn} = $${paramIndex}`;
       params.push(userId);
       paramIndex++;
     }
@@ -256,12 +382,12 @@ export class TaskService {
     }
 
     if (assignedTo && (role === 'owner' || role === 'admin')) {
-      query += ` AND t.assigned_to = $${paramIndex}`;
+      query += ` AND t.${schema.primaryAssigneeColumn} = $${paramIndex}`;
       params.push(assignedTo);
       paramIndex++;
     }
 
-    if (priority) {
+    if (priority && schema.hasPriority) {
       query += ` AND t.priority = $${paramIndex}`;
       params.push(priority);
       paramIndex++;
@@ -279,7 +405,7 @@ export class TaskService {
     const countParams: any[] = [companyId];
 
     if (role === 'employee') {
-      countQuery += ' AND assigned_to = $2';
+      countQuery += ` AND ${schema.primaryAssigneeColumn} = $2`;
       countParams.push(userId);
     }
 
@@ -307,15 +433,21 @@ export class TaskService {
 
   async getTask(taskId: string, user: UserContext): Promise<any> {
     const { companyId, userId, role } = user;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
 
     const result = await this.db.query(
       `SELECT 
         t.*,
+        t.${schema.primaryAssigneeColumn} as assigned_to,
+        t.${schema.primaryAssignerColumn} as created_by,
         u.first_name || ' ' || u.last_name as assigned_to_name,
         c.first_name || ' ' || c.last_name as created_by_name
        FROM tasks t
-       JOIN users u ON t.assigned_to = u.id
-       JOIN users c ON t.created_by = c.id
+       LEFT JOIN users u ON t.${schema.primaryAssigneeColumn} = u.id
+       LEFT JOIN users c ON t.${schema.primaryAssignerColumn} = c.id
        WHERE t.id = $1 AND t.company_id = $2`,
       [taskId, companyId]
     );
@@ -335,12 +467,14 @@ export class TaskService {
 
   async updateTask(taskId: string, updates: UpdateTaskData, user: UserContext): Promise<any> {
     const { companyId, userId, role } = user;
+    const schema = await this.getTaskSchema();
 
     if (role !== 'owner' && role !== 'admin' && role !== 'department_head' && role !== 'manager') {
       throw new Error('Only owners, admins, and managers can update tasks');
     }
 
-    const allowedFields = ['title', 'description', 'priority', 'due_date', 'estimated_hours', 'tags', 'status'];
+    const allowedFields = ['title', 'description', 'priority', 'due_date', 'estimated_hours', 'tags', 'status']
+      .filter((f) => schema.columns.has(f));
     const updateFields: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -383,9 +517,18 @@ export class TaskService {
   async markTaskComplete(taskId: string, data: MarkCompleteData, user: UserContext): Promise<any> {
     const { companyId, userId } = user;
     const { actualHours, completionNotes, attachments } = data;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
+    if (!schema.hasReviewStatus) {
+      throw new Error('Task review workflow is not enabled. Add review_status and related columns.');
+    }
 
     const taskResult = await this.db.query(
-      'SELECT * FROM tasks WHERE id = $1 AND company_id = $2',
+      `SELECT t.*, t.${schema.primaryAssigneeColumn} as assigned_to, t.${schema.primaryAssignerColumn} as created_by
+       FROM tasks t
+       WHERE t.id = $1 AND t.company_id = $2`,
       [taskId, companyId]
     );
 
@@ -444,11 +587,20 @@ export class TaskService {
   async reviewTask(taskId: string, data: ReviewTaskData, user: UserContext): Promise<any> {
     const { companyId, userId, role } = user;
     const { approved, reviewNotes, rejectionReason } = data;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
+    if (!schema.hasReviewStatus) {
+      throw new Error('Task review workflow is not enabled. Add review_status and related columns.');
+    }
 
     // Only original assigner must verify completion
 
     const taskResult = await this.db.query(
-      'SELECT * FROM tasks WHERE id = $1 AND company_id = $2',
+      `SELECT t.*, t.${schema.primaryAssigneeColumn} as assigned_to, t.${schema.primaryAssignerColumn} as created_by
+       FROM tasks t
+       WHERE t.id = $1 AND t.company_id = $2`,
       [taskId, companyId]
     );
 
@@ -535,15 +687,24 @@ export class TaskService {
 
   async getAwaitingReview(user: UserContext): Promise<any[]> {
     const { companyId, role, userId } = user;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn || !schema.primaryAssignerColumn) {
+      throw new Error('Tasks schema is missing required columns. Ensure assigned_to/assignee_id and created_by/assigner_id exist.');
+    }
+    if (!schema.hasReviewStatus) {
+      throw new Error('Task review workflow is not enabled. Add review_status and related columns.');
+    }
 
     // Owners and Admins can see ALL pending reviews
     if (role === 'owner' || role === 'admin') {
       const result = await this.db.query(
         `SELECT 
           t.*,
+          t.${schema.primaryAssigneeColumn} as assigned_to,
+          t.${schema.primaryAssignerColumn} as created_by,
           u.first_name || ' ' || u.last_name as assigned_to_name
          FROM tasks t
-         JOIN users u ON t.assigned_to = u.id
+         LEFT JOIN users u ON t.${schema.primaryAssigneeColumn} = u.id
          WHERE t.company_id = $1 AND t.review_status = 'pending_review'
          ORDER BY t.marked_complete_at ASC`,
         [companyId]
@@ -555,10 +716,12 @@ export class TaskService {
     const result = await this.db.query(
       `SELECT 
         t.*,
+        t.${schema.primaryAssigneeColumn} as assigned_to,
+        t.${schema.primaryAssignerColumn} as created_by,
         u.first_name || ' ' || u.last_name as assigned_to_name
        FROM tasks t
-       JOIN users u ON t.assigned_to = u.id
-       WHERE t.company_id = $1 AND t.review_status = 'pending_review' AND t.created_by = $2
+       LEFT JOIN users u ON t.${schema.primaryAssigneeColumn} = u.id
+       WHERE t.company_id = $1 AND t.review_status = 'pending_review' AND t.${schema.primaryAssignerColumn} = $2
        ORDER BY t.marked_complete_at ASC`,
       [companyId, userId]
     );

@@ -312,13 +312,13 @@ export default function AuditLogsPage() {
             <div>
               <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Affected Resource</h4>
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="min-w-0 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <span className="text-xs text-gray-500 block mb-1">Type</span>
                   <span className="text-sm font-medium text-gray-900 capitalize">{selectedLog.entityType}</span>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="min-w-0 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <span className="text-xs text-gray-500 block mb-1">ID</span>
-                  <span className="text-sm font-mono text-gray-900 truncate" title={selectedLog.entityId}>
+                  <span className="text-sm font-mono text-gray-900 break-all" title={selectedLog.entityId}>
                     {selectedLog.entityId}
                   </span>
                 </div>

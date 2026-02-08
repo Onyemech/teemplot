@@ -32,9 +32,43 @@ interface EarlyDepartureNotification {
 
 export class NotificationService {
   private transporter: nodemailer.Transporter | null = null;
+  private notificationSchemaPromise?: Promise<{
+    hasBody: boolean;
+    hasMessage: boolean;
+    hasIsRead: boolean;
+    hasRead: boolean;
+    hasData: boolean;
+    hasLink: boolean;
+    hasActionUrl: boolean;
+    columns: Set<string>;
+  }>;
 
   constructor() {
     this.initializeEmailTransporter();
+  }
+
+  private async getNotificationSchema() {
+    if (!this.notificationSchemaPromise) {
+      this.notificationSchemaPromise = (async () => {
+        const result = await pool.query(
+          `SELECT column_name
+           FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'notifications'`
+        );
+        const columns = new Set<string>((result.rows || []).map((r: any) => String(r.column_name)));
+        return {
+          hasBody: columns.has('body'),
+          hasMessage: columns.has('message'),
+          hasIsRead: columns.has('is_read'),
+          hasRead: columns.has('read'),
+          hasData: columns.has('data'),
+          hasLink: columns.has('link'),
+          hasActionUrl: columns.has('action_url'),
+          columns,
+        };
+      })();
+    }
+    return this.notificationSchemaPromise;
   }
 
   /**
@@ -214,6 +248,8 @@ export class NotificationService {
    * Store notification in database for in-app display and send SSE
    */
   private async storeInAppNotification(notification: PushNotification): Promise<void> {
+    const schema = await this.getNotificationSchema();
+
     // Get user's company_id
     const userQuery = `SELECT company_id FROM users WHERE id = $1`;
     const userResult = await pool.query(userQuery, [notification.userId]);
@@ -226,29 +262,52 @@ export class NotificationService {
     const companyId = userResult.rows[0].company_id;
     const notificationType = notification.data?.type || 'info';
 
-    const query = `
-      INSERT INTO notifications (
-        user_id,
-        company_id,
-        title,
-        body,
-        type,
-        data,
-        is_read,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
-      RETURNING id, created_at
-    `;
-
     try {
-      const result = await pool.query(query, [
-        notification.userId,
-        companyId,
-        notification.title,
-        notification.body,
-        notificationType,
-        JSON.stringify(notification.data || {}),
-      ]);
+      const url = notification.data?.url;
+
+      const insertColumns: string[] = ['user_id', 'company_id', 'type', 'title', 'created_at'];
+      const values: any[] = [notification.userId, companyId, notificationType, notification.title, 'NOW()'];
+
+      if (schema.hasBody) {
+        insertColumns.push('body');
+        values.splice(values.length - 1, 0, notification.body);
+      } else if (schema.hasMessage) {
+        insertColumns.push('message');
+        values.splice(values.length - 1, 0, notification.body);
+      }
+
+      if (schema.hasData) {
+        insertColumns.push('data');
+        values.splice(values.length - 1, 0, JSON.stringify(notification.data || {}));
+      } else if (schema.hasActionUrl && url) {
+        insertColumns.push('action_url');
+        values.splice(values.length - 1, 0, String(url));
+      } else if (schema.hasLink && url) {
+        insertColumns.push('link');
+        values.splice(values.length - 1, 0, String(url));
+      }
+
+      if (schema.hasIsRead) {
+        insertColumns.push('is_read');
+        values.splice(values.length - 1, 0, false);
+      } else if (schema.hasRead) {
+        insertColumns.push('read');
+        values.splice(values.length - 1, 0, false);
+      }
+
+      const placeholders = values.map((_, i) => {
+        if (values[i] === 'NOW()') return 'NOW()';
+        return `$${i + 1}`;
+      });
+
+      const query = `
+        INSERT INTO notifications (${insertColumns.join(', ')})
+        VALUES (${placeholders.join(', ')})
+        RETURNING id, created_at
+      `;
+
+      const preparedValues = values.filter((v) => v !== 'NOW()');
+      const result = await pool.query(query, preparedValues);
 
       const newNotification = result.rows[0];
 
@@ -272,10 +331,15 @@ export class NotificationService {
    * Get notifications for a user
    */
   async getNotifications(userId: string, page = 1, limit = 20) {
+    const schema = await this.getNotificationSchema();
     const offset = (page - 1) * limit;
 
+    const bodyExpr = schema.hasBody ? 'body' : schema.hasMessage ? 'message as body' : `''::text as body`;
+    const readExpr = schema.hasIsRead ? 'is_read' : schema.hasRead ? '"read" as is_read' : 'false as is_read';
+    const dataExpr = schema.hasData ? 'data' : schema.hasLink ? `jsonb_build_object('url', link) as data` : schema.hasActionUrl ? `jsonb_build_object('url', action_url) as data` : `'{}'::jsonb as data`;
+
     const query = `
-      SELECT id, title, body, type, data, is_read, created_at
+      SELECT id, title, ${bodyExpr}, type, ${dataExpr}, ${readExpr}, created_at
       FROM notifications
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -302,7 +366,10 @@ export class NotificationService {
    * Get unread notification count
    */
   async getUnreadCount(userId: string): Promise<number> {
-    const query = `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false`;
+    const schema = await this.getNotificationSchema();
+    const readColumn = schema.hasIsRead ? 'is_read' : schema.hasRead ? '"read"' : null;
+    if (!readColumn) return 0;
+    const query = `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND ${readColumn} = false`;
     const result = await pool.query(query, [userId]);
     return parseInt(result.rows[0].count);
   }
@@ -311,9 +378,12 @@ export class NotificationService {
    * Mark notification as read
    */
   async markAsRead(userId: string, notificationId: string): Promise<void> {
+    const schema = await this.getNotificationSchema();
+    const readColumn = schema.hasIsRead ? 'is_read' : schema.hasRead ? '"read"' : null;
+    if (!readColumn) return;
     const query = `
       UPDATE notifications 
-      SET is_read = true 
+      SET ${readColumn} = true 
       WHERE id = $1 AND user_id = $2
     `;
     await pool.query(query, [notificationId, userId]);
@@ -323,10 +393,13 @@ export class NotificationService {
    * Mark all notifications as read
    */
   async markAllAsRead(userId: string): Promise<void> {
+    const schema = await this.getNotificationSchema();
+    const readColumn = schema.hasIsRead ? 'is_read' : schema.hasRead ? '"read"' : null;
+    if (!readColumn) return;
     const query = `
       UPDATE notifications 
-      SET is_read = true 
-      WHERE user_id = $1 AND is_read = false
+      SET ${readColumn} = true 
+      WHERE user_id = $1 AND ${readColumn} = false
     `;
     await pool.query(query, [userId]);
   }
@@ -668,6 +741,45 @@ export class NotificationService {
 
     } catch (error) {
       logger.error({ error, ...data }, 'Failed to send task due notification');
+    }
+  }
+
+  async notifyTaskOverdue(data: {
+    userId: string;
+    taskTitle: string;
+    taskId: string;
+    dueDate: Date;
+  }): Promise<void> {
+    try {
+      const formattedDate = new Date(data.dueDate).toLocaleString();
+
+      await this.sendPushNotification({
+        userId: data.userId,
+        title: 'Task Overdue',
+        body: `Task "${data.taskTitle}" was due at ${formattedDate}`,
+        data: {
+          type: 'task_overdue',
+          taskId: data.taskId,
+          url: '/dashboard/tasks/status',
+        },
+      });
+
+      const userRes = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [data.userId]);
+      if (userRes.rows.length === 0) return;
+      const user = userRes.rows[0];
+
+      await this.sendEmail({
+        to: user.email,
+        subject: `Task Overdue: ${data.taskTitle}`,
+        html: `
+          <h3>Task Overdue</h3>
+          <p>Hi ${user.first_name},</p>
+          <p>The task <strong>${data.taskTitle}</strong> was due at ${formattedDate} and is now overdue.</p>
+          <p><a href="${process.env.FRONTEND_URL}/dashboard/tasks/status">View Task</a></p>
+        `,
+      });
+    } catch (error) {
+      logger.error({ error, ...data }, 'Failed to send task overdue notification');
     }
   }
 }

@@ -24,6 +24,7 @@ import locationRoutes from '../src/routes/location.routes';
 import departmentRoutes from '../src/routes/departments.routes';
 import { subscriptionRoutes } from '../src/routes/subscription.routes';
 import { superAdminRoutes } from '../src/routes/superadmin.routes';
+import { jobsRoutes } from '../src/routes/jobs.routes';
 import multipart from '@fastify/multipart';
 
 let app: any = null;
@@ -138,6 +139,7 @@ export async function buildServerlessApp() {
   await fastify.register(subscriptionRoutes, { prefix: '/api/subscription' });
   await fastify.register(multipart);
   await fastify.register(superAdminRoutes, { prefix: '/api/super-admin' });
+  await fastify.register(jobsRoutes, { prefix: '/api/jobs' });
 
   // Import and register employee invitation routes
   const { employeeInvitationRoutes } = await import('../src/routes/employee-invitation.routes');

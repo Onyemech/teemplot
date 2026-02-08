@@ -9,6 +9,10 @@ export class BirthdayJobService {
   public initialize(): void {
     // Default to 6:00 AM daily
     const schedule = process.env.BIRTHDAY_JOB_CRON || '0 6 * * *';
+
+    void birthdayService.processDailyBirthdays().catch((error) => {
+      logger.error({ error }, 'Birthday job initial run failed');
+    });
     
     this.job = cron.schedule(schedule, async () => {
       logger.info('Running daily birthday job...');

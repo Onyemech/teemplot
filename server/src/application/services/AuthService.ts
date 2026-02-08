@@ -143,16 +143,19 @@ export class AuthService {
 
   async loginSuperAdmin(dto: LoginDto): Promise<SuperAdmin> {
     const admin = await this.superAdminRepository.findByEmail(dto.email);
-    if (!admin || !admin.passwordHash) {
+    const passwordHash = (admin as any)?.passwordHash ?? (admin as any)?.password_hash;
+    const isActive = (admin as any)?.isActive ?? (admin as any)?.is_active;
+
+    if (!admin || !passwordHash) {
       throw new Error('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.password, admin.passwordHash);
+    const isPasswordValid = await bcrypt.compare(dto.password, passwordHash);
     if (!isPasswordValid) {
       throw new Error('Invalid credentials');
     }
 
-    if (!admin.isActive) {
+    if (isActive === false) {
       throw new Error('Account is inactive');
     }
 

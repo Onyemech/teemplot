@@ -88,6 +88,7 @@ export class AuditService {
          FROM audit_logs al
          LEFT JOIN users u ON al.user_id = u.id
          WHERE al.company_id = $1
+           AND al.action <> 'invitation_counter_update'
          ORDER BY al.created_at DESC
          LIMIT $2 OFFSET $3`,
         [companyId, limit, offset]

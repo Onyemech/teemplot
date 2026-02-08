@@ -71,6 +71,21 @@ export class BirthdayService {
     for (const celebrant of celebrants) {
       const celebrantName = `${celebrant.first_name} ${celebrant.last_name}`;
 
+      const alreadyProcessedRes = await this.db.query(
+        `SELECT 1
+         FROM audit_logs
+         WHERE company_id = $1
+           AND action = 'birthday_celebrated'
+           AND entity_type = 'user'
+           AND entity_id = $2
+           AND created_at::date = CURRENT_DATE
+         LIMIT 1`,
+        [companyId, celebrant.id]
+      );
+      if (alreadyProcessedRes.rows.length > 0) {
+        continue;
+      }
+
       // 1. Audit Log (Logged before notifications)
       try {
         await auditService.logAction({
