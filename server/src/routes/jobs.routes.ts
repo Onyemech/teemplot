@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { birthdayService } from '../services/BirthdayService';
 import { taskSchedulerService } from '../services/TaskSchedulerService';
+import { autoAttendanceService } from '../services/AutoAttendanceService';
 import { logger } from '../utils/logger';
 
 function verifyJobSecret(request: any): boolean {
@@ -37,12 +38,19 @@ export async function jobsRoutes(fastify: FastifyInstance) {
     const results = await Promise.allSettled([
       birthdayService.processDailyBirthdays(),
       taskSchedulerService.runOnce(),
+      autoAttendanceService.processAutoClockIn(),
+      autoAttendanceService.processAutoClockOut(),
     ]);
 
     const failures = results
       .map((r, i) => ({ r, i }))
       .filter(({ r }) => r.status === 'rejected')
-      .map(({ r, i }) => ({ job: i === 0 ? 'birthdays' : 'tasks', reason: (r as PromiseRejectedResult).reason?.message || 'failed' }));
+      .map(({ r, i }) => ({
+        job: i === 0 ? 'birthdays' : 
+             i === 1 ? 'tasks' : 
+             i === 2 ? 'auto_clockin' : 'auto_clockout',
+        reason: (r as PromiseRejectedResult).reason?.message || 'failed'
+      }));
 
     if (failures.length > 0) {
       logger.error({ failures }, 'One or more jobs failed');
@@ -66,6 +74,22 @@ export async function jobsRoutes(fastify: FastifyInstance) {
     }
     await taskSchedulerService.runOnce();
     return reply.send({ success: true });
+  });
+
+  fastify.post('/attendance/clockin/run', async (request, reply) => {
+    if (!verifyJobSecret(request)) {
+      return reply.code(401).send({ success: false, message: 'Unauthorized' });
+    }
+    const clockedIn = await autoAttendanceService.processAutoClockIn();
+    return reply.send({ success: true, clockedIn });
+  });
+
+  fastify.post('/attendance/clockout/run', async (request, reply) => {
+    if (!verifyJobSecret(request)) {
+      return reply.code(401).send({ success: false, message: 'Unauthorized' });
+    }
+    const clockedOut = await autoAttendanceService.processAutoClockOut();
+    return reply.send({ success: true, clockedOut });
   });
 
   fastify.post('/run-all', async (request, reply) => {
