@@ -64,30 +64,40 @@ export class AutoAttendanceService {
   /**
    * Process automatic clock-in for all eligible companies
    */
-  private async processAutoClockIn(): Promise<void> {
+  public async processAutoClockIn(): Promise<{ clockedIn: number; companiesProcessed: number }> {
     try {
       const companies = await this.getEligibleCompanies('clockin');
       
+      let totalClockedIn = 0;
       for (const company of companies) {
-        await this.clockInEmployees(company);
+        const clockedIn = await this.clockInEmployees(company);
+        totalClockedIn += clockedIn;
       }
+      
+      return { clockedIn: totalClockedIn, companiesProcessed: companies.length };
     } catch (error) {
       logger.error({ error }, 'Error processing auto clock-in');
+      return { clockedIn: 0, companiesProcessed: 0 };
     }
   }
 
   /**
    * Process automatic clock-out for all eligible companies
    */
-  private async processAutoClockOut(): Promise<void> {
+  public async processAutoClockOut(): Promise<{ clockedOut: number; companiesProcessed: number }> {
     try {
       const companies = await this.getEligibleCompanies('clockout');
       
+      let totalClockedOut = 0;
       for (const company of companies) {
-        await this.clockOutEmployees(company);
+        const clockedOut = await this.clockOutEmployees(company);
+        totalClockedOut += clockedOut;
       }
+      
+      return { clockedOut: totalClockedOut, companiesProcessed: companies.length };
     } catch (error) {
       logger.error({ error }, 'Error processing auto clock-out');
+      return { clockedOut: 0, companiesProcessed: 0 };
     }
   }
 
@@ -121,7 +131,7 @@ export class AutoAttendanceService {
     return result.rows;
   }
 
-  private async clockInEmployees(company: CompanyWorkConfig): Promise<void> {
+  private async clockInEmployees(company: CompanyWorkConfig): Promise<number> {
     try {
       const now = new Date();
       const currentDay = now.toLocaleDateString('en-US', { 
@@ -131,7 +141,7 @@ export class AutoAttendanceService {
       
       // Check if today is a working day
       if (!company.working_days[currentDay]) {
-        return;
+        return 0;
       }
 
       // Check if current time is within grace period of work start time
@@ -194,16 +204,22 @@ export class AutoAttendanceService {
         if (autoCount > 0) {
           logger.info(`Auto clocked-in ${autoCount} employees for company ${company.id}`);
         }
+        
+        return autoCount;
       }
+      
+      // If not within grace period, return 0
+      return 0;
     } catch (error) {
       logger.error({ err: error, companyId: company.id }, `Error clocking in employees for company ${company.id}`);
+      return 0;
     }
   }
 
   /**
    * Clock out employees for a company
    */
-  private async clockOutEmployees(company: CompanyWorkConfig): Promise<void> {
+  private async clockOutEmployees(company: CompanyWorkConfig): Promise<number> {
     try {
       const now = new Date();
       const currentDay = now.toLocaleDateString('en-US', { 
@@ -213,7 +229,7 @@ export class AutoAttendanceService {
       
       // Check if today is a working day
       if (!company.working_days[currentDay]) {
-        return;
+        return 0;
       }
 
       // Check if current time is at or past work end time
@@ -308,6 +324,8 @@ export class AutoAttendanceService {
         if (autoCount > 0) {
           logger.info(`Auto clocked-out ${autoCount} employees for company ${company.id}`);
         }
+        
+        return autoCount;
 
         // Forgotten clock-out reminder around +60 minutes past end time
         const endPlus60 = this.addMinutes(company.work_end_time, 60);
@@ -340,8 +358,12 @@ export class AutoAttendanceService {
           }
         }
       }
+      
+      // If not past work end time, return 0
+      return 0;
     } catch (error) {
       logger.error({ err: error, companyId: company.id }, `Error clocking out employees for company ${company.id}`);
+      return 0;
     }
   }
 
