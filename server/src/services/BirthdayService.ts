@@ -68,6 +68,22 @@ export class BirthdayService {
     const companyRes = await this.db.query('SELECT name FROM companies WHERE id = $1', [companyId]);
     const companyName = companyRes.rows[0]?.name || 'Teemplot';
 
+    // Check if this company has already been processed today to prevent duplicate notifications
+    const companyProcessedRes = await this.db.query(
+      `SELECT 1
+       FROM audit_logs
+       WHERE company_id = $1
+         AND action = 'birthday_celebrated'
+         AND created_at::date = CURRENT_DATE
+       LIMIT 1`,
+      [companyId]
+    );
+    
+    if (companyProcessedRes.rows.length > 0) {
+      logger.info({ companyId }, 'Birthday notifications already sent for this company today');
+      return; // Skip entire company processing to prevent duplicate admin notifications
+    }
+
     for (const celebrant of celebrants) {
       const celebrantName = `${celebrant.first_name} ${celebrant.last_name}`;
 
