@@ -6,7 +6,16 @@ import { logger } from '../utils/logger';
 function verifyJobSecret(request: any): boolean {
   const expected = process.env.JOB_SECRET;
   if (!expected) return false;
+
   const provided = String(request.headers['x-job-secret'] || '');
+
+  // Enhanced logging
+  logger.info({
+    providedHeader: provided,
+    expectedHeader: expected,
+    headers: request.headers,
+  }, 'Verifying job secret');
+
   return provided === expected;
 }
 
