@@ -54,12 +54,12 @@ export class AttendanceService {
 
       // Check if user already clocked in today
       const existingQuery = `
-        SELECT id
+        SELECT id, clock_out_time
         FROM attendance_records
         WHERE user_id = $1
           AND company_id = $2
           AND DATE(clock_in_time AT TIME ZONE $3) = CURRENT_DATE
-          AND clock_out_time IS NULL
+        ORDER BY clock_in_time DESC
       `;
 
       const existingResult = await client.query(existingQuery, [
@@ -69,7 +69,13 @@ export class AttendanceService {
       ]);
 
       if (existingResult.rows.length > 0) {
-        throw new Error('Already clocked in today');
+        const lastRecord = existingResult.rows[0];
+        if (lastRecord.clock_out_time === null) {
+          throw new Error('Already clocked in. Please clock out first.');
+        }
+
+        // If they have clocked out, check if they are allowed to clock in again
+        // We'll check this after fetching user settings below
       }
 
       // Check remote work permissions
@@ -78,6 +84,10 @@ export class AttendanceService {
       const userSettings = userSettingsResult.rows[0];
       if (!userSettings) {
         throw new Error('User not found or inactive');
+      }
+
+      if (existingResult.rows.length > 0 && !userSettings.allow_multi_location_clockin) {
+        throw new Error('Multiple clock-ins per day are not enabled for your account. Please contact your administrator.');
       }
       if (String(userSettings.company_id) !== String(data.companyId)) {
         throw new Error('Invalid company relationship for this user');

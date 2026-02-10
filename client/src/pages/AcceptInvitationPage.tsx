@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import { isBiometricAvailable } from '@/utils/pwa'
 import { isMobile, isPWA } from '@/utils/pwa'
+import IOSInstallPrompt from '@/components/pwa/IOSInstallPrompt'
 
 
 interface InvitationData {
@@ -65,7 +66,6 @@ export default function AcceptInvitationPage() {
     dateOfBirth: '',
   })
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordValidation, setPasswordValidation] = useState({
     isValid: false,
     errors: [] as string[],
@@ -316,6 +316,7 @@ export default function AcceptInvitationPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <IOSInstallPrompt />
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {showInstallBanner && (
@@ -468,25 +469,16 @@ export default function AcceptInvitationPage() {
               )}
             </div>
 
-            <div className="relative">
-              <Input
-                type={showConfirmPassword ? 'text' : 'password'}
-                label="Confirm Password"
-                placeholder="Re-enter password"
-                required
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
-                fullWidth
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-700"
-              >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+            <Input
+              type="password"
+              label="Confirm Password"
+              placeholder="Re-enter password"
+              required
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              error={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'Passwords do not match' : undefined}
+              fullWidth
+            />
 
             {invitation?.biometricsEnabled && (
               <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
@@ -535,6 +527,9 @@ export default function AcceptInvitationPage() {
               loading={submitting}
               loadingText="Creating Account..."
               disabled={
+                !formData.firstName ||
+                !formData.lastName ||
+                !formData.dateOfBirth ||
                 !passwordValidation.isValid || 
                 formData.password !== formData.confirmPassword ||
                 (invitation?.biometricsEnabled && invitation?.biometricsMandatory && !biometricCaptured)
