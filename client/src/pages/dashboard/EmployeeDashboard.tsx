@@ -17,6 +17,7 @@ import { apiClient } from '@/lib/api';
 import { permissionManager, type PermissionError } from '@/utils/PermissionManager';
 import PermissionModal from '@/components/common/PermissionModal';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { getTimeBasedGreeting } from '@/utils/dateUtils';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -449,7 +450,7 @@ export default function EmployeeDashboard() {
       <div className="bg-white p-6 pb-2">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-sm text-gray-500 font-medium">Good Morning ☀️</p>
+            <p className="text-sm text-gray-500 font-medium">{getTimeBasedGreeting()}</p>
             <h1 className="text-xl font-bold text-gray-900 mt-1">{userName}</h1>
           </div>
           {/* Avatar - Clickable to navigate to profile */}

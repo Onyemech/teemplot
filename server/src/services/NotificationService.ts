@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import { realtimeService } from './RealtimeService';
+import { formatDuration } from '../utils/attendanceFormatter';
 
 interface EmailNotification {
   to: string;
@@ -439,15 +440,17 @@ export class NotificationService {
         });
 
         // Send push notification
+        const formattedEarly = formatDuration(data.minutesEarly, { format: 'long' });
         await this.sendPushNotification({
           userId: admin.id,
           title: '⚠️ Early Departure Alert',
-          body: `${data.userName} left ${data.minutesEarly} minutes early`,
+          body: `${data.userName} left ${formattedEarly} early`,
           data: {
             type: 'early_departure',
             userId: data.userId,
             departureTime: data.departureTime.toISOString(),
             minutesEarly: data.minutesEarly,
+            url: '/dashboard/attendance'
           },
         });
       }
@@ -477,6 +480,8 @@ export class NotificationService {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
+
+    const formattedDuration = formatDuration(data.minutesEarly, { format: 'long' });
 
     const html = `
       <!DOCTYPE html>
@@ -521,7 +526,7 @@ export class NotificationService {
               </div>
               <div class="detail-row">
                 <span class="detail-label">Left Early By:</span>
-                <span style="color: #FF5722; font-weight: bold;">${data.minutesEarly} minutes</span>
+                <span style="color: #FF5722; font-weight: bold;">${formattedDuration}</span>
               </div>
             </div>
 
@@ -554,7 +559,7 @@ export class NotificationService {
       - Employee: ${data.employeeName}
       - Departure Time: ${formattedTime}
       - Scheduled End Time: ${data.scheduledEndTime}
-      - Left Early By: ${data.minutesEarly} minutes
+      - Left Early By: ${formattedDuration}
       
       Please review this attendance record and take appropriate action if necessary.
       

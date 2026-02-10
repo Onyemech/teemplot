@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { logger } from '../utils/logger';
 import { notificationService } from './NotificationService';
 import { auditService } from './AuditService';
+import { formatDuration } from '../utils/attendanceFormatter';
 
 interface CheckInRequest {
   userId: string;
@@ -684,18 +685,20 @@ class EnhancedAttendanceService {
       );
 
       // Send notifications to all admins
+      const formattedLate = formatDuration(attendance.minutes_late, { format: 'long' });
       for (const admin of adminsResult.rows) {
         await notificationService.sendPushNotification({
           userId: admin.id,
           title: 'Late Arrival',
-          body: `${user.first_name} ${user.last_name} arrived ${attendance.minutes_late} minutes late`,
+          body: `${user.first_name} ${user.last_name} arrived ${formattedLate} late`,
           data: {
             companyId,
             type: 'warning',
             employeeId: userId,
             employeeName: `${user.first_name} ${user.last_name}`,
             minutesLate: attendance.minutes_late,
-            clockInTime: attendance.clock_in_time
+            clockInTime: attendance.clock_in_time,
+            url: '/dashboard/attendance'
           }
         });
 
@@ -707,9 +710,10 @@ class EnhancedAttendanceService {
             <h2>Late Arrival Notification</h2>
             <p><strong>${user.first_name} ${user.last_name}</strong> arrived late today.</p>
             <ul>
-              <li><strong>Minutes Late:</strong> ${attendance.minutes_late}</li>
+              <li><strong>Minutes Late:</strong> ${formattedLate}</li>
               <li><strong>Check-in Time:</strong> ${new Date(attendance.clock_in_time).toLocaleString()}</li>
             </ul>
+            <p><a href="${process.env.FRONTEND_URL}/dashboard/attendance">View Attendance</a></p>
           `
         });
       }
@@ -760,11 +764,12 @@ class EnhancedAttendanceService {
       );
 
       // Send notifications to all admins
+      const formattedEarly = formatDuration(attendance.minutes_early, { format: 'long' });
       for (const admin of adminsResult.rows) {
         await notificationService.sendPushNotification({
           userId: admin.id,
           title: 'Early Departure',
-          body: `${user.first_name} ${user.last_name} left ${attendance.minutes_early} minutes early${departureReason ? `: ${departureReason}` : ''}`,
+          body: `${user.first_name} ${user.last_name} left ${formattedEarly} early${departureReason ? `: ${departureReason}` : ''}`,
           data: {
             companyId,
             type: 'early_departure',
@@ -772,7 +777,8 @@ class EnhancedAttendanceService {
             employeeName: `${user.first_name} ${user.last_name}`,
             minutesEarly: attendance.minutes_early,
             clockOutTime: attendance.clock_out_time,
-            departureReason: departureReason || null
+            departureReason: departureReason || null,
+            url: '/dashboard/attendance'
           }
         });
 
@@ -784,10 +790,11 @@ class EnhancedAttendanceService {
             <h2>Early Departure Notification</h2>
             <p><strong>${user.first_name} ${user.last_name}</strong> left work early today.</p>
             <ul>
-              <li><strong>Minutes Early:</strong> ${attendance.minutes_early}</li>
+              <li><strong>Minutes Early:</strong> ${formattedEarly}</li>
               <li><strong>Check-out Time:</strong> ${new Date(attendance.clock_out_time).toLocaleString()}</li>
               ${departureReason ? `<li><strong>Reason:</strong> ${departureReason}</li>` : ''}
             </ul>
+            <p><a href="${process.env.FRONTEND_URL}/dashboard/attendance">View Attendance</a></p>
           `
         });
       }

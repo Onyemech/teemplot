@@ -74,7 +74,8 @@ export class BirthdayService {
        FROM audit_logs
        WHERE company_id = $1
          AND action = 'birthday_celebrated'
-         AND created_at::date = CURRENT_DATE
+         AND created_at >= CURRENT_DATE
+         AND created_at < (CURRENT_DATE + INTERVAL '1 day')
        LIMIT 1`,
       [companyId]
     );
@@ -94,7 +95,8 @@ export class BirthdayService {
            AND action = 'birthday_celebrated'
            AND entity_type = 'user'
            AND entity_id = $2
-           AND created_at::date = CURRENT_DATE
+           AND created_at >= CURRENT_DATE
+           AND created_at < (CURRENT_DATE + INTERVAL '1 day')
          LIMIT 1`,
         [companyId, celebrant.id]
       );

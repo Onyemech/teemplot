@@ -10,7 +10,6 @@ const InviteEmployeeSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   role: z.enum(['admin', 'manager', 'department_head', 'employee']),
   position: z.string().optional(),
-  departmentId: z.string().uuid().optional(),
 });
 
 const AcceptInvitationSchema = z.object({

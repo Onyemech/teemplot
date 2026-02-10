@@ -9,7 +9,11 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, User, Flag, Type } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 
-export default function TaskAssignPage() {
+interface TaskAssignPageProps {
+  isEmbedded?: boolean
+}
+
+export default function TaskAssignPage({ isEmbedded = false }: TaskAssignPageProps) {
   const toast = useToast()
   const navigate = useNavigate()
   const [users, setUsers] = useState<any[]>([])
@@ -29,7 +33,7 @@ export default function TaskAssignPage() {
   useEffect(() => {
     if (user && user.role === 'employee') {
       toast.error('Unauthorized access')
-      navigate('/dashboard/tasks/status')
+      navigate('/dashboard/tasks')
       return
     }
     fetchAssignableUsers()
@@ -88,16 +92,18 @@ export default function TaskAssignPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate(-1)} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Assign New Task</h1>
-          <p className="text-gray-500">Create and assign a task to a team member</p>
+      {!isEmbedded && (
+        <div className="flex items-center gap-4 px-4 sm:px-0">
+          <Button variant="ghost" onClick={() => navigate(-1)} icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
+          <div>
+            <h1 className="text-2xl font-bold text-[#212121]">Assign New Task</h1>
+            <p className="text-[#757575]">Create and assign a task to a team member</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <Card>
-        <div className="p-6 space-y-6">
+      <Card className="border-[#e0e0e0] mx-4 sm:mx-0">
+        <div className="p-4 sm:p-6 space-y-6">
           <Input
             label="Task Title"
             required
@@ -109,21 +115,21 @@ export default function TaskAssignPage() {
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+            <label className="block text-sm font-bold text-[#212121] mb-2">Description</label>
             <textarea
-              className="w-full min-h-[120px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+              className="w-full min-h-[120px] p-4 border border-[#e0e0e0] rounded-lg focus:ring-2 focus:ring-[#0F5D5D]/20 focus:border-[#0F5D5D] outline-none transition-all text-[#212121] placeholder-[#757575] text-sm sm:text-base"
               placeholder="Detailed description of the task..."
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <Select
               label="Assign To"
               required
               options={users.map(u => ({
-                label: `${u.firstName || 'Unknown'} ${u.lastName || 'User'} (${u.role || 'employee'})`,
+                label: `${u.firstName || ''} ${u.lastName || ''} (${u.role || 'employee'})`,
                 value: u.id,
                 icon: <User className="w-4 h-4" />
               }))}
@@ -136,14 +142,15 @@ export default function TaskAssignPage() {
             <Select
               label="Priority"
               options={[
-                { label: 'Low', value: 'low', icon: <Flag className="w-4 h-4 text-gray-500" /> },
-                { label: 'Medium', value: 'medium', icon: <Flag className="w-4 h-4 text-blue-500" /> },
+                { label: 'Low', value: 'low', icon: <Flag className="w-4 h-4 text-[#757575]" /> },
+                { label: 'Medium', value: 'medium', icon: <Flag className="w-4 h-4 text-[#0F5D5D]" /> },
                 { label: 'High', value: 'high', icon: <Flag className="w-4 h-4 text-orange-500" /> },
                 { label: 'Urgent', value: 'urgent', icon: <Flag className="w-4 h-4 text-red-500" /> },
               ]}
               value={form.priority}
               onChange={val => setForm({ ...form, priority: val })}
             />
+            
             <Input
               type="date"
               label="Due Date"
@@ -174,9 +181,9 @@ export default function TaskAssignPage() {
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3">
-            <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            <Button variant="primary" onClick={submit} loading={loading}>Assign Task</Button>
+          <div className="pt-4 flex flex-col sm:flex-row justify-end gap-3">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate(-1)}>Cancel</Button>
+            <Button variant="primary" className="w-full sm:w-auto bg-[#0F5D5D] hover:bg-[#0D4D4D] text-white" onClick={submit} loading={loading}>Assign Task</Button>
           </div>
         </div>
       </Card>

@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
 import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
+import { Loader2, FileText, CheckCircle, XCircle, Clock, User, Info } from 'lucide-react'
 
-export default function TaskVerifyPage() {
+interface TaskVerifyPageProps {
+  isEmbedded?: boolean
+}
+
+export default function TaskVerifyPage({ isEmbedded = false }: TaskVerifyPageProps) {
   const toast = useToast()
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,109 +51,138 @@ export default function TaskVerifyPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading...</div>
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-12 gap-3">
+      <Loader2 className="w-8 h-8 animate-spin text-[#0F5D5D]" />
+      <p className="text-sm text-[#757575]">Loading reviews...</p>
+    </div>
+  )
 
   return (
-    <div className="bg-white border border-[#e0e0e0] rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-[#212121] mb-4">Tasks Awaiting Review</h2>
-      {tasks.length === 0 && (
-        <p className="text-sm text-[#757575]">No tasks awaiting review</p>
+    <div className={`space-y-6 ${isEmbedded ? '' : 'p-4 sm:p-8 max-w-4xl mx-auto'}`}>
+      {!isEmbedded && (
+        <div>
+          <h1 className="text-2xl font-bold text-[#212121]">Task Verification</h1>
+          <p className="text-[#757575]">Review and approve completed tasks</p>
+        </div>
       )}
-      {tasks.map((t) => (
-        <div key={t.id} className="border border-[#e0e0e0] rounded-lg p-4 mb-4">
-          <p className="text-sm text-[#212121] font-semibold">{t.title}</p>
-          <p className="text-sm text-[#757575] mt-1 mb-2">{t.description}</p>
 
-          {/* Task Metadata / Proof */}
-          <div className="bg-gray-50 p-3 rounded-lg mb-4 text-sm space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Assigned To:</span>
-              <span className="font-medium">{t.assigned_to_name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Created By:</span>
-              <span className="font-medium">{t.created_by_name || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Created At:</span>
-              <span className="font-medium">{t.created_at ? new Date(t.created_at).toLocaleString() : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Marked Complete At:</span>
-              <span className="font-medium">{t.marked_complete_at ? new Date(t.marked_complete_at).toLocaleString() : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Actual Hours:</span>
-              <span className="font-medium">{t.actual_hours || '-'} hrs</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Review Status:</span>
-              <span className="font-medium">{t.review_status || 'pending_review'}</span>
-            </div>
-            {t.rejection_reason && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Rejection Reason:</span>
-                <span className="font-medium">{t.rejection_reason}</span>
+      <div className="bg-white border border-[#e0e0e0] rounded-xl overflow-hidden shadow-sm">
+        <div className="p-4 sm:p-6 border-b border-[#e0e0e0] bg-[#f5f5f5]">
+          <h2 className="text-lg font-bold text-[#212121] flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-[#0F5D5D]" />
+            Awaiting Review
+            <span className="ml-auto bg-[#0F5D5D] text-white text-[10px] px-2 py-0.5 rounded-full">
+              {tasks.length}
+            </span>
+          </h2>
+        </div>
+
+        <div className="divide-y divide-[#e0e0e0]">
+          {tasks.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-[#f5f5f5] rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-[#e0e0e0]" />
               </div>
-            )}
+              <p className="text-[#757575] font-medium">No tasks awaiting review</p>
+            </div>
+          ) : (
+            tasks.map((t) => (
+              <div key={t.id} className="p-4 sm:p-6 hover:bg-[#f5f5f5]/30 transition-colors">
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-[#212121] leading-tight">{t.title}</h3>
+                    <p className="text-sm text-[#757575] mt-1">{t.description}</p>
+                  </div>
 
-            {/* Notes */}
-            {t.metadata?.completion_notes && (
-              <div className="pt-2 border-t border-gray-200">
-                <span className="text-gray-500 block text-xs mb-1">Completion Notes:</span>
-                <p className="text-gray-800 bg-white p-2 rounded border border-gray-100">{t.metadata.completion_notes}</p>
-              </div>
-            )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-[#757575]">
+                        <User className="w-3.5 h-3.5" />
+                        <span>Assigned to: <span className="text-[#212121] font-medium">{t.assigned_to_name}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#757575]">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Completed: <span className="text-[#212121] font-medium">{t.marked_complete_at ? new Date(t.marked_complete_at).toLocaleString() : '-'}</span></span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-[#757575]">
+                        <Info className="w-3.5 h-3.5" />
+                        <span>Effort: <span className="text-[#212121] font-medium">{t.actual_hours || '-'} hrs</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#757575]">
+                        <User className="w-3.5 h-3.5" />
+                        <span>Created by: <span className="text-[#212121] font-medium">{t.created_by_name || '-'}</span></span>
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Attachments */}
-            {t.metadata?.attachments && t.metadata.attachments.length > 0 && (
-              <div className="pt-2 border-t border-gray-200">
-                <span className="text-gray-500 block text-xs mb-1">Proof of Work:</span>
-                <div className="flex flex-wrap gap-2">
-                  {t.metadata.attachments.map((file: any, i: number) => (
-                    <a
-                      key={i}
-                      href={file.secure_url || file.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 bg-white border border-gray-200 px-2 py-1.5 rounded text-xs text-blue-600 hover:text-blue-800 hover:border-blue-300 transition-colors"
-                    >
-                      📄 {file.original_filename || 'Attachment'}
-                    </a>
-                  ))}
+                  {t.metadata?.completion_notes && (
+                    <div className="bg-[#f5f5f5] p-3 rounded-lg border border-[#e0e0e0]">
+                      <span className="text-[10px] uppercase font-bold text-[#757575] block mb-1">Completion Notes</span>
+                      <p className="text-sm text-[#212121] italic">"{t.metadata.completion_notes}"</p>
+                    </div>
+                  )}
+
+                  {t.metadata?.attachments && t.metadata.attachments.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-[10px] uppercase font-bold text-[#757575] block">Proof of Work</span>
+                      <div className="flex flex-wrap gap-2">
+                        {t.metadata.attachments.map((file: any, i: number) => (
+                          <a
+                            key={i}
+                            href={file.secure_url || file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 bg-white border border-[#e0e0e0] px-3 py-2 rounded-lg text-xs text-[#0F5D5D] font-medium hover:border-[#0F5D5D] transition-all"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span className="max-w-[150px] truncate">{file.original_filename || 'Attachment'}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-[#e0e0e0] space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#757575] uppercase mb-2">Review Feedback</label>
+                      <textarea
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                        className="w-full border border-[#e0e0e0] rounded-lg px-4 py-3 bg-white text-sm focus:ring-2 focus:ring-[#0F5D5D]/20 focus:border-[#0F5D5D] outline-none transition-all"
+                        rows={2}
+                        placeholder="Add feedback for the employee..."
+                      />
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button
+                        variant="primary"
+                        className="flex-1 bg-[#0F5D5D] hover:bg-[#0D4D4D] text-white"
+                        onClick={() => review(t.id, true)}
+                        loading={verifying === t.id}
+                        icon={<CheckCircle className="w-4 h-4" />}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => review(t.id, false)}
+                        loading={verifying === t.id}
+                        icon={<XCircle className="w-4 h-4" />}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="mt-3">
-            <label className="text-sm text-[#212121]">Review Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full border border-[#e0e0e0] rounded-lg px-3 py-2 bg-white"
-              rows={3}
-              placeholder="Optional notes"
-            />
-          </div>
-          <div className="mt-3 flex gap-2">
-            <Button
-              variant="primary"
-              onClick={() => review(t.id, true)}
-              loading={verifying === t.id}
-            >
-              Approve
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => review(t.id, false)}
-              loading={verifying === t.id}
-            >
-              Reject
-            </Button>
-          </div>
+            ))
+          )}
         </div>
-      ))}
+      </div>
     </div>
   )
 }

@@ -53,12 +53,14 @@ export class AttendanceService {
       const company = companyResult.rows[0];
 
       // Check if user already clocked in today
+      // Fix: Compare dates in company timezone, not server timezone
       const existingQuery = `
         SELECT id, clock_out_time
         FROM attendance_records
         WHERE user_id = $1
           AND company_id = $2
-          AND DATE(clock_in_time AT TIME ZONE $3) = CURRENT_DATE
+          AND clock_in_time >= (NOW() AT TIME ZONE $3)::date
+          AND clock_in_time < ((NOW() AT TIME ZONE $3)::date + INTERVAL '1 day')
         ORDER BY clock_in_time DESC
       `;
 
@@ -73,9 +75,8 @@ export class AttendanceService {
         if (lastRecord.clock_out_time === null) {
           throw new Error('Already clocked in. Please clock out first.');
         }
-
-        // If they have clocked out, check if they are allowed to clock in again
-        // We'll check this after fetching user settings below
+        
+        // If they have clocked out, we check permissions below
       }
 
       // Check remote work permissions
@@ -86,9 +87,11 @@ export class AttendanceService {
         throw new Error('User not found or inactive');
       }
 
+      // Fix: Enforce multiple clock-in policy strictly
       if (existingResult.rows.length > 0 && !userSettings.allow_multi_location_clockin) {
         throw new Error('Multiple clock-ins per day are not enabled for your account. Please contact your administrator.');
       }
+
       if (String(userSettings.company_id) !== String(data.companyId)) {
         throw new Error('Invalid company relationship for this user');
       }
@@ -103,35 +106,51 @@ export class AttendanceService {
         'SELECT EXTRACT(ISODOW FROM (NOW() AT TIME ZONE $1))::int AS isodow',
         [tz]
       );
-      const isodow: number | undefined = isoDowResult.rows[0]?.isodow;
-      const jsDow = (isodow || 7) % 7;
+      const isodow: number | undefined = isoDowResult.rows[0]?.isodow; // 1=Mon, 7=Sun
+      
+      // Fix: Robust working days parsing
+      let allowedDays: number[] = [];
 
-      const workingDaysList: number[] = Array.isArray(company.working_days_array)
-        ? company.working_days_array.map((n: any) => Number(n)).filter((n: number) => !Number.isNaN(n))
-        : [];
+      // 1. Try company settings array first (preferred)
+      if (company.working_days_array && Array.isArray(company.working_days_array)) {
+         allowedDays = company.working_days_array.map((d: any) => {
+            const num = Number(d);
+            return num === 0 ? 7 : num; // Normalize 0 (Sun) to 7
+         }).filter((n: number) => !Number.isNaN(n));
+      }
 
-      let workingDaysJson: any = null;
-      if (company.working_days_json) {
+      // 2. Fallback to legacy JSON if array is empty
+      if (allowedDays.length === 0 && company.working_days_json) {
         try {
-          workingDaysJson =
-            typeof company.working_days_json === 'string' ? JSON.parse(company.working_days_json) : company.working_days_json;
-        } catch {
-          workingDaysJson = null;
+          const parsed = typeof company.working_days_json === 'string'
+            ? JSON.parse(company.working_days_json)
+            : company.working_days_json;
+
+          if (Array.isArray(parsed)) {
+            allowedDays = parsed.map((d: any) => {
+              const num = Number(d);
+              return num === 0 ? 7 : num;
+            });
+          } else if (typeof parsed === 'object') {
+             // Handle object format {"1": true, "2": false...}
+             allowedDays = Object.keys(parsed)
+               .filter(k => parsed[k] === true || parsed[k] === 'true')
+               .map(k => {
+                 const num = Number(k);
+                 return num === 0 ? 7 : num;
+               });
+          }
+        } catch (e) {
+          logger.warn({ err: e, val: company.working_days_json }, 'Failed to parse working_days_json');
         }
       }
 
-      let isWorkingDay = true;
-      if (workingDaysJson) {
-        if (Array.isArray(workingDaysJson)) {
-          isWorkingDay = workingDaysJson.includes(isodow) || workingDaysJson.includes(jsDow) || (jsDow === 0 && workingDaysJson.includes(7));
-        } else {
-          isWorkingDay = Boolean(workingDaysJson[String(isodow)]) || Boolean(workingDaysJson[String(jsDow)]);
-        }
-      } else if (workingDaysList.length > 0 && typeof isodow === 'number') {
-        isWorkingDay = workingDaysList.includes(isodow);
-      } else if (typeof isodow === 'number') {
-        isWorkingDay = [1, 2, 3, 4, 5].includes(isodow);
+      // 3. Default to Mon-Fri if nothing configured
+      if (allowedDays.length === 0) {
+        allowedDays = [1, 2, 3, 4, 5];
       }
+
+      const isWorkingDay = allowedDays.includes(isodow || 0);
 
       const allowRemoteOnNonWorkingDays =
         company.allow_remote_clockin_on_non_working_days === true ||

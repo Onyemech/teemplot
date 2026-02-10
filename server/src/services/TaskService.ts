@@ -4,7 +4,8 @@ import { logger } from '../utils/logger';
 interface CreateTaskData {
   title: string;
   description?: string;
-  assignedTo: string;
+  assignedTo?: string; // Made optional to support department assignment
+  departmentId?: string; // Added for department assignment
   priority?: string;
   dueDate?: string;
   estimatedHours?: number;
@@ -128,6 +129,7 @@ export class TaskService {
       title,
       description,
       assignedTo,
+      departmentId,
       priority = 'medium',
       dueDate,
       estimatedHours,
@@ -143,8 +145,57 @@ export class TaskService {
       throw new Error('Employees cannot create tasks');
     }
 
-    if (!title || !assignedTo) {
-      throw new Error('Title and assigned user are required');
+    if (!title) {
+      throw new Error('Title is required');
+    }
+    
+    // Department Assignment Logic
+    if (departmentId && !assignedTo) {
+      if (role !== 'owner' && role !== 'admin') {
+         // Managers/Department Heads can only assign to their own department
+         const mgrRes = await this.db.query(
+          'SELECT department_id FROM users WHERE id = $1 AND company_id = $2',
+          [userId, companyId]
+        );
+        const mgrDept = mgrRes.rows[0]?.department_id;
+        if (!mgrDept || mgrDept !== departmentId) {
+          throw new Error('You can only assign tasks to your own department');
+        }
+      }
+
+      // Get all eligible employees in the department
+      const employeesRes = await this.db.query(
+        `SELECT id, first_name, last_name, email 
+         FROM users 
+         WHERE department_id = $1 AND company_id = $2 AND is_active = true AND role != 'owner'`,
+        [departmentId, companyId]
+      );
+
+      if (employeesRes.rows.length === 0) {
+        throw new Error('No active employees found in this department');
+      }
+
+      const createdTasks = [];
+      
+      // Create individual task for each employee
+      for (const employee of employeesRes.rows) {
+         const taskData = {
+           ...data,
+           assignedTo: employee.id,
+           departmentId: undefined // Prevent recursion
+         };
+         // Recursively call createTask for each user
+         // We do this sequentially to ensure proper logging/notifications
+         // In a high-volume scenario, this should be batched
+         const task = await this.createTask(taskData, user);
+         createdTasks.push(task);
+      }
+
+      return createdTasks;
+    }
+
+    if (!assignedTo) {
+       throw new Error('Assigned user is required');
     }
 
     const schema = await this.getTaskSchema();
@@ -509,6 +560,53 @@ export class TaskService {
       `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id, metadata)
        VALUES ($1, $2, 'updated', 'task', $3, $4)`,
       [companyId, userId, taskId, JSON.stringify(updates)]
+    );
+
+    return result.rows[0];
+  }
+
+  async startTask(taskId: string, user: UserContext): Promise<any> {
+    const { companyId, userId } = user;
+    const schema = await this.getTaskSchema();
+    if (!schema.primaryAssigneeColumn) {
+      throw new Error('Tasks schema is missing required columns.');
+    }
+
+    const taskResult = await this.db.query(
+      `SELECT t.* 
+       FROM tasks t
+       WHERE t.id = $1 AND t.company_id = $2`,
+      [taskId, companyId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      throw new Error('Task not found');
+    }
+
+    const task = taskResult.rows[0];
+
+    if (task[schema.primaryAssigneeColumn] !== userId) {
+      throw new Error('Only the assigned user can start this task');
+    }
+
+    if (task.status !== 'pending') {
+      throw new Error('Task must be pending to start');
+    }
+
+    const result = await this.db.query(
+      `UPDATE tasks 
+       SET status = 'in_progress',
+           started_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1 AND company_id = $2
+       RETURNING *`,
+      [taskId, companyId]
+    );
+
+    await this.db.query(
+      `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id)
+       VALUES ($1, $2, 'started', 'task', $3)`,
+      [companyId, userId, taskId]
     );
 
     return result.rows[0];

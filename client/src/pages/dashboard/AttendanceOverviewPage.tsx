@@ -28,6 +28,7 @@ import Button from '@/components/ui/Button'
 import StatCard from '@/components/dashboard/StatCard'
 import AttendanceDonutChart from '@/components/dashboard/AttendanceDonutChart'
 import { apiClient } from '@/lib/api'
+import { formatDuration } from '@/utils/attendanceFormatter'
 
 interface AttendanceStats {
   totalEmployees: number
@@ -190,16 +191,16 @@ export default function AttendanceOverviewPage() {
           department: r.department || 'General',
           clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
           clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
-          duration: r.duration_minutes ? `${Math.floor(r.duration_minutes / 60)}h ${r.duration_minutes % 60}m` : '--',
+          duration: r.duration_minutes ? formatDuration(r.duration_minutes, { format: 'short' }) : '--',
           status: r.status === 'on_break' ? 'on_break' : (r.status === 'late_arrival' ? 'late_arrival' : (r.status || 'absent')),
           location: r.location_type || 'onsite',
           date: r.clock_in_time ? format(new Date(r.clock_in_time), 'yyyy-MM-dd') : '-',
           device: r.check_in_method || 'Manual',
           ipAddress: r.ip_address || 'Unknown IP',
           workHours: '8h 0m',
-          overtime: r.overtime_minutes ? `${Math.floor(r.overtime_minutes / 60)}h ${r.overtime_minutes % 60}m` : '0h 0m',
-          lateBy: r.minutes_late ? `${r.minutes_late} mins` : '0 mins',
-          breakDuration: r.total_break_minutes ? `${Math.floor(r.total_break_minutes)} mins` : '0 mins'
+          overtime: r.overtime_minutes ? formatDuration(r.overtime_minutes, { format: 'short' }) : '0h 0m',
+          lateBy: r.minutes_late ? formatDuration(r.minutes_late, { format: 'long' }) : '0 minutes',
+          breakDuration: r.total_break_minutes ? formatDuration(r.total_break_minutes, { format: 'long' }) : '0 minutes'
         }))
         setRecords(mappedRecords)
       }

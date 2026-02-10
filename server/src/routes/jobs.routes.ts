@@ -2,7 +2,10 @@ import { FastifyInstance } from 'fastify';
 import { birthdayService } from '../services/BirthdayService';
 import { taskSchedulerService } from '../services/TaskSchedulerService';
 import { autoAttendanceService } from '../services/AutoAttendanceService';
+import { performanceSnapshotJobService } from '../services/PerformanceSnapshotJobService';
 import { logger } from '../utils/logger';
+import { superAdminNotificationService } from '../services/SuperAdminNotificationService';
+import * as Sentry from '@sentry/node';
 
 function verifyJobSecret(request: any): boolean {
   const expected = process.env.JOB_SECRET;
@@ -54,6 +57,13 @@ export async function jobsRoutes(fastify: FastifyInstance) {
 
     if (failures.length > 0) {
       logger.error({ failures }, 'One or more jobs failed');
+
+      // Notify superadmin about job failures
+      superAdminNotificationService.notifySystemAlert(
+        `Background job failures: ${failures.length} jobs failed`,
+        'error'
+      ).catch(err => logger.error({ err }, 'Failed to notify superadmin about job failures'));
+
       return reply.code(500).send({ success: false, failures });
     }
 

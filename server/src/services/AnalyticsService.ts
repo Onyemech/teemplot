@@ -1,5 +1,6 @@
 import { pool } from '../config/database';
 import { PoolClient } from 'pg';
+import { logger } from '../utils/logger';
 
 type AnalyticsFilters = {
   departmentId?: string;
@@ -15,42 +16,58 @@ export class AnalyticsService {
   private async resolveTaskAssigneeColumn(client: PoolClient): Promise<'assigned_to' | 'assignee_id'> {
     if (AnalyticsService.taskAssigneeColumn) return AnalyticsService.taskAssigneeColumn;
 
-    const res = await client.query<{ column_name: string }>(
-      `SELECT column_name
-       FROM information_schema.columns
-       WHERE table_schema = 'public'
-         AND table_name = 'tasks'
-         AND column_name IN ('assignee_id', 'assigned_to')`
-    );
+    try {
+      const res = await client.query<{ column_name: string }>(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'tasks'
+           AND column_name IN ('assignee_id', 'assigned_to')`
+      );
 
-    const columns = new Set(res.rows.map(r => r.column_name));
-    const selected: 'assigned_to' | 'assignee_id' = columns.has('assignee_id') ? 'assignee_id' : 'assigned_to';
-    AnalyticsService.taskAssigneeColumn = selected;
-    return selected;
+      const columns = new Set(res.rows.map(r => r.column_name));
+      const selected: 'assigned_to' | 'assignee_id' = columns.has('assignee_id') ? 'assignee_id' : 'assigned_to';
+      AnalyticsService.taskAssigneeColumn = selected;
+      return selected;
+    } catch (error) {
+      logger.error({ error }, 'Failed to resolve task assignee column:');
+      return 'assigned_to'; // Default fallback
+    }
   }
 
   private async getCompanyTimezone(client: PoolClient, companyId: string): Promise<string> {
-    const res = await client.query<{ timezone: string | null }>(
-      `SELECT timezone FROM companies WHERE id = $1`,
-      [companyId]
-    );
-    return res.rows[0]?.timezone || 'UTC';
+    try {
+      const res = await client.query<{ timezone: string | null }>(
+        `SELECT timezone FROM companies WHERE id = $1`,
+        [companyId]
+      );
+      return res.rows[0]?.timezone || 'UTC';
+    } catch (error) {
+      logger.error({ error }, `Failed to fetch timezone for company ${companyId}:`);
+      return 'UTC';
+    }
   }
 
   private async resolveDateRange(client: PoolClient, companyId: string, filters?: AnalyticsFilters, defaultDays: number = 30) {
     const timezone = await this.getCompanyTimezone(client, companyId);
 
-    const range = await client.query<{ start_date: string; end_date: string }>(
-      `SELECT
-         ((NOW() AT TIME ZONE $1)::date - ($2::int - 1) * INTERVAL '1 day')::date::text AS start_date,
-         (NOW() AT TIME ZONE $1)::date::text AS end_date`,
-      [timezone, defaultDays]
-    );
+    try {
+      const range = await client.query<{ start_date: string; end_date: string }>(
+        `SELECT
+           ((NOW() AT TIME ZONE $1)::date - ($2::int - 1) * INTERVAL '1 day')::date::text AS start_date,
+           (NOW() AT TIME ZONE $1)::date::text AS end_date`,
+        [timezone, defaultDays]
+      );
 
-    const startDate = filters?.startDate || range.rows[0].start_date;
-    const endDate = filters?.endDate || range.rows[0].end_date;
+      const startDate = filters?.startDate || range.rows[0].start_date;
+      const endDate = filters?.endDate || range.rows[0].end_date;
 
-    return { timezone, startDate, endDate };
+      return { timezone, startDate, endDate };
+    } catch (error) {
+      logger.error({ error }, 'Failed to resolve date range:');
+      const now = new Date().toISOString().split('T')[0];
+      return { timezone, startDate: now, endDate: now };
+    }
   }
 
   async getDepartmentOptions(companyId: string): Promise<DepartmentOption[]> {
@@ -64,6 +81,9 @@ export class AnalyticsService {
         [companyId]
       );
       return result.rows;
+    } catch (error) {
+      logger.error({ error }, `Error fetching department options for company ${companyId}:`);
+      throw error;
     } finally {
       client.release();
     }
@@ -105,7 +125,8 @@ export class AnalyticsService {
              AND u.is_active = true
              AND u.role != 'owner'
              AND ($3::uuid IS NULL OR u.department_id = $3::uuid)
-             AND (ar.clock_in_time AT TIME ZONE $2)::date = $4::date
+             AND ar.clock_in_time >= $4::date
+             AND ar.clock_in_time < ($4::date + INTERVAL '1 day')
            ORDER BY ar.user_id, ar.clock_in_time DESC
          )
          SELECT
@@ -606,6 +627,7 @@ export class AnalyticsService {
   async getAllEmployeePerformance(companyId: string, filters?: AnalyticsFilters) {
       const client = await pool.connect();
       try {
+        logger.info({ filters }, `Fetching performance for company ${companyId}`);
         const { timezone, startDate, endDate } = await this.resolveDateRange(client, companyId, filters, 30);
         const taskAssigneeColumn = await this.resolveTaskAssigneeColumn(client);
         const localEndDate = filters?.endDate || endDate;
@@ -637,6 +659,7 @@ export class AnalyticsService {
         );
 
         if (snapshotRows.rows.length > 0) {
+          logger.info(`Found ${snapshotRows.rows.length} performance snapshots for company ${companyId}`);
           return snapshotRows.rows.map((r: any) => ({
             rank: r.rank_position,
             tier: r.tier,
@@ -655,6 +678,7 @@ export class AnalyticsService {
           }));
         }
 
+        logger.info(`No snapshots found for company ${companyId} on ${localEndDate}, calculating live metrics...`);
         const settings = await this.getCompanySettings(client, companyId);
         const kpiWeights = settings.kpi_settings || { attendanceWeight: 40, taskCompletionWeight: 60 };
         const expectedDays = this.calculateExpectedWorkDays(settings.working_days, 30);
@@ -673,65 +697,75 @@ export class AnalyticsService {
         );
 
         const employees = res.rows;
+        logger.info(`Calculating live performance for ${employees.length} employees`);
 
         const fullStats = await Promise.all(employees.map(async (emp: any) => {
-          const attResult = await client.query(
-            `SELECT COUNT(*) FILTER (WHERE clock_in_time IS NOT NULL) as present,
-                    COUNT(*) FILTER (WHERE is_late_arrival IS TRUE) as late
-             FROM attendance_records 
-             WHERE company_id = $1 AND user_id = $2 
-               AND clock_in_time >= NOW() - INTERVAL '30 days'`,
-            [companyId, emp.id]
-          );
+          try {
+            const attResult = await client.query(
+              `SELECT COUNT(*) FILTER (WHERE clock_in_time IS NOT NULL) as present,
+                      COUNT(*) FILTER (WHERE is_late_arrival IS TRUE) as late
+               FROM attendance_records 
+               WHERE company_id = $1 AND user_id = $2 
+                 AND clock_in_time >= NOW() - INTERVAL '30 days'`,
+              [companyId, emp.id]
+            );
 
-          const attPresent = parseInt(attResult.rows[0].present) || 0;
-          const lateDays = parseInt(attResult.rows[0].late) || 0;
-          const attScore = expectedDays > 0 ? Math.max(0, Math.min(100, ((attPresent / expectedDays) * 100) - (lateDays * 5))) : 0;
+            const attPresent = parseInt(attResult.rows[0].present) || 0;
+            const lateDays = parseInt(attResult.rows[0].late) || 0;
+            const attScore = expectedDays > 0 ? Math.max(0, Math.min(100, ((attPresent / expectedDays) * 100) - (lateDays * 5))) : 0;
 
-          const taskResult = await client.query(
-            `SELECT 
-               COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
-               COUNT(*) FILTER (WHERE tasks.status = 'completed' AND completed_at <= due_date) as completed_on_time
-             FROM tasks 
-             WHERE company_id = $1 AND ${taskAssigneeColumn} = $2 
-               AND deleted_at IS NULL
-               AND due_date IS NOT NULL
-               AND created_at >= NOW() - INTERVAL '30 days'`,
-            [companyId, emp.id]
-          );
-          const dueTotal = parseInt(taskResult.rows[0].due_total) || 0;
-          const completedOnTime = parseInt(taskResult.rows[0].completed_on_time) || 0;
-          const taskScore = dueTotal > 0 ? Math.max(0, Math.min(100, (completedOnTime / dueTotal) * 100)) : 0;
+            const taskResult = await client.query(
+              `SELECT 
+                 COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
+                 COUNT(*) FILTER (WHERE tasks.status = 'completed' AND completed_at <= due_date) as completed_on_time
+               FROM tasks 
+               WHERE company_id = $1 AND ${taskAssigneeColumn} = $2 
+                 AND deleted_at IS NULL
+                 AND due_date IS NOT NULL
+                 AND created_at >= NOW() - INTERVAL '30 days'`,
+              [companyId, emp.id]
+            );
+            const dueTotal = parseInt(taskResult.rows[0].due_total) || 0;
+            const completedOnTime = parseInt(taskResult.rows[0].completed_on_time) || 0;
+            const taskScore = dueTotal > 0 ? Math.max(0, Math.min(100, (completedOnTime / dueTotal) * 100)) : 0;
 
-          const wAtt = kpiWeights.attendanceWeight || 40;
-          const wTask = kpiWeights.taskCompletionWeight || 60;
-          const totalWeight = wAtt + wTask;
-          const overallScore = dueTotal === 0 ? attScore : ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
+            const wAtt = kpiWeights.attendanceWeight || 40;
+            const wTask = kpiWeights.taskCompletionWeight || 60;
+            const totalWeight = wAtt + wTask;
+            const overallScore = dueTotal === 0 ? attScore : ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
 
-          return {
-            user: {
-              id: emp.id,
-              name: `${emp.first_name} ${emp.last_name}`,
-              email: emp.email,
-              avatar: emp.avatar_url,
-              role: emp.role
-            },
-            scores: {
-              overall: Math.round(overallScore),
-              attendance: Math.round(attScore),
-              tasks: Math.round(taskScore)
-            }
-          };
+            return {
+              user: {
+                id: emp.id,
+                name: `${emp.first_name} ${emp.last_name}`,
+                email: emp.email,
+                avatar: emp.avatar_url,
+                role: emp.role
+              },
+              scores: {
+                overall: Math.round(overallScore),
+                attendance: Math.round(attScore),
+                tasks: Math.round(taskScore)
+              }
+            };
+          } catch (error) {
+            logger.error({ error }, `Error calculating metrics for employee ${emp.id}:`);
+            return null;
+          }
         }));
 
-        fullStats.sort((a, b) => b.scores.overall - a.scores.overall);
+        const validStats = fullStats.filter((s): s is NonNullable<typeof s> => s !== null);
+        validStats.sort((a, b) => b.scores.overall - a.scores.overall);
 
-        return fullStats.map((s, i) => {
+        return validStats.map((s, i) => {
           const rank = i + 1;
           const tier = rank === 1 ? 'Diamond' : rank === 2 ? 'Gold' : rank === 3 ? 'Silver' : 'Bronze';
           return { ...s, rank, tier };
         });
 
+      } catch (error) {
+        logger.error({ error }, `Failed to get all employee performance for company ${companyId}:`);
+        throw error;
       } finally {
         client.release();
       }

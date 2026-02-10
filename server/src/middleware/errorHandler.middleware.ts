@@ -40,14 +40,21 @@ export async function errorHandler(
       }
     });
   }
-  // Notify superadmins for critical errors
-  if (error.statusCode && error.statusCode >= 500) {
+  // Notify superadmins for unexpected errors
+  // If no statusCode, it's likely a runtime error (500)
+  const isUnexpectedError = !error.statusCode || error.statusCode >= 500;
+  
+  if (isUnexpectedError) {
     superAdminNotificationService.notifyError(error, {
+      requestId: request.id,
       url: request.url,
       method: request.method,
       ip: request.ip,
-      userId: request.user?.userId,
-      companyId: request.user?.companyId,
+      user: request.user ? { 
+        userId: (request.user as any).userId, 
+        companyId: (request.user as any).companyId, 
+        role: (request.user as any).role 
+      } : undefined
     }).catch(err => {
       logger.error('Failed to notify superadmin about error:', err);
     });

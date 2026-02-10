@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
+import { superAdminNotificationService } from './SuperAdminNotificationService';
 
 type EmployeeRow = {
   id: string;
@@ -99,12 +100,21 @@ export class PerformanceSnapshotJobService {
            AND deleted_at IS NULL`
       );
 
-      for (const company of companiesResult.rows) {
-        try {
-          await this.computeCompanySnapshots(company.id, company.timezone || 'UTC');
-        } catch (err: any) {
-          logger.error({ err, companyId: company.id }, 'Failed computing performance snapshots for company');
-        }
+      // Process companies in batches of 5 to avoid overloading the DB but speed up processing
+      const batchSize = 5;
+      for (let i = 0; i < companiesResult.rows.length; i += batchSize) {
+        const batch = companiesResult.rows.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (company) => {
+          try {
+            await this.computeCompanySnapshots(company.id, company.timezone || 'UTC');
+          } catch (err: any) {
+            logger.error({ err, companyId: company.id }, 'Failed computing performance snapshots for company');
+            await superAdminNotificationService.notifySystemAlert(
+              `Performance snapshot failed for company ${company.id}: ${err.message}`,
+              'error'
+            ).catch(e => logger.error({ e }, 'Failed to notify superadmin about snapshot failure'));
+          }
+        }));
       }
     } finally {
       client.release();

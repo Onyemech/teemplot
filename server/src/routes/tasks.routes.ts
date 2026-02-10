@@ -132,6 +132,27 @@ export default async function tasksRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Start task (by employee)
+  fastify.post('/:taskId/start', {
+    preHandler: [fastify.authenticate, requireFeature('tasks')],
+  }, async (request, reply) => {
+    try {
+      const { taskId } = request.params as { taskId: string };
+      const task = await taskService.startTask(taskId, request.user);
+      return reply.send({
+        success: true,
+        data: task,
+        message: 'Task started successfully'
+      });
+    } catch (error: any) {
+      logger.error({ err: error, userId: request.user?.userId }, 'Failed to start task');
+      return reply.code(error.message.includes('not found') ? 404 : 500).send({
+        success: false,
+        message: error.message || 'Failed to start task'
+      });
+    }
+  });
+
   // Mark task as complete (by employee)
   fastify.post('/:taskId/complete', {
     preHandler: [fastify.authenticate, requireFeature('tasks')],

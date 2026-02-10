@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { analyticsApi } from '@/services/analytics';
 import AnalyticsUpgradePrompt from '@/components/dashboard/AnalyticsUpgradePrompt';
@@ -13,10 +13,13 @@ import {
   Gem,
   UserPlus,
   Users,
-  Award
+  Award,
+  Building2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface RankingEmployee {
   rank: number;
@@ -35,14 +38,27 @@ interface RankingEmployee {
   };
 }
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 export default function AdminPerformancePage() {
   const { user } = useUser();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [employees, setEmployees] = useState<RankingEmployee[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'rank' | 'score' | 'attendance' | 'tasks'>('rank');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [departments, setDepartments] = useState<Department[]>([]);
+  
+  const searchQuery = searchParams.get('q') || '';
+  const selectedDepartmentId = searchParams.get('departmentId') || '';
+  const sortField = (searchParams.get('sort') as 'rank' | 'score' | 'attendance' | 'tasks') || 'rank';
+  const sortOrder = (searchParams.get('order') as 'asc' | 'desc') || 'asc';
 
   // Check for Gold Plan or Trial
   const hasAccess =
@@ -53,58 +69,87 @@ export default function AdminPerformancePage() {
 
   useEffect(() => {
     if (hasAccess) {
-      fetchRankings();
+      loadInitialData();
     } else {
       setIsLoading(false);
     }
-  }, [hasAccess]);
+  }, [hasAccess, selectedDepartmentId]);
 
-  const fetchRankings = async () => {
+  const loadInitialData = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const data = await analyticsApi.getCompanyRanking();
-      setEmployees(data);
-    } catch (error) {
-      console.error('Failed to fetch rankings:', error);
+      const [rankingData, deptData] = await Promise.all([
+        analyticsApi.getCompanyRanking({ departmentId: selectedDepartmentId || undefined }),
+        analyticsApi.getDepartments()
+      ]);
+      setEmployees(rankingData);
+      setDepartments(deptData);
+    } catch (err) {
+      console.error('Failed to load performance data:', err);
+      setError('Failed to load performance data. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await analyticsApi.getCompanyRanking({ departmentId: selectedDepartmentId || undefined });
+      setEmployees(data);
+    } catch (err) {
+      console.error('Failed to refresh rankings:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const updateFilters = (updates: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value);
+      }
+    });
+    setSearchParams(newParams);
+  };
+
+  const clearFilters = () => {
+    setSearchParams({});
   };
 
   if (!hasAccess) {
     return <AnalyticsUpgradePrompt />;
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
-      </div>
-    );
-  }
-
-  const filteredEmployees = employees
-    .filter(emp => 
-      emp.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case 'rank':
-          comparison = a.rank - b.rank;
-          break;
-        case 'score':
-          comparison = a.scores.overall - b.scores.overall;
-          break;
-        case 'attendance':
-          comparison = a.scores.attendance - b.scores.attendance;
-          break;
-        case 'tasks':
-          comparison = a.scores.tasks - b.scores.tasks;
-          break;
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+  const filteredEmployees = useMemo(() => {
+    return employees
+      .filter(emp => 
+        emp.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case 'rank':
+            comparison = a.rank - b.rank;
+            break;
+          case 'score':
+            comparison = a.scores.overall - b.scores.overall;
+            break;
+          case 'attendance':
+            comparison = a.scores.attendance - b.scores.attendance;
+            break;
+          case 'tasks':
+            comparison = a.scores.tasks - b.scores.tasks;
+            break;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [employees, searchQuery, sortField, sortOrder]);
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
@@ -185,6 +230,15 @@ export default function AdminPerformancePage() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+        <p className="text-gray-500 animate-pulse">Loading performance rankings...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 p-4 md:p-8">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -195,43 +249,90 @@ export default function AdminPerformancePage() {
           </h1>
           <p className="text-gray-500">Performance leaderboard based on attendance & task completion.</p>
         </div>
-        {employees.length > 0 && (
-          <div className="text-sm text-gray-600 bg-white/80 backdrop-blur px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-             Total Employees Evaluated: <span className="font-bold text-gray-900">{employees.length}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            className="bg-white"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          {employees.length > 0 && (
+            <div className="text-sm text-gray-600 bg-white/80 backdrop-blur px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
+               Total Employees: <span className="font-bold text-gray-900">{employees.length}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {employees.length > 0 ? (
+      {error && (
+        <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={loadInitialData} className="ml-auto bg-white border-red-200 text-red-700 hover:bg-red-50">
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {employees.length > 0 || selectedDepartmentId || searchQuery ? (
         <>
-          <Podium />
+          {employees.length > 0 && <Podium />}
 
           {/* Search and Filter */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-8">
-            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-              <div className="relative w-full sm:w-96">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search employee..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent transition-all"
-                />
+            <div className="p-4 border-b border-gray-200 flex flex-col lg:flex-row gap-4 justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search employee..."
+                    aria-label="Search employee by name or email"
+                    value={searchQuery}
+                    onChange={(e) => updateFilters({ q: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent transition-all"
+                  />
+                </div>
+                
+                <div className="relative w-full sm:w-64">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <select
+                    value={selectedDepartmentId}
+                    aria-label="Filter by department"
+                    onChange={(e) => updateFilters({ departmentId: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0F5D5D] focus:border-transparent transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="flex gap-2">
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                {(searchQuery || selectedDepartmentId) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={clearFilters}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Clear All
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => {
-                     setSortField('rank');
-                     setSortOrder('asc');
-                     setSearchQuery('');
-                  }}
+                  onClick={() => updateFilters({ sort: 'rank', order: 'asc' })}
                   className="bg-white hover:bg-gray-50"
                 >
                   <Filter className="w-4 h-4 mr-2" />
-                  Clear Filters
+                  Reset Sorting
                 </Button>
               </div>
             </div>
@@ -241,7 +342,7 @@ export default function AdminPerformancePage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => { setSortField('rank'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => updateFilters({ sort: 'rank', order: sortOrder === 'asc' ? 'desc' : 'asc' })}>
                       <div className="flex items-center gap-1">
                         Rank 
                         <span className={`transition-opacity ${sortField === 'rank' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
@@ -251,7 +352,7 @@ export default function AdminPerformancePage() {
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Employee</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tier</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => { setSortField('score'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => updateFilters({ sort: 'score', order: sortOrder === 'asc' ? 'desc' : 'asc' })}>
                       <div className="flex items-center gap-1">
                         Overall Score
                         <span className={`transition-opacity ${sortField === 'score' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
@@ -259,7 +360,7 @@ export default function AdminPerformancePage() {
                         </span>
                       </div>
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => { setSortField('attendance'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => updateFilters({ sort: 'attendance', order: sortOrder === 'asc' ? 'desc' : 'asc' })}>
                        <div className="flex items-center gap-1">
                          Attendance
                          <span className={`transition-opacity ${sortField === 'attendance' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
@@ -267,7 +368,7 @@ export default function AdminPerformancePage() {
                          </span>
                        </div>
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => { setSortField('tasks'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => updateFilters({ sort: 'tasks', order: sortOrder === 'asc' ? 'desc' : 'asc' })}>
                        <div className="flex items-center gap-1">
                          Tasks
                          <span className={`transition-opacity ${sortField === 'tasks' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
@@ -310,13 +411,13 @@ export default function AdminPerformancePage() {
                         <span className="font-bold text-gray-900">{emp.scores.overall}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5">
                           <div className="bg-[#0F5D5D] h-1.5 rounded-full" style={{ width: `${emp.scores.attendance}%` }}></div>
                         </div>
                         <span className="text-xs text-gray-500 mt-1 block">{emp.scores.attendance}%</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                        <div className="w-full max-w-[100px] bg-gray-200 rounded-full h-1.5">
                           <div className="bg-slate-800 h-1.5 rounded-full" style={{ width: `${emp.scores.tasks}%` }}></div>
                         </div>
                         <span className="text-xs text-gray-500 mt-1 block">{emp.scores.tasks}%</span>
@@ -326,7 +427,15 @@ export default function AdminPerformancePage() {
                   {filteredEmployees.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                        <p>No employees found matching your criteria.</p>
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Users className="w-8 h-8 text-gray-300" />
+                          <p>No employees found matching your criteria.</p>
+                          {(searchQuery || selectedDepartmentId) && (
+                            <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-2">
+                              Clear All Filters
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}

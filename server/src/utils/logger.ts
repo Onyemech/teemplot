@@ -1,6 +1,7 @@
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
+import * as Sentry from '@sentry/node';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -37,7 +38,44 @@ const baseConfig: pino.LoggerOptions = {
 };
 
 // Simple logger - no transports (works everywhere including serverless)
-export const logger = pino(baseConfig);
+const baseLogger = pino(baseConfig);
+
+// Create a proxy/wrapper for the error method to include Sentry
+export const logger = {
+  ...baseLogger,
+  error: (obj: any, msg?: string, ...args: any[]) => {
+    // Call original logger
+    if (msg) {
+      baseLogger.error(obj, msg, ...args);
+    } else {
+      baseLogger.error(obj);
+    }
+
+    // Always send errors to Sentry if configured
+    if (process.env.SENTRY_DSN) {
+      let errorToCapture: Error;
+      let extraData: any = {};
+
+      if (obj instanceof Error) {
+        errorToCapture = obj;
+        if (msg) extraData.logMessage = msg;
+      } else if (typeof obj === 'object' && obj.error instanceof Error) {
+        errorToCapture = obj.error;
+        extraData = { ...obj };
+        delete extraData.error;
+        if (msg) extraData.logMessage = msg;
+      } else {
+        errorToCapture = new Error(msg || (typeof obj === 'string' ? obj : 'Unknown Error'));
+        extraData = typeof obj === 'object' ? obj : { data: obj };
+      }
+
+      Sentry.captureException(errorToCapture, {
+        extra: extraData,
+        level: 'error'
+      });
+    }
+  }
+} as pino.Logger;
 
 // Smart logging helper - detects environment
 export const smartLog = {

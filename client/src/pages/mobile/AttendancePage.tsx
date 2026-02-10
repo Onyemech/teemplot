@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { permissionManager, type PermissionError, PermissionState } from '@/utils/PermissionManager'
 import { format, subDays, startOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns'
 import Dropdown from '@/components/ui/Dropdown'
+import { formatDuration } from '@/utils/attendanceFormatter'
 
 interface AttendanceRecord {
   id: string
@@ -115,8 +116,8 @@ export default function MobileAttendancePage() {
           status: record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Absent',
           location: record.location_address || 'Office',
           type: record.location_type === 'remote' ? 'Remote' : 'Office',
-          duration: record.duration_minutes ? `${Math.floor(record.duration_minutes / 60)}h ${record.duration_minutes % 60}m` : '-',
-          breakDuration: record.total_break_minutes ? `${Math.floor(record.total_break_minutes)}m` : '0m'
+          duration: record.duration_minutes ? formatDuration(record.duration_minutes, { format: 'short' }) : '-',
+          breakDuration: record.total_break_minutes ? formatDuration(record.total_break_minutes, { format: 'short' }) : '0m'
         }))
         setAttendanceHistory(mappedHistory)
       }

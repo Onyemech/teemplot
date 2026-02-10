@@ -36,4 +36,5 @@ export interface IDatabase {
 
  
   getType(): 'postgres' | 'convex';
+  getPool?(): any;
 }

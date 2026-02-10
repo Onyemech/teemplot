@@ -210,10 +210,110 @@ export class PostgresDatabase implements IDatabase {
 
   async transaction<T>(callback: (db: IDatabase) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
+    
+    // Create a wrapper that forces usage of this specific client
+    const transactionDb: IDatabase = {
+      getPool: () => this.pool, // Return main pool, though generally shouldn't be used inside tx for tx-bound ops
+      query: async <T = any>(sql: string, params: any[] = []): Promise<QueryResult<T>> => {
+        const start = Date.now();
+        try {
+          const result = await client.query(sql, params);
+          const duration = Date.now() - start;
+          if (duration > 1000) logger.warn({ sql, duration, rows: result.rowCount }, 'Slow query in transaction');
+          return { rows: result.rows as T[], rowCount: result.rowCount || 0 };
+        } catch (error: any) {
+          logger.error(`Transaction query error: ${error?.message || 'Unknown error'} - SQL: ${sql}`);
+          throw error;
+        }
+      },
+      insert: async <T = any>(table: string, data: Partial<T>): Promise<T> => {
+        const keys = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+        const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+        const result = await client.query(sql, values);
+        return result.rows[0];
+      },
+      update: async <T = any>(table: string, data: Partial<T>, where: Record<string, any>): Promise<T[]> => {
+        const dataKeys = Object.keys(data);
+        const whereKeys = Object.keys(where);
+        const setClause = dataKeys.map((key, i) => `${key} = $${i + 1}`).join(', ');
+        const whereClause = whereKeys.map((key, i) => `${key} = $${dataKeys.length + i + 1}`).join(' AND ');
+        const sql = `UPDATE ${table} SET ${setClause}, updated_at = NOW() WHERE ${whereClause} RETURNING *`;
+        const params = [...Object.values(data), ...Object.values(where)];
+        const result = await client.query(sql, params);
+        return result.rows;
+      },
+      delete: async (table: string, where: Record<string, any>): Promise<number> => {
+        const hasDeletedAt = await this.hasColumn(table, 'deleted_at'); // This uses main pool, acceptable as schema doesn't change
+        const whereKeys = Object.keys(where);
+        const whereClause = whereKeys.map((key, i) => `${key} = $${i + 1}`).join(' AND ');
+        let sql;
+        if (hasDeletedAt) {
+          sql = `UPDATE ${table} SET deleted_at = NOW() WHERE ${whereClause}`;
+        } else {
+          sql = `DELETE FROM ${table} WHERE ${whereClause}`;
+        }
+        const result = await client.query(sql, Object.values(where));
+        return result.rowCount || 0;
+      },
+      find: async <T = any>(table: string, where?: Record<string, any>, options?: any): Promise<T[]> => {
+        const select = options?.select?.join(', ') || '*';
+        let sql = `SELECT ${select} FROM ${table}`;
+        const params: any[] = [];
+        let paramIndex = 1;
+
+        if (where && Object.keys(where).length > 0) {
+          const whereClause = Object.keys(where).map((key) => `${key} = $${paramIndex++}`).join(' AND ');
+          sql += ` WHERE ${whereClause}`;
+          params.push(...Object.values(where));
+        }
+
+        const hasDeletedAt = await this.hasColumn(table, 'deleted_at');
+        if (hasDeletedAt) {
+          sql += where ? ' AND deleted_at IS NULL' : ' WHERE deleted_at IS NULL';
+        }
+
+        if (options?.orderBy) sql += ` ORDER BY ${options.orderBy}`;
+        if (options?.limit) sql += ` LIMIT ${options.limit}`;
+        if (options?.offset) sql += ` OFFSET ${options.offset}`;
+
+        const result = await client.query(sql, params);
+        return result.rows;
+      },
+      findOne: async <T = any>(table: string, where: Record<string, any>): Promise<T | null> => {
+        const results = await transactionDb.find<T>(table, where, { limit: 1 });
+        return results[0] || null;
+      },
+      count: async (table: string, where?: Record<string, any>): Promise<number> => {
+        let sql = `SELECT COUNT(*) as count FROM ${table}`;
+        const params: any[] = [];
+        let paramIndex = 1;
+        if (where && Object.keys(where).length > 0) {
+          const whereClause = Object.keys(where).map((key) => `${key} = $${paramIndex++}`).join(' AND ');
+          sql += ` WHERE ${whereClause}`;
+          params.push(...Object.values(where));
+        }
+        const hasDeletedAt = await this.hasColumn(table, 'deleted_at');
+        if (hasDeletedAt) {
+          sql += where ? ' AND deleted_at IS NULL' : ' WHERE deleted_at IS NULL';
+        }
+        const result = await client.query(sql, params);
+        return parseInt(result.rows[0].count);
+      },
+      transaction: async <U>(cb: (db: IDatabase) => Promise<U>): Promise<U> => {
+        // Nested transaction (savepoint) support could be added here, 
+        // but for now we just reuse the same client/transaction
+        return cb(transactionDb);
+      },
+      healthCheck: async () => true,
+      close: async () => {}, // No-op inside transaction
+      getType: () => 'postgres',
+    };
 
     try {
       await client.query('BEGIN');
-      const result = await callback(this);
+      const result = await callback(transactionDb); // Pass the WRAPPER
       await client.query('COMMIT');
       return result;
     } catch (error) {

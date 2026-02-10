@@ -210,11 +210,9 @@ export class SuperAdminNotificationService {
   private async storeNotification(notification: SuperAdminNotification): Promise<void> {
     try {
       // Get all active superadmins
-      const superadmins = await this.db.findOne('super_admins', {
+      const superadminsList = await this.db.find('super_admins', {
         is_active: true,
       });
-      
-      const superadminsList = superadmins ? [superadmins] : [];
 
       // Create notification for each superadmin
       for (const admin of superadminsList) {
@@ -238,7 +236,7 @@ export class SuperAdminNotificationService {
   }
 
   /**
-   * Send email notification
+   * Send email notification to all active superadmins
    */
   private async sendEmailNotification(notification: SuperAdminNotification): Promise<void> {
     if (!this.ENABLE_EMAIL_NOTIFICATIONS) {
@@ -246,6 +244,25 @@ export class SuperAdminNotificationService {
     }
 
     try {
+      // Get all active superadmins to send them emails
+      const superadmins = await this.db.find('super_admins', {
+        is_active: true,
+      });
+
+      const recipientEmails = new Set<string>();
+      if (process.env.SUPERADMIN_EMAIL) {
+        recipientEmails.add(process.env.SUPERADMIN_EMAIL);
+      }
+      
+      for (const admin of superadmins) {
+        if (admin.email) recipientEmails.add(admin.email);
+      }
+
+      if (recipientEmails.size === 0) {
+        logger.warn('No superadmin emails found for notification');
+        return;
+      }
+
       const priorityColors = {
         low: '#4caf50',
         medium: '#ff9800',
@@ -329,11 +346,7 @@ export class SuperAdminNotificationService {
 </html>
       `;
 
-      await (emailService as any).sendEmail({
-        to: this.SUPERADMIN_EMAIL,
-        subject: `[${notification.priority.toUpperCase()}] ${notification.title}`,
-        html,
-        text: `
+      const text = `
 ${notification.title}
 
 Priority: ${notification.priority.toUpperCase()}
@@ -346,10 +359,19 @@ ${notification.data ? `Details:\n${JSON.stringify(notification.data, null, 2)}` 
 ---
 Teemplot SuperAdmin System
 ${new Date().toLocaleString()}
-        `.trim(),
-      });
+      `.trim();
 
-      logger.info(`SuperAdmin email notification sent: ${notification.title}`);
+      // Send to all unique emails
+      for (const email of recipientEmails) {
+        await (emailService as any).sendEmail({
+          to: email,
+          subject: `[${notification.priority.toUpperCase()}] ${notification.title}`,
+          html,
+          text,
+        });
+      }
+
+      logger.info({ count: recipientEmails.size }, `SuperAdmin email notifications sent for: ${notification.title}`);
     } catch (error: any) {
       logger.error({ error }, 'Failed to send superadmin email');
     }
@@ -367,7 +389,11 @@ ${new Date().toLocaleString()}
    * Determine if email should be sent based on priority
    */
   private shouldSendEmail(priority: NotificationPriority): boolean {
-    return priority === NotificationPriority.HIGH || priority === NotificationPriority.CRITICAL;
+    return [
+      NotificationPriority.MEDIUM,
+      NotificationPriority.HIGH,
+      NotificationPriority.CRITICAL
+    ].includes(priority);
   }
 
   /**
@@ -375,11 +401,10 @@ ${new Date().toLocaleString()}
    */
   async getUnreadCount(superadminId: string): Promise<number> {
     try {
-      const notification = await this.db.findOne('notifications', {
+      return await this.db.count('notifications', {
         user_id: superadminId,
         is_read: false,
       });
-      return notification ? 1 : 0;
     } catch (error: any) {
       logger.error({ error }, 'Failed to get unread count');
       return 0;
@@ -409,11 +434,13 @@ ${new Date().toLocaleString()}
    */
   async getRecentNotifications(superadminId: string, limit: number = 50): Promise<any[]> {
     try {
-      const notification = await this.db.findOne('notifications', {
+      return await this.db.find('notifications', {
         user_id: superadminId,
+      }, {
+        limit,
+        orderBy: 'created_at',
+        orderDir: 'desc'
       });
-
-      return notification ? [notification] : [];
     } catch (error: any) {
       logger.error({ error }, 'Failed to get recent notifications');
       return [];
