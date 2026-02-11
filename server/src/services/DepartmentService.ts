@@ -114,8 +114,10 @@ export class DepartmentService {
     }));
   }
 
-  async getDepartment(deptId: string, user: UserContext): Promise<any> {
+  async getDepartment(deptId: string, user: UserContext, filters: { page?: number, limit?: number } = {}): Promise<any> {
     const { companyId } = user;
+    const { page = 1, limit = 50 } = filters;
+    const offset = (page - 1) * limit;
 
     const result = await this.db.query(
       `SELECT 
@@ -134,14 +136,26 @@ export class DepartmentService {
 
     const dept = result.rows[0];
     
-    // Get members
-    const membersRes = await this.db.query(
+    // Get members with pagination
+    const [membersRes, countRes] = await Promise.all([
+      this.db.query(
         `SELECT u.id, u.first_name, u.last_name, u.email, u.avatar_url, u.role
          FROM department_members dm
          JOIN users u ON dm.user_id = u.id
+         WHERE dm.department_id = $1 AND dm.left_at IS NULL
+         ORDER BY u.first_name ASC
+         LIMIT $2 OFFSET $3`,
+        [deptId, limit, offset]
+      ),
+      this.db.query(
+        `SELECT COUNT(*) 
+         FROM department_members dm 
          WHERE dm.department_id = $1 AND dm.left_at IS NULL`,
         [deptId]
-    );
+      )
+    ]);
+
+    const totalMembers = parseInt(countRes.rows[0].count);
 
     return {
         ...dept,
@@ -153,7 +167,13 @@ export class DepartmentService {
             email: m.email,
             avatar: m.avatar_url,
             role: m.role
-        }))
+        })),
+        pagination: {
+          page,
+          limit,
+          total: totalMembers,
+          totalPages: Math.ceil(totalMembers / limit)
+        }
     };
   }
 
@@ -228,6 +248,7 @@ export class DepartmentService {
             [oldManagerId, companyId]
         );
         const oldRole = oldMgrRes.rows[0]?.role;
+        // Only demote if they were just a 'manager' - do NOT demote 'admin' or 'owner'
         if (oldRole === 'manager') {
             const countRes = await this.db.query(
                 'SELECT COUNT(*) AS cnt FROM departments WHERE company_id = $1 AND manager_id = $2 AND deleted_at IS NULL',
@@ -288,6 +309,7 @@ export class DepartmentService {
             [oldManagerId, companyId]
         );
         const oldRole = oldMgrRes.rows[0]?.role;
+        // Only demote if they were just a 'manager' - do NOT demote 'admin' or 'owner'
         if (oldRole === 'manager') {
             const countRes = await this.db.query(
                 'SELECT COUNT(*) AS cnt FROM departments WHERE company_id = $1 AND manager_id = $2 AND deleted_at IS NULL',

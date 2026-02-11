@@ -123,8 +123,9 @@ export class TaskService {
     return this.taskSchemaPromise;
   }
 
-  async createTask(data: CreateTaskData, user: UserContext): Promise<any> {
+  async createTask(data: CreateTaskData, user: UserContext, tx?: any): Promise<any> {
     const { companyId, userId, role } = user;
+    const db = tx || this.db;
     const {
       title,
       description,
@@ -153,7 +154,7 @@ export class TaskService {
     if (departmentId && !assignedTo) {
       if (role !== 'owner' && role !== 'admin') {
          // Managers/Department Heads can only assign to their own department
-         const mgrRes = await this.db.query(
+         const mgrRes = await db.query(
           'SELECT department_id FROM users WHERE id = $1 AND company_id = $2',
           [userId, companyId]
         );
@@ -164,7 +165,7 @@ export class TaskService {
       }
 
       // Get all eligible employees in the department
-      const employeesRes = await this.db.query(
+      const employeesRes = await db.query(
         `SELECT id, first_name, last_name, email 
          FROM users 
          WHERE department_id = $1 AND company_id = $2 AND is_active = true AND role != 'owner'`,
@@ -175,23 +176,24 @@ export class TaskService {
         throw new Error('No active employees found in this department');
       }
 
-      const createdTasks = [];
-      
-      // Create individual task for each employee
-      for (const employee of employeesRes.rows) {
-         const taskData = {
-           ...data,
-           assignedTo: employee.id,
-           departmentId: undefined // Prevent recursion
-         };
-         // Recursively call createTask for each user
-         // We do this sequentially to ensure proper logging/notifications
-         // In a high-volume scenario, this should be batched
-         const task = await this.createTask(taskData, user);
-         createdTasks.push(task);
-      }
-
-      return createdTasks;
+      // Use a transaction to ensure all tasks are created or none
+      return this.db.transaction(async (tx) => {
+        const createdTasks = [];
+        
+        // Create individual task for each employee
+        for (const employee of employeesRes.rows) {
+           const taskData = {
+             ...data,
+             assignedTo: employee.id,
+             departmentId: undefined // Prevent recursion
+           };
+           
+           // Pass the transaction to the recursive call
+           const task = await this.createTask(taskData, user, tx);
+           createdTasks.push(task);
+        }
+        return createdTasks;
+      });
     }
 
     if (!assignedTo) {
@@ -207,6 +209,13 @@ export class TaskService {
     }
     if (schema.dueDateRequired && !dueDate) {
       throw new Error('Due date is required');
+    }
+
+    if (dueDate) {
+      const date = new Date(dueDate);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid due date format');
+      }
     }
 
     // Validate assignee and role hierarchy constraints
@@ -432,10 +441,34 @@ export class TaskService {
       }
     }
 
-    if (assignedTo && (role === 'owner' || role === 'admin')) {
-      query += ` AND t.${schema.primaryAssigneeColumn} = $${paramIndex}`;
-      params.push(assignedTo);
-      paramIndex++;
+    if (assignedTo) {
+       // Allow filtering if:
+       // 1. User is Owner/Admin
+       // 2. User is filtering for themselves
+       // 3. User is Manager/Dept Head (we'll rely on department filter below for security)
+       if (role === 'owner' || role === 'admin' || role === 'manager' || role === 'department_head' || assignedTo === userId) {
+          query += ` AND t.${schema.primaryAssigneeColumn} = $${paramIndex}`;
+          params.push(assignedTo);
+          paramIndex++;
+       }
+    }
+
+    // Restrict Managers and Department Heads to their department tasks + tasks they created/assigned
+    if (role === 'manager' || role === 'department_head') {
+       // Get user's department first
+       const userDeptRes = await this.db.query('SELECT department_id FROM users WHERE id = $1', [userId]);
+       const userDeptId = userDeptRes.rows[0]?.department_id;
+       
+       if (userDeptId) {
+          query += ` AND (
+            u.department_id = $${paramIndex} 
+            OR t.department_id = $${paramIndex}
+            OR t.${schema.primaryAssignerColumn} = $${paramIndex + 1}
+            OR t.${schema.primaryAssigneeColumn} = $${paramIndex + 1}
+          )`;
+          params.push(userDeptId, userId);
+          paramIndex += 2;
+       }
     }
 
     if (priority && schema.hasPriority) {
@@ -446,7 +479,8 @@ export class TaskService {
 
     query += ' ORDER BY t.created_at DESC';
 
-    const offset = (page - 1) * limit;
+    const pageNum = Math.max(1, page);
+    const offset = (pageNum - 1) * limit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
@@ -598,10 +632,17 @@ export class TaskService {
        SET status = 'in_progress',
            started_at = NOW(),
            updated_at = NOW()
-       WHERE id = $1 AND company_id = $2
+       WHERE id = $1 AND company_id = $2 AND status = 'pending'
        RETURNING *`,
       [taskId, companyId]
     );
+
+    if (result.rows.length === 0) {
+       // If update returned no rows, check if task exists to give better error
+       const check = await this.db.query('SELECT status FROM tasks WHERE id = $1', [taskId]);
+       if (check.rows.length === 0) throw new Error('Task not found');
+       if (check.rows[0].status !== 'pending') throw new Error(`Task cannot be started because it is ${check.rows[0].status}`);
+    }
 
     await this.db.query(
       `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id)
@@ -666,10 +707,16 @@ export class TaskService {
            marked_complete_by = $1,
            actual_hours = $2,
            metadata = COALESCE(metadata, '{}'::jsonb) || $3
-       WHERE id = $4 AND company_id = $5
+       WHERE id = $4 AND company_id = $5 AND status = 'in_progress'
        RETURNING *`,
       [userId, actualHours, JSON.stringify(newMetadata), taskId, companyId]
     );
+
+    if (result.rows.length === 0) {
+       const check = await this.db.query('SELECT status FROM tasks WHERE id = $1', [taskId]);
+       if (check.rows.length === 0) throw new Error('Task not found');
+       if (check.rows[0].status !== 'in_progress') throw new Error(`Task cannot be completed because it is ${check.rows[0].status}`);
+    }
 
     await this.db.query(
       `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id, metadata)

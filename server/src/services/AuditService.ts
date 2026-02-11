@@ -18,10 +18,9 @@ export class AuditService {
     entityType: string;
     entityId?: string | null;
     metadata?: any;
-  }): Promise<void> {
+  }, client?: any): Promise<void> {
     try {
-      const { DatabaseFactory } = await import('../infrastructure/database/DatabaseFactory');
-      const db = DatabaseFactory.getPrimaryDatabase();
+      const queryExecutor = client || (await import('../infrastructure/database/DatabaseFactory')).DatabaseFactory.getPrimaryDatabase();
 
       const isUuid = (value: unknown): value is string =>
         typeof value === 'string' &&
@@ -33,7 +32,7 @@ export class AuditService {
           ? { ...(data.metadata || {}), entityIdRaw: data.entityId }
           : data.metadata || null;
 
-      await db.query(
+      await queryExecutor.query(
         `INSERT INTO audit_logs (user_id, company_id, action, entity_type, entity_id, metadata, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
         [

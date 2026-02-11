@@ -279,9 +279,9 @@ class EnhancedAttendanceService {
     try {
       const { userId, companyId, attendanceId, location, method, departureReason, biometricsProof } = request;
 
-      // Get attendance record
+      // Get attendance record with row-level locking to prevent race conditions
       const attendanceResult = await query(
-        'SELECT * FROM attendance_records WHERE id = $1 AND user_id = $2',
+        'SELECT * FROM attendance_records WHERE id = $1 AND user_id = $2 FOR UPDATE NOWAIT',
         [attendanceId, userId]
       );
 
@@ -935,8 +935,30 @@ class EnhancedAttendanceService {
 
       const total = parseInt(countResult.rows[0].count);
 
-      // Get data with optimized subqueries for breaks to avoid N+1
+      // Get data with optimized query using LEFT JOIN for breaks to avoid N+1
       let queryStr = `
+        WITH break_data AS (
+          SELECT 
+            attendance_record_id,
+            SUM(duration_minutes) as total_break_minutes,
+            json_agg(json_build_object(
+              'id', id,
+              'startTime', start_time,
+              'endTime', end_time,
+              'duration', duration_minutes
+            )) as breaks_json
+          FROM attendance_breaks 
+          WHERE attendance_record_id IN (
+            SELECT ar.id 
+            FROM attendance_records ar
+            JOIN users u ON ar.user_id = u.id
+            LEFT JOIN departments d ON u.department_id = d.id
+            WHERE ${whereClause}
+            ${filters.limit ? `LIMIT $${paramCount + 1}` : ''}
+            ${filters.offset !== undefined ? `OFFSET $${paramCount + 2}` : ''}
+          )
+          GROUP BY attendance_record_id
+        )
         SELECT ar.*, u.first_name, u.last_name, u.email, u.position,
         d.name as department,
         CASE 
@@ -944,37 +966,24 @@ class EnhancedAttendanceService {
           WHEN ar.clock_in_location IS NOT NULL THEN 'remote'
           ELSE 'onsite'
         END as location_type,
-        (
-          SELECT SUM(duration_minutes) 
-          FROM attendance_breaks 
-          WHERE attendance_record_id = ar.id
-        ) as total_break_minutes,
-        (
-          SELECT json_agg(json_build_object(
-            'id', id,
-            'startTime', start_time,
-            'endTime', end_time,
-            'duration', duration_minutes
-          ))
-          FROM attendance_breaks 
-          WHERE attendance_record_id = ar.id
-        ) as breaks_json
+        COALESCE(bd.total_break_minutes, 0) as total_break_minutes,
+        COALESCE(bd.breaks_json, '[]'::json) as breaks_json
         FROM attendance_records ar
         JOIN users u ON ar.user_id = u.id
         LEFT JOIN departments d ON u.department_id = d.id
+        LEFT JOIN break_data bd ON bd.attendance_record_id = ar.id
         WHERE ${whereClause}
         ORDER BY ar.clock_in_time DESC
       `;
 
+      // Adjust parameter count for the subquery parameters
       if (filters.limit) {
         paramCount++;
-        queryStr += ` LIMIT $${paramCount}`;
         params.push(filters.limit);
       }
 
       if (filters.offset !== undefined) {
         paramCount++;
-        queryStr += ` OFFSET $${paramCount}`;
         params.push(filters.offset);
       }
 

@@ -494,13 +494,17 @@ export class EmployeeInvitationService {
       signCount?: number;
     };
   }): Promise<{ success: boolean; userId: string; message: string }> {
+    // 0. Pre-calculate hash outside transaction to reduce transaction duration
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
     return await transaction(async (client) => {
       // 1. Get and validate invitation
       const result = await client.query(
         `SELECT * FROM employee_invitations 
          WHERE invitation_token = $1 
-           AND status = 'pending' 
-           AND expires_at > NOW()
+         AND status = 'pending' 
+         AND expires_at > NOW()
          FOR UPDATE`,
         [data.token]
       );
@@ -533,11 +537,7 @@ export class EmployeeInvitationService {
         throw new AppError('DUPLICATE_EMAIL', 'A user with this email already exists', 400);
       }
 
-      // 3. Hash password
-      const bcrypt = await import('bcrypt');
-      const hashedPassword = await bcrypt.hash(data.password, 10);
-
-      // 4. Create user account
+      // 3. Create user account (using pre-hashed password)
       const userResult = await client.query(
         `INSERT INTO users (
           company_id, email, password_hash, first_name, last_name, 
@@ -579,7 +579,7 @@ export class EmployeeInvitationService {
 
       const userId = userResult.rows[0].id;
 
-      // 5. Update invitation status
+      // 4. Update invitation status
       await client.query(
         `UPDATE employee_invitations 
          SET status = 'accepted', accepted_at = NOW(), updated_at = NOW()
@@ -587,7 +587,7 @@ export class EmployeeInvitationService {
         [invitation.id]
       );
 
-      // 5.5 Update company employee_count cache
+      // 5. Update company employee_count cache
       await client.query(
         `UPDATE companies 
          SET employee_count = (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL)
@@ -595,7 +595,7 @@ export class EmployeeInvitationService {
         [invitation.company_id]
       );
 
-      // 6. Audit log
+      // 6. Audit log (pass client to reuse transaction)
       await auditService.logAction({
         companyId: invitation.company_id,
         userId: userId,
@@ -603,7 +603,7 @@ export class EmployeeInvitationService {
         entityType: 'user',
         entityId: userId,
         metadata: { email: invitation.email, role: invitation.role, biometric: biometricsEnabled }
-      });
+      }, client);
 
       return {
         success: true,

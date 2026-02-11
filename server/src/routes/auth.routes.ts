@@ -404,6 +404,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           jobTitle: user.job_title || null,
           bio: user.bio || null,
           phoneNumber: user.phone_number || null,
+          dateOfBirth: user.date_of_birth || null,
         },
       });
     } catch (error: any) {

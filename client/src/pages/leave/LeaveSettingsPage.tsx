@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
 
 interface LeaveType {
   id: string;
@@ -354,19 +355,20 @@ export default function LeaveSettingsPage() {
           </div>
 
           <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setViewState('list')}
-              className="px-6 py-2.5 text-gray-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 rounded-lg font-medium transition-all"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSave}
-              className="px-6 py-2.5 bg-[#0F5D5D] hover:bg-[#0a4545] text-white rounded-lg font-medium shadow-sm flex items-center gap-2 transition-all"
+              loading={saveTypeMutation.isPending}
+              className="flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
               {editingType ? 'Save Changes' : 'Create Leave Type'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -581,8 +583,8 @@ export default function LeaveSettingsPage() {
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-              <button onClick={() => setEditingBalance(null)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
-              <button onClick={saveBalance} className="px-4 py-2 bg-[#0F5D5D] hover:bg-[#0a4545] text-white rounded-lg font-medium shadow-sm">Save Changes</button>
+              <Button variant="outline" onClick={() => setEditingBalance(null)}>Cancel</Button>
+              <Button onClick={saveBalance} loading={updateBalanceMutation.isPending}>Save Changes</Button>
             </div>
           </div>
         </div>
@@ -640,8 +642,8 @@ export default function LeaveSettingsPage() {
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-              <button onClick={() => setShowBulkModal(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
-              <button onClick={handleBulkReset} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-sm">Confirm Update</button>
+              <Button variant="outline" onClick={() => setShowBulkModal(false)}>Cancel</Button>
+              <Button variant="danger" onClick={handleBulkReset} loading={bulkUpdateMutation.isPending}>Confirm Update</Button>
             </div>
           </div>
         </div>

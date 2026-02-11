@@ -178,49 +178,53 @@ export async function employeesRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ success: false, message: 'Forbidden' });
       }
 
-      // Check target user role to prevent Admin from suspending Owner
-      const targetUserRes = await db.query('SELECT role FROM users WHERE id = $1', [id]);
-      const targetUser = targetUserRes.rows[0];
-
-      if (!targetUser) {
-        return reply.code(404).send({ success: false, message: 'Employee not found' });
-      }
-
-      if (targetUser.role === 'owner' && user.role !== 'owner') {
-        return reply.code(403).send({ success: false, message: 'Admins cannot suspend Owners' });
-      }
-
       const isActive = status === 'active';
 
-      if (isActive) {
-        try {
-            const limits = await employeeInvitationService.verifyPlanLimits(user.companyId);
-            if (!limits.canAddMore) {
-            return reply.code(400).send({
-                success: false,
-                message: `Cannot activate user. Employee limit of ${limits.declaredLimit} reached. Please upgrade your plan.`
-            });
-            }
-        } catch (err) {
-            fastify.log.error({ err }, 'Failed to verify plan limits during activation');
-            // If verification fails, we should probably block activation to be safe, 
-            // or allow it if it's a system error? blocking is safer.
-            return reply.code(500).send({ success: false, message: 'Failed to verify plan limits' });
-        }
-      }
+      await db.transaction(async (tx) => {
+        // Check target user role to prevent Admin from suspending Owner
+        const targetUserRes = await tx.query('SELECT role FROM users WHERE id = $1', [id]);
+        const targetUser = targetUserRes.rows[0];
 
-      const updateQuery = await db.query(
-        `UPDATE users 
-         SET is_active = $1, updated_at = NOW()
-         WHERE id = $2 AND company_id = $3 AND deleted_at IS NULL
-         RETURNING id, is_active`,
-        [isActive, id, user.companyId]
-      );
+        if (!targetUser) {
+          throw new Error('EMPLOYEE_NOT_FOUND');
+        }
+
+        if (targetUser.role === 'owner' && user.role !== 'owner') {
+          throw new Error('FORBIDDEN_OWNER_SUSPENSION');
+        }
+
+        if (isActive) {
+          // Lock company to prevent concurrent limit bypass
+          await tx.query('SELECT id FROM companies WHERE id = $1 FOR UPDATE', [user.companyId]);
+          
+          const limits = await employeeInvitationService.verifyPlanLimits(user.companyId, tx);
+          if (!limits.canAddMore) {
+            throw new Error(`LIMIT_REACHED:Cannot activate user. Employee limit of ${limits.declaredLimit} reached. Please upgrade your plan.`);
+          }
+        }
+
+        await tx.query(
+          `UPDATE users 
+           SET is_active = $1, updated_at = NOW()
+           WHERE id = $2 AND company_id = $3 AND deleted_at IS NULL`,
+          [isActive, id, user.companyId]
+        );
+      });
 
       fastify.log.info({ userId: user.userId, employeeId: id, newStatus: isActive }, 'Status updated successfully');
 
       return reply.send({ success: true, message: `User ${isActive ? 'activated' : 'suspended'} successfully` });
     } catch (error: any) {
+      if (error.message === 'EMPLOYEE_NOT_FOUND') {
+        return reply.code(404).send({ success: false, message: 'Employee not found' });
+      }
+      if (error.message === 'FORBIDDEN_OWNER_SUSPENSION') {
+        return reply.code(403).send({ success: false, message: 'Admins cannot suspend Owners' });
+      }
+      if (error.message?.startsWith('LIMIT_REACHED:')) {
+        return reply.code(400).send({ success: false, message: error.message.split(':')[1] });
+      }
+
       fastify.log.error({ err: error }, 'Failed to update employee status');
       return reply.code(500).send({ success: false, message: 'Internal server error' });
     }

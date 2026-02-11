@@ -155,7 +155,7 @@ export default function ProfileForm() {
           id="dateOfBirth"
           type="date"
           {...register('dateOfBirth')}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors text-gray-900 bg-white"
         />
       </div>
 

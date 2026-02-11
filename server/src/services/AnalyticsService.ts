@@ -697,42 +697,79 @@ export class AnalyticsService {
         );
 
         const employees = res.rows;
-        logger.info(`Calculating live performance for ${employees.length} employees`);
+        logger.info(`Calculating live performance for ${employees.length} employees using bulk aggregation`);
 
-        const fullStats = await Promise.all(employees.map(async (emp: any) => {
+        const employeeIds = employees.map((e: any) => e.id);
+        
+        if (employeeIds.length === 0) {
+          return [];
+        }
+
+        // Batch Fetch Attendance Stats
+        const attendanceStatsResult = await client.query(
+          `SELECT 
+             user_id,
+             COUNT(*) FILTER (WHERE clock_in_time IS NOT NULL) as present,
+             COUNT(*) FILTER (WHERE is_late_arrival IS TRUE) as late
+           FROM attendance_records
+           WHERE company_id = $1
+             AND user_id = ANY($2::uuid[])
+             AND clock_in_time >= NOW() - INTERVAL '30 days'
+           GROUP BY user_id`,
+          [companyId, employeeIds]
+        );
+        
+        const attendanceMap = new Map();
+        attendanceStatsResult.rows.forEach((row: any) => {
+          attendanceMap.set(row.user_id, {
+            present: parseInt(row.present) || 0,
+            late: parseInt(row.late) || 0
+          });
+        });
+
+        // Batch Fetch Task Stats
+        const taskStatsResult = await client.query(
+          `SELECT 
+             ${taskAssigneeColumn} as assignee_id,
+             COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
+             COUNT(*) FILTER (WHERE status = 'completed' AND completed_at <= due_date) as completed_on_time
+           FROM tasks
+           WHERE company_id = $1
+             AND ${taskAssigneeColumn} = ANY($2::uuid[])
+             AND deleted_at IS NULL
+             AND due_date IS NOT NULL
+             AND created_at >= NOW() - INTERVAL '30 days'
+           GROUP BY ${taskAssigneeColumn}`,
+          [companyId, employeeIds]
+        );
+
+        const taskMap = new Map();
+        taskStatsResult.rows.forEach((row: any) => {
+          taskMap.set(row.assignee_id, {
+            dueTotal: parseInt(row.due_total) || 0,
+            completedOnTime: parseInt(row.completed_on_time) || 0
+          });
+        });
+
+        const fullStats = employees.map((emp: any) => {
           try {
-            const attResult = await client.query(
-              `SELECT COUNT(*) FILTER (WHERE clock_in_time IS NOT NULL) as present,
-                      COUNT(*) FILTER (WHERE is_late_arrival IS TRUE) as late
-               FROM attendance_records 
-               WHERE company_id = $1 AND user_id = $2 
-                 AND clock_in_time >= NOW() - INTERVAL '30 days'`,
-              [companyId, emp.id]
-            );
+            const attStats = attendanceMap.get(emp.id) || { present: 0, late: 0 };
+            const taskStats = taskMap.get(emp.id) || { dueTotal: 0, completedOnTime: 0 };
 
-            const attPresent = parseInt(attResult.rows[0].present) || 0;
-            const lateDays = parseInt(attResult.rows[0].late) || 0;
-            const attScore = expectedDays > 0 ? Math.max(0, Math.min(100, ((attPresent / expectedDays) * 100) - (lateDays * 5))) : 0;
+            const attScore = expectedDays > 0 
+              ? Math.max(0, Math.min(100, ((attStats.present / expectedDays) * 100) - (attStats.late * 5))) 
+              : 0;
 
-            const taskResult = await client.query(
-              `SELECT 
-                 COUNT(*) FILTER (WHERE due_date IS NOT NULL) as due_total,
-                 COUNT(*) FILTER (WHERE tasks.status = 'completed' AND completed_at <= due_date) as completed_on_time
-               FROM tasks 
-               WHERE company_id = $1 AND ${taskAssigneeColumn} = $2 
-                 AND deleted_at IS NULL
-                 AND due_date IS NOT NULL
-                 AND created_at >= NOW() - INTERVAL '30 days'`,
-              [companyId, emp.id]
-            );
-            const dueTotal = parseInt(taskResult.rows[0].due_total) || 0;
-            const completedOnTime = parseInt(taskResult.rows[0].completed_on_time) || 0;
-            const taskScore = dueTotal > 0 ? Math.max(0, Math.min(100, (completedOnTime / dueTotal) * 100)) : 0;
+            const taskScore = taskStats.dueTotal > 0 
+              ? Math.max(0, Math.min(100, (taskStats.completedOnTime / taskStats.dueTotal) * 100)) 
+              : 0;
 
             const wAtt = kpiWeights.attendanceWeight || 40;
             const wTask = kpiWeights.taskCompletionWeight || 60;
             const totalWeight = wAtt + wTask;
-            const overallScore = dueTotal === 0 ? attScore : ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
+            const overallScore = taskStats.dueTotal === 0 
+              ? attScore 
+              : ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
 
             return {
               user: {
@@ -752,7 +789,7 @@ export class AnalyticsService {
             logger.error({ error }, `Error calculating metrics for employee ${emp.id}:`);
             return null;
           }
-        }));
+        });
 
         const validStats = fullStats.filter((s): s is NonNullable<typeof s> => s !== null);
         validStats.sort((a, b) => b.scores.overall - a.scores.overall);
