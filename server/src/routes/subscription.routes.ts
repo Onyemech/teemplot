@@ -148,9 +148,10 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
       }
 
       // Seat-based on total employees (users + pending invitations)
+      // Only count active users (suspended users don't take up a seat)
       const countsRes = await db.query(
         `SELECT 
-           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) AS active_count,
+           (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL AND is_active = true) AS active_count,
            (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending' AND expires_at > NOW()) AS pending_count`,
         [companyId]
       );

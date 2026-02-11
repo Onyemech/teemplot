@@ -5,6 +5,7 @@ import { IPaymentProvider } from './IPaymentProvider';
 import { PaystackProvider } from './PaystackProvider';
 import { FlutterwaveProvider } from './FlutterwaveProvider';
 import { auditService } from '../AuditService';
+import { employeeInvitationService } from '../EmployeeInvitationService';
 
 type PaymentPurpose = 'subscription' | 'employee_limit_upgrade' | 'plan_upgrade';
 
@@ -198,7 +199,9 @@ export class PaymentService {
       throw new Error('Company not found');
     }
 
-    const baseLimit = Number(company.employee_limit ?? 0) || Number(company.employee_count ?? 0) || 0;
+    // Get current effective limit using the standard logic
+    const limits = await employeeInvitationService.verifyPlanLimits(companyId);
+    const baseLimit = limits.declaredLimit;
     const newLimit = baseLimit + Number(additionalEmployees || 0);
 
     await this.db.update('companies', {

@@ -89,6 +89,7 @@ export class DashboardService {
       const stats = result.rows[0];
 
       const totalEmployees = Number(stats.total_employees || 0);
+      const activeEmployees = Number(stats.active_employees || 0);
       const pendingInvitations = Number(stats.pending_invitations || 0);
       const declaredLimit = Number(company?.declared_limit || 10);
       const actualLimit = Number(company?.actual_limit || 10);
@@ -114,15 +115,16 @@ export class DashboardService {
       return {
         // Employee metrics
         totalEmployees,
-        activeEmployees: Number(stats.active_employees || 0),
+        activeEmployees,
         pendingInvitations,
         acceptedInvitations: Number(stats.accepted_invitations || 0),
         expiredInvitations: Number(stats.expired_invitations || 0),
         onLeave: Number(stats.on_leave || 0),
         declaredLimit,
         actualLimit,
-        employeeSlotsRemaining: Math.max(0, declaredLimit - totalEmployees - pendingInvitations),
-        employeeLimitReached: (totalEmployees + pendingInvitations) >= declaredLimit,
+        // Calculate remaining slots based on ACTIVE users (suspended users don't count)
+        employeeSlotsRemaining: Math.max(0, declaredLimit - activeEmployees - pendingInvitations),
+        employeeLimitReached: (activeEmployees + pendingInvitations) >= declaredLimit,
 
         // Attendance metrics
         presentToday: Number(stats.present_today || 0),

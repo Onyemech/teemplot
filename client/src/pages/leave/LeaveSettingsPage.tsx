@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Edit2, X, Users, Settings, RefreshCcw, ArrowLeft, Save } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import Select from '@/components/ui/Select';
@@ -33,10 +35,8 @@ interface LeaveBalance {
 
 export default function LeaveSettingsPage() {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'types' | 'balances'>('types');
-  const [loading, setLoading] = useState(false);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-  const [balances, setBalances] = useState<LeaveBalance[]>([]);
   
   // View State for Types: 'list' | 'form'
   const [viewState, setViewState] = useState<'list' | 'form'>('list');
@@ -69,44 +69,95 @@ export default function LeaveSettingsPage() {
     value: 0
   });
 
-  useEffect(() => {
-    fetchLeaveTypes();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'balances') {
-      fetchBalances();
-    }
-  }, [activeTab]);
-
-  const fetchLeaveTypes = async () => {
-    setLoading(true);
-    try {
+  // 1. Data Fetching Queries
+  const { data: leaveTypes = [], isLoading: isLeaveTypesLoading } = useQuery({
+    queryKey: ['leave-types'],
+    queryFn: async () => {
       const res = await apiClient.get('/api/leave/types');
-      if (res.data.success) {
-        setLeaveTypes(res.data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch leave types:', error);
-      toast.error('Failed to load leave types');
-    } finally {
-      setLoading(false);
+      return (res.data.success ? res.data.data : []) as LeaveType[];
     }
-  };
+  });
 
-  const fetchBalances = async () => {
-    setLoading(true);
-    try {
+  const { data: balances = [], isLoading: isBalancesLoading } = useQuery({
+    queryKey: ['leave-balances'],
+    queryFn: async () => {
       const res = await apiClient.get('/api/leave/balances/all');
-      if (res.data.success) {
-        setBalances(res.data.data);
+      return (res.data.success ? res.data.data : []) as LeaveBalance[];
+    },
+    enabled: activeTab === 'balances'
+  });
+
+  // 2. Mutations
+  const saveTypeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingType) {
+        return apiClient.put(`/api/leave/types/${editingType.id}`, data);
+      } else {
+        return apiClient.post('/api/leave/types', data);
       }
-    } catch (error) {
-      toast.error('Failed to load employee balances');
-    } finally {
-      setLoading(false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-types'] });
+      toast.success(editingType ? 'Leave type updated' : 'Leave type created');
+      setViewState('list');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to save leave type');
     }
-  };
+  });
+
+  const deleteTypeMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/api/leave/types/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-types'] });
+      toast.success('Leave type deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete leave type');
+    }
+  });
+
+  const updateBalanceMutation = useMutation({
+    mutationFn: (data: any) => apiClient.put(`/api/leave/balances/${editingBalance?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+      toast.success('Balance updated');
+      setEditingBalance(null);
+    },
+    onError: () => {
+      toast.error('Failed to update balance');
+    }
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post('/api/leave/balances/reset', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+      toast.success('Bulk update completed');
+      setShowBulkModal(false);
+    },
+    onError: () => {
+      toast.error('Failed to perform bulk update');
+    }
+  });
+
+  const loading = activeTab === 'types' ? isLeaveTypesLoading : isBalancesLoading;
+
+  if (loading && (activeTab === 'types' ? leaveTypes.length === 0 : balances.length === 0)) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleCreateOrEdit = (type?: LeaveType) => {
     if (type) {
@@ -129,35 +180,16 @@ export default function LeaveSettingsPage() {
   };
 
   const handleSave = async () => {
-    try {
-      const dataToSave = {
-        ...formData,
-        slug: formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-      };
-
-      if (editingType) {
-        await apiClient.put(`/api/leave/types/${editingType.id}`, dataToSave);
-        toast.success('Leave type updated');
-      } else {
-        await apiClient.post('/api/leave/types', dataToSave);
-        toast.success('Leave type created');
-      }
-      setViewState('list');
-      fetchLeaveTypes();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save leave type');
-    }
+    const dataToSave = {
+      ...formData,
+      slug: formData.slug || formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    };
+    saveTypeMutation.mutate(dataToSave);
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure? This will delete all balances and requests associated with this type.')) return;
-    try {
-      await apiClient.delete(`/api/leave/types/${id}`);
-      toast.success('Leave type deleted');
-      fetchLeaveTypes();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete leave type');
-    }
+    deleteTypeMutation.mutate(id);
   };
 
   const handleEditBalance = (balance: LeaveBalance) => {
@@ -172,14 +204,7 @@ export default function LeaveSettingsPage() {
 
   const saveBalance = async () => {
     if (!editingBalance) return;
-    try {
-      await apiClient.put(`/api/leave/balances/${editingBalance.id}`, balanceForm);
-      toast.success('Balance updated');
-      setEditingBalance(null);
-      fetchBalances();
-    } catch (error) {
-      toast.error('Failed to update balance');
-    }
+    updateBalanceMutation.mutate(balanceForm);
   };
 
   const handleBulkReset = async () => {
@@ -188,15 +213,7 @@ export default function LeaveSettingsPage() {
       return;
     }
     if (!window.confirm('Are you sure? This will update balances for ALL employees.')) return;
-    
-    try {
-      await apiClient.post('/api/leave/balances/reset', bulkForm);
-      toast.success('Bulk update completed');
-      setShowBulkModal(false);
-      if (activeTab === 'balances') fetchBalances();
-    } catch (error) {
-      toast.error('Failed to perform bulk update');
-    }
+    bulkUpdateMutation.mutate(bulkForm);
   };
 
   // Render Form View for Leave Type

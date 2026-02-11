@@ -48,8 +48,16 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('Environment validation failed:', parsed.error.format());
-  process.exit(1);
+  const error = parsed.error.format();
+  console.error('CRITICAL: Environment validation failed. Missing or invalid variables:', JSON.stringify(error, null, 2));
+  
+  if (process.env.NODE_ENV === 'production') {
+    // In production serverless, throwing might be better than process.exit
+    // so the error can be caught by the entry point handler
+    throw new Error(`Environment validation failed: ${JSON.stringify(error)}`);
+  } else {
+    process.exit(1);
+  }
 }
 
 export const env = parsed.data;

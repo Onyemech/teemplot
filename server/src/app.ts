@@ -33,7 +33,68 @@ export async function buildApp() {
   // Register global error handler
   app.setErrorHandler(errorHandler);
 
-  // Register security middleware
+  // Security plugins (registered FIRST to ensure CORS/Security headers are set for all requests)
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:', process.env.CLIENT_URL || 'https://teemplot.com'],
+      },
+    },
+  });
+
+  // Intelligent CORS configuration
+  await app.register(cors, {
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        ...config_env.allowedOrigins,
+        'https://teemplot.com',
+        'https://www.teemplot.com',
+        'https://app.teemplot.com',
+        'https://api.teemplot.com',
+        'https://teemplot.vercel.app',
+        'https://teemplot-frontend.vercel.app'
+      ];
+
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Check if origin is allowed (case-insensitive and trimmed)
+      const normalizedOrigin = origin.trim().toLowerCase();
+      const isAllowed = allowedOrigins.some(o => o.toLowerCase() === normalizedOrigin);
+
+      if (isAllowed || process.env.NODE_ENV === 'development') {
+        // Always return the exact origin for credentials validation
+        callback(null, true);
+      } else {
+        logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
+        callback(new Error('Not allowed by CORS'), false);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Cache-Control', 
+      'Pragma', 
+      'Expires', 
+      'X-Requested-With', 
+      'X-CSRF-Token',
+      'X-Job-Secret',
+      'Last-Event-ID'
+    ],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
+  });
+
+  // Register security middleware (hooks)
   app.addHook('onRequest', securityHeaders);
   app.addHook('onRequest', requestLogger);
   app.addHook('onRequest', pathTraversalProtection);
@@ -53,50 +114,6 @@ export async function buildApp() {
         message: 'Suspicious activity detected'
       });
     }
-  });
-
-  // Security plugins
-  await app.register(helmet, {
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'", 'https:', 'wss:', process.env.CLIENT_URL || 'https://teemplot.com'],
-      },
-    },
-  });
-
-  // Intelligent CORS configuration
-  await app.register(cors, {
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        ...config_env.allowedOrigins,
-        'https://app.teemplot.com',
-        'https://api.teemplot.com'
-      ];
-
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      // Check if origin is allowed
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-        // Always return the exact origin for credentials validation
-        callback(null, origin);
-      } else {
-        logger.warn({ origin, allowedOrigins }, 'CORS: Origin not allowed');
-        callback(new Error('Not allowed by CORS'), false);
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With', 'X-CSRF-Token'],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 86400, // 24 hours
   });
 
   // Rate limiting is now applied selectively to sensitive endpoints only (see auth routes)

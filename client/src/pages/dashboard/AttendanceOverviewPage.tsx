@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   Download,
   Filter,
@@ -19,6 +19,7 @@ import {
   Coffee
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useUser } from '@/contexts/UserContext'
 import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns'
@@ -27,10 +28,13 @@ import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
 import StatCard from '@/components/dashboard/StatCard'
 import AttendanceDonutChart from '@/components/dashboard/AttendanceDonutChart'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { apiClient } from '@/lib/api'
 import { formatDuration } from '@/utils/attendanceFormatter'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
-interface AttendanceStats {
+export interface AttendanceStats {
   totalEmployees: number
   totalClockIn: number
   earlyClockIn: number
@@ -68,9 +72,6 @@ interface AttendanceRecord {
   breakDuration?: string
 }
 
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 export default function AttendanceOverviewPage() {
   const navigate = useNavigate()
   const { user } = useUser()
@@ -79,31 +80,10 @@ export default function AttendanceOverviewPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsPerPage] = useState(10)
-  const [statsLoading, setStatsLoading] = useState(true)
-  const [recordsLoading, setRecordsLoading] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
-  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | 'all'>('all')
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
-
-  // Data State
-  const [stats, setStats] = useState<AttendanceStats>({
-    totalEmployees: 0,
-    totalClockIn: 0,
-    earlyClockIn: 0,
-    lateClockIn: 0,
-    absent: 0,
-    earlyDeparture: 0,
-    onLeave: 0,
-    presentToday: 0,
-    lateToday: 0,
-    absentToday: 0,
-    onSiteToday: 0,
-    remoteToday: 0,
-    overtimeToday: 0
-  })
-  const [records, setRecords] = useState<AttendanceRecord[]>([])
 
   // Download Modal State
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false)
@@ -117,32 +97,28 @@ export default function AttendanceOverviewPage() {
   const [filterStatus, setFilterStatus] = useState('All Statuses')
   const [filterLocation, setFilterLocation] = useState('All Locations')
 
-  useEffect(() => {
-    if (!hasAccess('attendance')) {
-      navigate('/dashboard')
-      return
-    }
-    // Fetch stats only once
-    fetchStats()
-    fetchEmployees()
-  }, [])
-
-  // Fetch records when date changes
-  useEffect(() => {
-    if (hasAccess('attendance')) {
-      fetchRecords()
-    }
-  }, [selectedDate, rangeStart, rangeEnd, selectedEmployeeId])
-
-  const fetchStats = async () => {
-    try {
-      setStatsLoading(true)
-
-      // Fetch Dashboard Stats
+  // 1. Data Fetching with React Query
+  const { data: stats = {
+    totalEmployees: 0,
+    totalClockIn: 0,
+    earlyClockIn: 0,
+    lateClockIn: 0,
+    absent: 0,
+    earlyDeparture: 0,
+    onLeave: 0,
+    presentToday: 0,
+    lateToday: 0,
+    absentToday: 0,
+    onSiteToday: 0,
+    remoteToday: 0,
+    overtimeToday: 0
+  }, isLoading: isStatsLoading } = useQuery({
+    queryKey: ['attendance-dashboard-stats'],
+    queryFn: async () => {
       const statsRes = await apiClient.get('/api/dashboard/stats')
       if (statsRes.data.success) {
         const d = statsRes.data.data
-        setStats({
+        return {
           totalEmployees: d.totalEmployees || 0,
           totalClockIn: d.presentToday || 0,
           earlyClockIn: 0,
@@ -156,20 +132,30 @@ export default function AttendanceOverviewPage() {
           onSiteToday: d.onSiteToday || 0,
           remoteToday: d.remoteToday || 0,
           overtimeToday: d.overtimeTodayCount || 0,
-        })
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error)
-    } finally {
-      setStatsLoading(false)
+      throw new Error('Failed to fetch stats')
     }
-  }
+  })
 
-  const fetchRecords = async () => {
-    try {
-      setRecordsLoading(true)
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees-list'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/employees')
+      if (res.data.success) {
+        const list = (res.data.data as any[]).map(e => ({
+          id: e.id,
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email
+        }))
+        return [{ id: 'all', name: 'All Employees' }, ...list]
+      }
+      return []
+    }
+  })
 
-      // Fetch Attendance Records
+  const { data: records = [], isLoading: isRecordsLoading } = useQuery({
+    queryKey: ['attendance-records', selectedDate, rangeStart, rangeEnd, selectedEmployeeId],
+    queryFn: async () => {
       const params = new URLSearchParams()
       const start = rangeStart ? startOfDay(rangeStart) : startOfDay(selectedDate)
       const end = rangeEnd ? endOfDay(rangeEnd) : endOfDay(selectedDate)
@@ -177,13 +163,12 @@ export default function AttendanceOverviewPage() {
       params.append('endDate', end.toISOString())
       params.append('limit', '2000')
       if (selectedEmployeeId !== 'all') {
-        params.append('search', selectedEmployeeId) // backend supports search across name/email; using id will restrict results
+        params.append('search', selectedEmployeeId)
       }
 
       const recordsRes = await apiClient.get(`/api/attendance?${params.toString()}`)
       if (recordsRes.data.success) {
-        // Transform API data to frontend model
-        const mappedRecords: AttendanceRecord[] = recordsRes.data.data.map((r: any) => ({
+        return recordsRes.data.data.map((r: any) => ({
           id: r.id,
           employeeId: r.user_id,
           employeeName: `${r.first_name || 'Unknown'} ${r.last_name || ''}`,
@@ -192,8 +177,8 @@ export default function AttendanceOverviewPage() {
           clockInTime: r.clock_in_time ? format(new Date(r.clock_in_time), 'hh:mm a') : null,
           clockOutTime: r.clock_out_time ? format(new Date(r.clock_out_time), 'hh:mm a') : null,
           duration: r.duration_minutes ? formatDuration(r.duration_minutes, { format: 'short' }) : '--',
-          status: r.status === 'on_break' ? 'on_break' : (r.status === 'late_arrival' ? 'late_arrival' : (r.status || 'absent')),
-          location: r.location_type || 'onsite',
+          status: (r.status === 'on_break' ? 'on_break' : (r.status === 'late_arrival' ? 'late_arrival' : (r.status || 'absent'))) as 'present' | 'late_arrival' | 'early_departure' | 'on_leave' | 'absent',
+          location: (r.location_type || 'onsite') as 'onsite' | 'remote',
           date: r.clock_in_time ? format(new Date(r.clock_in_time), 'yyyy-MM-dd') : '-',
           device: r.check_in_method || 'Manual',
           ipAddress: r.ip_address || 'Unknown IP',
@@ -201,61 +186,52 @@ export default function AttendanceOverviewPage() {
           overtime: r.overtime_minutes ? formatDuration(r.overtime_minutes, { format: 'short' }) : '0h 0m',
           lateBy: r.minutes_late ? formatDuration(r.minutes_late, { format: 'long' }) : '0 minutes',
           breakDuration: r.total_break_minutes ? formatDuration(r.total_break_minutes, { format: 'long' }) : '0 minutes'
-        }))
-        setRecords(mappedRecords)
+        })) as AttendanceRecord[]
       }
-    } catch (error) {
-      console.error('Failed to fetch attendance records:', error)
-    } finally {
-      setRecordsLoading(false)
+      return [] as AttendanceRecord[]
     }
-  }
-  const fetchEmployees = async () => {
-    try {
-      const res = await apiClient.get('/api/employees')
-      if (res.data.success) {
-        const list = (res.data.data as any[]).map(e => ({
-          id: e.id,
-          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email
-        }))
-        setEmployees([{ id: 'all', name: 'All Employees' } as any, ...list])
-      }
-    } catch {
+  })
+
+  useEffect(() => {
+    if (!hasAccess('attendance')) {
+      navigate('/dashboard')
     }
-  }
+  }, [hasAccess, navigate])
+
+  const filteredRecords = useMemo(() => {
+    return records.filter((record: AttendanceRecord) => {
+      const matchesSearch =
+        record.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.department.toLowerCase().includes(searchQuery.toLowerCase())
+
+      const matchesDepartment =
+        filterDepartment === 'All Departments' ||
+        record.department === filterDepartment
+
+      const matchesStatus =
+        filterStatus === 'All Statuses' ||
+        (filterStatus === 'Present' && record.status === 'present') ||
+        (filterStatus === 'Late Arrival' && record.status === 'late_arrival') ||
+        (filterStatus === 'Early Departure' && record.status === 'early_departure') ||
+        (filterStatus === 'On Leave' && record.status === 'on_leave') ||
+        (filterStatus === 'Absent' && record.status === 'absent')
+
+      const matchesLocation =
+        filterLocation === 'All Locations' ||
+        record.location?.toLowerCase() === filterLocation.toLowerCase()
+
+      return matchesSearch && matchesDepartment && matchesStatus && matchesLocation
+    })
+  }, [records, searchQuery, filterDepartment, filterStatus, filterLocation])
 
   // If user is an employee, show their personal attendance page
   if (user?.role === 'employee') {
     return <MobileAttendancePage />
   }
 
-  const uniqueDepartments = ['All Departments', ...new Set(records.map(r => r.department))]
+  const uniqueDepartments = ['All Departments', ...new Set(records.map((r: AttendanceRecord) => r.department))]
   const uniqueStatuses = ['All Statuses', 'Present', 'Late Arrival', 'Early Departure', 'On Leave', 'Absent']
   const uniqueLocations = ['All Locations', 'Onsite', 'Remote']
-
-  const filteredRecords = records.filter(record => {
-    const matchesSearch =
-      record.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.department.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesDepartment =
-      filterDepartment === 'All Departments' ||
-      record.department === filterDepartment
-
-    const matchesStatus =
-      filterStatus === 'All Statuses' ||
-      (filterStatus === 'Present' && record.status === 'present') ||
-      (filterStatus === 'Late Arrival' && record.status === 'late_arrival') ||
-      (filterStatus === 'Early Departure' && record.status === 'early_departure') ||
-      (filterStatus === 'On Leave' && record.status === 'on_leave') ||
-      (filterStatus === 'Absent' && record.status === 'absent')
-
-    const matchesLocation =
-      filterLocation === 'All Locations' ||
-      record.location?.toLowerCase() === filterLocation.toLowerCase()
-
-    return matchesSearch && matchesDepartment && matchesStatus && matchesLocation
-  })
 
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage)
   const paginatedRecords = filteredRecords.slice(
@@ -406,10 +382,28 @@ export default function AttendanceOverviewPage() {
     }
   }
 
-  if (statsLoading) {
+  if (isStatsLoading && !stats.totalEmployees) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F5D5D]"></div>
+      <div className="h-full bg-gray-50 p-6 space-y-6">
+        <div className="flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Skeleton className="h-64 rounded-xl" />
+          <div className="lg:col-span-2 grid grid-cols-3 gap-3 h-fit">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-[400px] w-full" />
+        </div>
       </div>
     )
   }
@@ -569,10 +563,11 @@ export default function AttendanceOverviewPage() {
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3">
-        {recordsLoading ? (
-          <div className="text-center py-10 bg-white rounded-xl">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F5D5D] mx-auto"></div>
-            <p className="text-sm text-gray-500 mt-3">Loading attendance records...</p>
+        {isRecordsLoading && records.length === 0 ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            ))}
           </div>
         ) : paginatedRecords.length === 0 ? (
           <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
@@ -673,15 +668,14 @@ export default function AttendanceOverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {recordsLoading ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F5D5D]"></div>
-                      <p className="text-sm text-gray-500">Loading attendance records...</p>
-                    </div>
-                  </td>
-                </tr>
+              {isRecordsLoading && records.length === 0 ? (
+                [...Array(5)].map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={8} className="px-6 py-4">
+                      <Skeleton className="h-12 w-full" />
+                    </td>
+                  </tr>
+                ))
               ) : paginatedRecords.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-sm">

@@ -57,8 +57,13 @@ export async function buildServerlessApp() {
         return;
       }
 
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-        callback(null, origin);
+      // Check if origin is allowed (case-insensitive and trimmed)
+      const normalizedOrigin = origin.trim().toLowerCase();
+      const isAllowed = allowedOrigins.some(o => o.toLowerCase() === normalizedOrigin);
+
+      if (isAllowed || process.env.NODE_ENV === 'development') {
+        // Always return the exact origin for credentials validation
+        callback(null, true);
       } else {
         console.warn('[CORS] Origin not allowed:', origin);
         callback(new Error('Not allowed by CORS'), false);
@@ -66,7 +71,17 @@ export async function buildServerlessApp() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires', 'X-Requested-With', 'X-CSRF-Token'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Cache-Control', 
+      'Pragma', 
+      'Expires', 
+      'X-Requested-With', 
+      'X-CSRF-Token',
+      'X-Job-Secret',
+      'Last-Event-ID'
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400,
   });
@@ -169,12 +184,36 @@ export async function buildServerlessApp() {
 
 async function handler(req: any, res: any) {
   try {
+    // Add basic CORS headers to handle potential errors before Fastify starts
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://teemplot.com',
+      'https://www.teemplot.com',
+      'https://app.teemplot.com',
+      'https://api.teemplot.com',
+      'https://teemplot.vercel.app',
+      'https://teemplot-frontend.vercel.app',
+    ];
+
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Requested-With, X-CSRF-Token, X-Job-Secret, Last-Event-ID');
+    }
+
+    // Handle OPTIONS preflight immediately
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
     if (!app) {
       console.log('[Serverless] Initializing Fastify app...');
       app = await buildServerlessApp();
       await app.ready();
       console.log('[Serverless] Fastify app ready');
-      console.log('[Serverless] Registered routes:', app.printRoutes());
     }
 
     // Handle the request
@@ -190,7 +229,7 @@ async function handler(req: any, res: any) {
         success: false,
         message: 'Internal server error',
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
+        code: 'FUNCTION_INVOCATION_FAILED'
       }));
     }
   }

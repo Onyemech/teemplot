@@ -57,7 +57,7 @@ export class CompanyService {
 
       const countsQuery = await this.db.query(
         `SELECT 
-          (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL) as active_count,
+          (SELECT COUNT(*) FROM users WHERE company_id = $1 AND deleted_at IS NULL AND is_active = true) as active_count,
           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'pending' AND expires_at > NOW()) as pending_count`,
         [company.id]
       );

@@ -230,6 +230,7 @@ export class EmployeeInvitationService {
            FROM users
            WHERE company_id = $1
              AND deleted_at IS NULL
+             AND is_active = true
           ) AS current_count,
           (SELECT COUNT(*)
            FROM employee_invitations

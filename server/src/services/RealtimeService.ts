@@ -25,7 +25,10 @@ class RealtimeService {
       'http://localhost:5173',
       'https://teemplot.com',
       'https://www.teemplot.com',
-      'https://teemplot.vercel.app'
+      'https://app.teemplot.com',
+      'https://api.teemplot.com',
+      'https://teemplot.vercel.app',
+      'https://teemplot-frontend.vercel.app'
     ];
 
     // Set headers for SSE with CORS
@@ -37,10 +40,12 @@ class RealtimeService {
     };
 
     // Add CORS headers if origin is allowed
-    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development')) {
-      headers['Access-Control-Allow-Origin'] = origin;
+    const normalizedOrigin = origin?.trim().toLowerCase();
+    const isAllowed = origin && allowedOrigins.some(o => o.toLowerCase() === normalizedOrigin);
+
+    if (isAllowed || process.env.NODE_ENV === 'development') {
+      headers['Access-Control-Allow-Origin'] = origin || '*';
       headers['Access-Control-Allow-Credentials'] = 'true';
-      headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Requested-With';
     }
 
     // Set all headers

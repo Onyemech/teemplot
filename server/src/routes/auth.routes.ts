@@ -253,6 +253,23 @@ export async function authRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Check if user is active
+      if (!user.is_active) {
+        // Log failed login
+        await logSecurityEvent({
+          type: 'failed_login',
+          userId: user.id,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] || '',
+          details: { email, reason: 'account_suspended' }
+        });
+
+        return reply.code(403).send({
+          success: false,
+          message: 'Your account has been suspended. Please contact your administrator.',
+        });
+      }
+
       // Verify password
       if (!user.password_hash) {
         // User might have signed up with Google and has no password

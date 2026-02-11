@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock,
   LogOut,
@@ -32,9 +33,9 @@ interface AttendanceStatus {
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
-  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
-  const [stats, setStats] = useState<{ present: number; late: number; absent: number } | null>(null);
-  const [loading, setLoading] = useState(true); // Initial data load
+  const queryClient = useQueryClient();
+  
+  // Local UI States
   const [loadingAction, setLoadingAction] = useState<string | null>(null); // 'clockIn', 'clockOut', 'startBreak', 'endBreak'
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -43,71 +44,107 @@ export default function EmployeeDashboard() {
   const [earlyReason, setEarlyReason] = useState('');
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricAction, setBiometricAction] = useState<'in' | 'out'>('in');
-  const [biometricRequired, setBiometricRequired] = useState(false);
   const [showLocationVerification, setShowLocationVerification] = useState(false);
   const [biometricProof, setBiometricProof] = useState<string | null>(null);
-  const [companyTimezone, setCompanyTimezone] = useState<string | undefined>(undefined);
 
   // Permission States
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [permissionError, setPermissionError] = useState<PermissionError | undefined>();
 
-  // Get user data securely from context (uses httpOnly cookies)
   const { user: currentUser } = useUser();
   const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'User';
 
-  // Helper to check if any action is in progress
+  // 1. Data Fetching Queries
+  const { data: attendanceStatus, isLoading: isAttendanceLoading } = useQuery({
+    queryKey: ['attendance-status'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/attendance/status');
+      if (res.data.success && res.data.data.requiresLocationVerification) {
+        setShowLocationVerification(true);
+      }
+      return res.data.data as AttendanceStatus;
+    },
+    refetchInterval: 30000, // Background refresh every 30s
+  });
+
+  const { data: stats, isLoading: isStatsLoading } = useQuery({
+    queryKey: ['employee-stats'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/dashboard/employee-stats');
+      return res.data.success ? res.data.data : { present: 0, late: 0, absent: 0 };
+    }
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ['company-settings'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/company-settings');
+      return res.data.data;
+    }
+  });
+
+  const biometricRequired = settings?.biometrics_required || false;
+  const companyTimezone = settings?.timezone;
+
+  // 2. Mutations for Actions
+  const clockInMutation = useMutation({
+    mutationFn: (body: any) => apiClient.post('/api/attendance/check-in', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-status'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-stats'] });
+      alert('Clocked in successfully!');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to clock in');
+    },
+    onSettled: () => setLoadingAction(null)
+  });
+
+  const clockOutMutation = useMutation({
+    mutationFn: (body: any) => apiClient.post('/api/attendance/check-out', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-status'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-stats'] });
+      setShowEarlyClockOutModal(false);
+      setShowSuccessModal(true);
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to clock out');
+    },
+    onSettled: () => setLoadingAction(null)
+  });
+
+  const breakMutation = useMutation({
+    mutationFn: (type: 'start' | 'end') => apiClient.post(`/api/attendance/break/${type}`),
+    onSuccess: (_, type) => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-status'] });
+      alert(`Break ${type === 'start' ? 'started' : 'ended'}`);
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Break action failed');
+    },
+    onSettled: () => setLoadingAction(null)
+  });
+
+  const locationVerifyMutation = useMutation({
+    mutationFn: (loc: any) => apiClient.post('/api/attendance/verify-location', { location: loc }),
+    onSuccess: () => {
+      setShowLocationVerification(false);
+      queryClient.invalidateQueries({ queryKey: ['attendance-status'] });
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || 'Verification failed');
+    }
+  });
+
+  const loading = isAttendanceLoading || isStatsLoading;
   const isActionLoading = !!loadingAction;
 
   useEffect(() => {
-    fetchDashboardData();
     getCurrentLocation();
-
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch attendance status
-      const attendanceResponse = await apiClient.get('/api/attendance/status');
-      const attendanceData = attendanceResponse.data;
-
-      if (attendanceData.success) {
-        setAttendanceStatus(attendanceData.data);
-        if (attendanceData.data.requiresLocationVerification) {
-          setShowLocationVerification(true);
-        }
-      }
-
-      // Fetch employee stats
-      const statsResponse = await apiClient.get('/api/dashboard/employee-stats');
-      const statsData = statsResponse.data;
-
-      if (statsData.success) {
-        setStats(statsData.data);
-      } else {
-        // Fallback mock data if API fails or not implemented yet
-        setStats({ present: 12, late: 5, absent: 2 });
-      }
-
-      // Fetch company settings to check if biometrics are required
-      const settingsResponse = await apiClient.get('/api/company-settings');
-      if (settingsResponse.data.success) {
-        setBiometricRequired(settingsResponse.data.data.biometrics_required || false);
-        setCompanyTimezone(settingsResponse.data.data.timezone);
-      }
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      // Fallback mock data
-      setStats({ present: 12, late: 5, absent: 2 });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getCurrentLocation = async () => {
     const result = await permissionManager.requestLocation({
@@ -204,42 +241,13 @@ export default function EmployeeDashboard() {
   const performClockIn = async (biometricsProof?: string) => {
     if (loadingAction) return; // Deduplicate
     setLoadingAction('clockIn');
-    try {
-      const body: any = { location };
-      if (biometricsProof) {
-        body.biometricsProof = biometricsProof;
-      }
-
-      const response = await apiClient.post('/api/attendance/check-in', body);
-
-      const data = response.data;
-
-      if (data.success) {
-        setAttendanceStatus(prev => ({
-          ...(prev || {
-            isClockedIn: false,
-            clockInTime: null,
-            clockOutTime: null,
-            totalHoursToday: 0,
-            isWithinGeofence: false,
-            distanceFromOffice: 0
-          }),
-          isClockedIn: true,
-          clockInTime: data.data?.clockInTime || prev?.clockInTime || new Date().toISOString(),
-          clockOutTime: null
-        }));
-        await fetchDashboardData();
-        alert('Clocked in successfully!');
-      } else {
-        alert(data.message || 'Failed to clock in');
-      }
-    } catch (error: any) {
-      console.error('Clock in error:', error);
-      alert(error.response?.data?.message || 'Failed to clock in. Please try again.');
-    } finally {
-      setLoadingAction(null);
-      setBiometricProof(null); // Reset proof
+    
+    const body: any = { location };
+    if (biometricsProof) {
+      body.biometricsProof = biometricsProof;
     }
+
+    clockInMutation.mutate(body);
   };
 
   const initiateClockOut = () => {
@@ -254,22 +262,7 @@ export default function EmployeeDashboard() {
   };
 
   const handleLocationVerify = async (loc: { latitude: number; longitude: number }) => {
-    try {
-      const response = await apiClient.post('/api/attendance/verify-location', {
-        location: loc
-      });
-
-      if (response.data.success) {
-        setShowLocationVerification(false);
-        // Refresh status
-        fetchDashboardData();
-      } else {
-        alert(response.data.message || 'Verification failed');
-      }
-    } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Verification failed');
-    }
+    locationVerifyMutation.mutate(loc);
   };
 
   const proceedToClockOut = (proof?: string) => {
@@ -323,35 +316,11 @@ export default function EmployeeDashboard() {
         body.biometricsProof = proof;
       }
 
-      const response = await apiClient.post('/api/attendance/check-out', body);
-
-      const data = response.data;
-
-      if (data.success) {
-        setAttendanceStatus(prev => ({
-          ...(prev || {
-            isClockedIn: true,
-            clockInTime: null,
-            clockOutTime: null,
-            totalHoursToday: 0,
-            isWithinGeofence: false,
-            distanceFromOffice: 0
-          }),
-          isClockedIn: false,
-          clockOutTime: data.data?.clockOutTime || prev?.clockOutTime || new Date().toISOString()
-        }));
-        await fetchDashboardData();
-        setShowEarlyClockOutModal(false);
-        setShowSuccessModal(true);
-      } else {
-        alert(data.message || 'Failed to clock out');
-      }
+      clockOutMutation.mutate(body);
     } catch (error: any) {
       console.error('Clock out error:', error);
       alert(error.response?.data?.message || 'Failed to clock out. Please try again.');
-    } finally {
       setLoadingAction(null);
-      setBiometricProof(null); // Reset proof
     }
   };
 
@@ -362,37 +331,13 @@ export default function EmployeeDashboard() {
       return;
     }
     setLoadingAction('startBreak');
-    try {
-      const res = await apiClient.post('/api/attendance/break/start');
-      if (res.data.success) {
-        await fetchDashboardData();
-        alert('Break started');
-      } else {
-        alert(res.data.message);
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to start break');
-    } finally {
-      setLoadingAction(null);
-    }
+    breakMutation.mutate('start');
   };
 
   const handleEndBreak = async () => {
     if (loadingAction) return;
     setLoadingAction('endBreak');
-    try {
-      const res = await apiClient.post('/api/attendance/break/end');
-      if (res.data.success) {
-        await fetchDashboardData();
-        alert('Break ended');
-      } else {
-        alert(res.data.message);
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to end break');
-    } finally {
-      setLoadingAction(null);
-    }
+    breakMutation.mutate('end');
   };
 
 

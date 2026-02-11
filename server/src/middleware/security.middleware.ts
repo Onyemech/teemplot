@@ -73,7 +73,7 @@ export async function securityHeaders(
   
   reply.header(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.supabase.co https://*.supabase.co"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://teemplot.com https://*.teemplot.com https://api.supabase.co https://*.supabase.co"
   );
   
   reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -285,10 +285,19 @@ export function validateFileUpload(file: {
  * Restricts cross-origin requests
  */
 export const corsConfig = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: [
+    'https://teemplot.com',
+    'https://www.teemplot.com',
+    'https://app.teemplot.com',
+    'https://api.teemplot.com',
+    'https://teemplot.vercel.app',
+    'https://teemplot-frontend.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Job-Secret', 'Last-Event-ID'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 86400, // 24 hours
 };

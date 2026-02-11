@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useToast } from '@/contexts/ToastContext'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import { useNavigate } from 'react-router-dom'
 import { useUser } from '@/contexts/UserContext'
 import { Check, X, Clock, Calendar, AlertCircle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface LeaveType {
   id: string;
@@ -39,14 +41,10 @@ interface LeaveRequest {
 export default function LeaveDashboardPage() {
   const toast = useToast()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useUser()
   const isOwner = user?.role === 'owner' || user?.role === 'admin'
   const isManager = user?.role === 'manager' || user?.role === 'department_head'
-  
-  const [loading, setLoading] = useState(false)
-  const [requests, setRequests] = useState<LeaveRequest[]>([])
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
-  const [balances, setBalances] = useState<LeaveBalance[]>([])
   
   const [form, setForm] = useState({
     leave_type_id: '',
@@ -58,6 +56,75 @@ export default function LeaveDashboardPage() {
 
   // Calculate business days
   const [calculatedDays, setCalculatedDays] = useState(0)
+
+  // 1. Data Fetching Queries
+  const { data: leaveTypes = [], isLoading: isTypesLoading } = useQuery({
+    queryKey: ['leave-types'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/leave/types');
+      if (res.data.success && res.data.data.length > 0 && !form.leave_type_id) {
+        setForm(prev => ({ ...prev, leave_type_id: res.data.data[0].id }));
+      }
+      return res.data.data as LeaveType[];
+    }
+  });
+
+  const { data: requests = [], isLoading: isRequestsLoading } = useQuery({
+    queryKey: ['leave-requests'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/leave/requests');
+      return res.data.data as LeaveRequest[];
+    }
+  });
+
+  const { data: balances = [], isLoading: isBalancesLoading } = useQuery({
+    queryKey: ['leave-balances'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/leave/balances');
+      return res.data.data as LeaveBalance[];
+    },
+    enabled: !isOwner
+  });
+
+  // 2. Mutations
+  const submitRequestMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post('/api/leave/request', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+      toast.success('Leave requested successfully');
+      setForm(prev => ({ ...prev, startDate: '', endDate: '', reason: '', halfDay: false }));
+    },
+    onError: (e: any) => {
+      toast.error(e.response?.data?.message || 'Failed to submit leave request');
+    }
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, approved }: { id: string, approved: boolean }) => 
+      apiClient.post(`/api/leave/requests/${id}/review`, { approved }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      toast.success(variables.approved ? 'Request approved' : 'Request rejected');
+    },
+    onError: (e: any) => {
+      toast.error(e.response?.data?.message || 'Failed to update request');
+    }
+  });
+
+  const loading = isTypesLoading || isRequestsLoading || (isBalancesLoading && !isOwner);
+
+  if (loading && !leaveTypes.length && !requests.length) {
+    return (
+      <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           {[...Array(3)].map((_, i) => (
+             <Skeleton key={i} className="h-64 rounded-xl" />
+           ))}
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (form.startDate && form.endDate) {
@@ -79,18 +146,7 @@ export default function LeaveDashboardPage() {
         curDate.setDate(curDate.getDate() + 1)
       }
       
-      if (form.halfDay) count = 0.5 // If half day checked, override? Or maybe just 0.5 if single day?
-      // Better logic: if halfDay is true, it implies a single day or 0.5 deduction? 
-      // User prompt implies "half day request" usually means taking 0.5 day off.
-      // If range is multiple days, half day usually applies to start or end. 
-      // For simplicity here, if halfDay is checked, we assume the total duration is reduced by 0.5 or it is a 0.5 day leave.
-      // Let's assume if halfDay is checked, it's a 0.5 day leave for a single date, or we just subtract 0.5?
-      // Given the UI "Half Day Request" checkbox, it usually means the whole request is 0.5 days (and usually restricts to 1 day).
-      
       if (form.halfDay) {
-         // If multiple days selected + half day, it's ambiguous. 
-         // But usually half day is for single day.
-         // Let's set to 0.5 if it is 1 day.
          if (count === 1) count = 0.5
       }
 
@@ -100,82 +156,25 @@ export default function LeaveDashboardPage() {
     }
   }, [form.startDate, form.endDate, form.halfDay])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      // Parallel fetches
-      const [typesRes, reqsRes] = await Promise.all([
-        apiClient.get('/api/leave/types'),
-        apiClient.get('/api/leave/requests') // Filters applied automatically by backend based on role
-      ])
-
-      if (typesRes.data.success) {
-        setLeaveTypes(typesRes.data.data)
-        if (typesRes.data.data.length > 0) {
-          setForm(prev => ({ ...prev, leave_type_id: typesRes.data.data[0].id }))
-        }
-      }
-
-      if (reqsRes.data.success) {
-        setRequests(reqsRes.data.data)
-      }
-
-      if (!isOwner) {
-        const balRes = await apiClient.get('/api/leave/balances')
-        if (balRes.data.success) {
-          setBalances(balRes.data.data)
-        }
-      }
-
-    } catch (e) {
-      console.error(e)
-      toast.error('Failed to load dashboard data')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const submitRequest = async () => {
     if (!form.leave_type_id || !form.startDate || !form.endDate || !form.reason) {
       toast.error('Please complete all fields')
       return
     }
-    setLoading(true)
-    try {
-      const res = await apiClient.post('/api/leave/request', {
-        leave_type_id: form.leave_type_id,
-        start_date: form.startDate,
-        end_date: form.endDate,
-        reason: form.reason,
-        half_day_start: form.halfDay, // Mapping simplified checkbox to start/end logic if needed
-        half_day_end: form.halfDay,
-        days_requested: calculatedDays
-      })
-      if (res.data.success) {
-        toast.success('Leave requested successfully')
-        setForm(prev => ({ ...prev, startDate: '', endDate: '', reason: '', halfDay: false }))
-        fetchData() // Refresh list and balances
-      }
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Failed to submit leave request')
-    } finally {
-      setLoading(false)
-    }
+    submitRequestMutation.mutate({
+      leave_type_id: form.leave_type_id,
+      start_date: form.startDate,
+      end_date: form.endDate,
+      reason: form.reason,
+      half_day_start: form.halfDay,
+      half_day_end: form.halfDay,
+      days_requested: calculatedDays
+    });
   }
 
   const handleReview = async (id: string, approved: boolean) => {
     if (!confirm(approved ? 'Approve this request?' : 'Reject this request?')) return;
-    try {
-      await apiClient.post(`/api/leave/requests/${id}/review`, { approved })
-      toast.success(approved ? 'Request approved' : 'Request rejected')
-      fetchData()
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Failed to update request')
-    }
+    reviewMutation.mutate({ id, approved });
   }
 
   const getStatusBadge = (status: string) => {
@@ -375,7 +374,7 @@ export default function LeaveDashboardPage() {
                 />
               </div>
 
-              <Button variant="primary" onClick={submitRequest} loading={loading} className="w-full">
+              <Button variant="primary" onClick={submitRequest} loading={submitRequestMutation.isPending} className="w-full">
                 Submit Request
               </Button>
             </div>
@@ -387,7 +386,7 @@ export default function LeaveDashboardPage() {
               My History
             </h2>
             <div className="space-y-3">
-              {requests.filter(r => !isOwner || r).map((r) => (
+              {requests.map((r) => (
                 <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: r.leave_type_color }}></div>

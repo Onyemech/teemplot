@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { requireOnboarding } from '../middleware/onboarding.middleware';
 import { z } from 'zod';
+import { employeeInvitationService } from '../services/EmployeeInvitationService';
 
 const db = DatabaseFactory.getPrimaryDatabase();
 
@@ -171,6 +172,8 @@ export async function employeesRoutes(fastify: FastifyInstance) {
       const { id } = request.params as any;
       const { status } = request.body as any; // 'active' or 'inactive'
 
+      fastify.log.info({ userId: user.userId, employeeId: id, status, action: 'toggle_status' }, 'Status toggle requested');
+
       if (user.role !== 'owner' && user.role !== 'admin') {
         return reply.code(403).send({ success: false, message: 'Forbidden' });
       }
@@ -189,6 +192,23 @@ export async function employeesRoutes(fastify: FastifyInstance) {
 
       const isActive = status === 'active';
 
+      if (isActive) {
+        try {
+            const limits = await employeeInvitationService.verifyPlanLimits(user.companyId);
+            if (!limits.canAddMore) {
+            return reply.code(400).send({
+                success: false,
+                message: `Cannot activate user. Employee limit of ${limits.declaredLimit} reached. Please upgrade your plan.`
+            });
+            }
+        } catch (err) {
+            fastify.log.error({ err }, 'Failed to verify plan limits during activation');
+            // If verification fails, we should probably block activation to be safe, 
+            // or allow it if it's a system error? blocking is safer.
+            return reply.code(500).send({ success: false, message: 'Failed to verify plan limits' });
+        }
+      }
+
       const updateQuery = await db.query(
         `UPDATE users 
          SET is_active = $1, updated_at = NOW()
@@ -197,9 +217,11 @@ export async function employeesRoutes(fastify: FastifyInstance) {
         [isActive, id, user.companyId]
       );
 
+      fastify.log.info({ userId: user.userId, employeeId: id, newStatus: isActive }, 'Status updated successfully');
+
       return reply.send({ success: true, message: `User ${isActive ? 'activated' : 'suspended'} successfully` });
     } catch (error: any) {
-      fastify.log.error('Failed to update employee status:', error);
+      fastify.log.error({ err: error }, 'Failed to update employee status');
       return reply.code(500).send({ success: false, message: 'Internal server error' });
     }
   });
