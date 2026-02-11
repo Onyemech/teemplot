@@ -23,37 +23,41 @@ export class AttendanceService {
    */
   async clockIn(data: ClockInData): Promise<any> {
     return transaction(async (client) => {
-      // Get company configuration
-      const companyQuery = `
-        SELECT 
-          c.id,
-          c.office_latitude,
-          c.office_longitude,
-          c.geofence_radius_meters,
-          c.require_geofence_for_clockin,
-          c.timezone,
-          c.work_start_time,
-          c.grace_period_minutes,
-          COALESCE(c.allow_remote_clockin, cs.allow_remote_clockin, false) AS allow_remote_clockin,
-          c.allow_remote_clockin_on_non_working_days,
-          c.working_days AS working_days_json,
-          cs.working_days AS working_days_array,
-          COALESCE(cs.allow_remote_clockin_on_non_working_days, false) AS allow_remote_clockin_on_non_working_days_settings
-        FROM companies c
-        LEFT JOIN company_settings cs ON c.id = cs.company_id
-        WHERE c.id = $1 AND c.deleted_at IS NULL
-      `;
+      // Parallelize independent queries
+      const [companyResult, userSettingsResult] = await Promise.all([
+        client.query(`
+          SELECT 
+            c.id, c.office_latitude, c.office_longitude, c.geofence_radius_meters,
+            c.require_geofence_for_clockin, c.timezone, c.work_start_time, c.grace_period_minutes,
+            COALESCE(c.allow_remote_clockin, cs.allow_remote_clockin, false) AS allow_remote_clockin,
+            c.allow_remote_clockin_on_non_working_days, c.working_days AS working_days_json,
+            cs.working_days AS working_days_array,
+            COALESCE(cs.allow_remote_clockin_on_non_working_days, false) AS allow_remote_clockin_on_non_working_days_settings
+          FROM companies c
+          LEFT JOIN company_settings cs ON c.id = cs.company_id
+          WHERE c.id = $1 AND c.deleted_at IS NULL
+        `, [data.companyId]),
+        client.query(`SELECT remote_work_days, allow_multi_location_clockin, allow_remote_clockin, company_id, is_active FROM users WHERE id = $1 AND deleted_at IS NULL`, [data.userId])
+      ]);
 
-      const companyResult = await client.query(companyQuery, [data.companyId]);
-
-      if (companyResult.rows.length === 0) {
-        throw new Error('Company not found');
-      }
-
+      if (companyResult.rows.length === 0) throw new Error('Company not found');
       const company = companyResult.rows[0];
 
-      // Check if user already clocked in today
-      // Fix: Compare dates in company timezone, not server timezone
+      if (userSettingsResult.rows.length === 0) throw new Error('User not found or inactive');
+      const userSettings = userSettingsResult.rows[0];
+
+      if (String(userSettings.company_id) !== String(data.companyId)) throw new Error('Invalid company relationship');
+      if (userSettings.is_active === false) throw new Error('User not active');
+
+      // Optimization: SARGable date query
+      // Calculate start of day in company timezone
+      const tz = company.timezone || 'UTC';
+      // In Postgres: clock_in_time >= (NOW() AT TIME ZONE tz)::date
+      // This is actually efficiently handled by Postgres if clock_in_time index exists, 
+      // but let's make it explicit range for clarity and index usage guarantee.
+      // Actually, (NOW() AT TIME ZONE $3)::date is a constant for the query plan, so index scan works.
+      // We will keep the query but ensure parallel execution above helps.
+      
       const existingQuery = `
         SELECT id, clock_out_time
         FROM attendance_records
@@ -64,27 +68,13 @@ export class AttendanceService {
         ORDER BY clock_in_time DESC
       `;
 
-      const existingResult = await client.query(existingQuery, [
-        data.userId,
-        data.companyId,
-        company.timezone,
-      ]);
+      const existingResult = await client.query(existingQuery, [data.userId, data.companyId, tz]);
 
       if (existingResult.rows.length > 0) {
         const lastRecord = existingResult.rows[0];
         if (lastRecord.clock_out_time === null) {
           throw new Error('Already clocked in. Please clock out first.');
         }
-        
-        // If they have clocked out, we check permissions below
-      }
-
-      // Check remote work permissions
-      const userSettingsQuery = `SELECT remote_work_days, allow_multi_location_clockin, allow_remote_clockin, company_id, is_active FROM users WHERE id = $1 AND deleted_at IS NULL`;
-      const userSettingsResult = await client.query(userSettingsQuery, [data.userId]);
-      const userSettings = userSettingsResult.rows[0];
-      if (!userSettings) {
-        throw new Error('User not found or inactive');
       }
 
       // Fix: Enforce multiple clock-in policy strictly
@@ -92,21 +82,14 @@ export class AttendanceService {
         throw new Error('Multiple clock-ins per day are not enabled for your account. Please contact your administrator.');
       }
 
-      if (String(userSettings.company_id) !== String(data.companyId)) {
-        throw new Error('Invalid company relationship for this user');
-      }
-      if (userSettings.is_active === false) {
-        throw new Error('User not active');
-      }
       const userRemoteDays = userSettings?.remote_work_days || [];
       const allowMultiLocation = userSettings?.allow_multi_location_clockin || false;
 
-      const tz = company.timezone || 'UTC';
-      const isoDowResult = await client.query(
-        'SELECT EXTRACT(ISODOW FROM (NOW() AT TIME ZONE $1))::int AS isodow',
-        [tz]
-      );
-      const isodow: number | undefined = isoDowResult.rows[0]?.isodow; // 1=Mon, 7=Sun
+      // Calculate ISODOW in JS instead of DB
+      const now = new Date();
+      const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+      const isodow = localTime.getDay() || 7; // JS getDay: 0=Sun, 6=Sat. ISODOW: 1=Mon, 7=Sun.
+
       
       // Fix: Robust working days parsing
       let allowedDays: number[] = [];
@@ -166,7 +149,7 @@ export class AttendanceService {
       // Validate geofence if required
       let isWithinFence = true;
       let distance: number | null = null;
-      let locationName = 'Main Office';
+      // let locationName = 'Main Office'; // Removed unused variable
 
       if (
         data.location &&
@@ -229,7 +212,6 @@ export class AttendanceService {
           if (isWithinGeofence(data.location, officeLocation, loc.radius)) {
             matchedLocation = loc;
             distance = d;
-            locationName = loc.name;
             break;
           }
         }
@@ -279,8 +261,9 @@ export class AttendanceService {
       }
 
       // Determine if late
-      const now = new Date();
-      const currentTime = now.toLocaleTimeString('en-US', {
+      // Rename local variable to avoid conflict if 'now' was used in outer scope (though it's block scoped here, cleaner to be unique)
+      const clockInTime = new Date();
+      const currentTime = clockInTime.toLocaleTimeString('en-US', {
         hour12: false,
         timeZone: company.timezone,
         hour: '2-digit',

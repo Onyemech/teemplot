@@ -40,42 +40,45 @@ const baseConfig: pino.LoggerOptions = {
 // Simple logger - no transports (works everywhere including serverless)
 const baseLogger = pino(baseConfig);
 
-// Create a proxy/wrapper for the error method to include Sentry
-export const logger = {
-  ...baseLogger,
-  error: (obj: any, msg?: string, ...args: any[]) => {
-    // Call original logger
-    if (msg) {
-      baseLogger.error(obj, msg, ...args);
-    } else {
-      baseLogger.error(obj);
-    }
+// Create a custom error function
+const originalError = baseLogger.error.bind(baseLogger);
 
-    // Always send errors to Sentry if configured
-    if (process.env.SENTRY_DSN) {
-      let errorToCapture: Error;
-      let extraData: any = {};
-
-      if (obj instanceof Error) {
-        errorToCapture = obj;
-        if (msg) extraData.logMessage = msg;
-      } else if (typeof obj === 'object' && obj.error instanceof Error) {
-        errorToCapture = obj.error;
-        extraData = { ...obj };
-        delete extraData.error;
-        if (msg) extraData.logMessage = msg;
-      } else {
-        errorToCapture = new Error(msg || (typeof obj === 'string' ? obj : 'Unknown Error'));
-        extraData = typeof obj === 'object' ? obj : { data: obj };
-      }
-
-      Sentry.captureException(errorToCapture, {
-        extra: extraData,
-        level: 'error'
-      });
-    }
+// Monkey-patch the error method directly on the instance
+// This preserves the prototype chain and internal symbols (writeSym)
+(baseLogger as any).error = (obj: any, msg?: string, ...args: any[]) => {
+  // Call original logger
+  if (msg) {
+    originalError(obj, msg, ...args);
+  } else {
+    originalError(obj);
   }
-} as pino.Logger;
+
+  // Always send errors to Sentry if configured
+  if (process.env.SENTRY_DSN) {
+    let errorToCapture: Error;
+    let extraData: any = {};
+
+    if (obj instanceof Error) {
+      errorToCapture = obj;
+      if (msg) extraData.logMessage = msg;
+    } else if (typeof obj === 'object' && obj.error instanceof Error) {
+      errorToCapture = obj.error;
+      extraData = { ...obj };
+      delete extraData.error;
+      if (msg) extraData.logMessage = msg;
+    } else {
+      errorToCapture = new Error(msg || (typeof obj === 'string' ? obj : 'Unknown Error'));
+      extraData = typeof obj === 'object' ? obj : { data: obj };
+    }
+
+    Sentry.captureException(errorToCapture, {
+      extra: extraData,
+      level: 'error'
+    });
+  }
+};
+
+export const logger = baseLogger;
 
 // Smart logging helper - detects environment
 export const smartLog = {

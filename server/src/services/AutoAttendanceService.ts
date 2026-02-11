@@ -184,7 +184,8 @@ export class AutoAttendanceService {
 
         const employees = await pool.query(employeesQuery, [company.id, company.timezone]);
 
-        let autoCount = 0;
+        const employeesToClockIn: string[] = [];
+        
         for (const employee of employees.rows) {
           const permissionGranted = employee.permission_state === 'granted';
           const insideFence = employee.is_inside_geofence === true;
@@ -197,15 +198,15 @@ export class AutoAttendanceService {
             if (!permissionGranted) continue;
           }
 
-          await this.createClockInRecord(employee.id, company.id, true);
-          autoCount++;
+          employeesToClockIn.push(employee.id);
         }
 
-        if (autoCount > 0) {
-          logger.info(`Auto clocked-in ${autoCount} employees for company ${company.id}`);
+        if (employeesToClockIn.length > 0) {
+           await this.bulkCreateClockInRecords(employeesToClockIn, company.id, true);
+           logger.info(`Auto clocked-in ${employeesToClockIn.length} employees for company ${company.id}`);
         }
         
-        return autoCount;
+        return employeesToClockIn.length;
       }
       
       // If not within grace period, return 0
@@ -266,6 +267,10 @@ export class AutoAttendanceService {
         const employees = await pool.query(employeesQuery, [company.id, company.timezone]);
 
         let autoCount = 0;
+        const recordsToUpdate: string[] = [];
+        const recordsToNotify: any[] = [];
+        const earlyDepartureUpdates: string[] = [];
+
         for (const record of employees.rows) {
           const permissionGranted = record.permission_state === 'granted';
           const insideFence = record.is_inside_geofence === true;
@@ -281,6 +286,7 @@ export class AutoAttendanceService {
           });
           if (currentTime < company.work_end_time) {
             if (permissionGranted && !insideFence && company.notify_early_departure) {
+              // Queue notification
               await notificationService.sendPushNotification({
                 userId: record.user_id,
                 title: 'You left early?',
@@ -290,12 +296,8 @@ export class AutoAttendanceService {
                   action: 'early_departure_check',
                 }
               });
-              await pool.query(
-                `UPDATE attendance_records 
-                 SET early_departure_notified = true, updated_at = NOW()
-                 WHERE id = $1 AND early_departure_notified IS NOT TRUE`,
-                [record.id]
-              );
+              
+              earlyDepartureUpdates.push(record.id);
             }
             continue;
           }
@@ -307,18 +309,41 @@ export class AutoAttendanceService {
           const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
           if (lastLocAt > thirtyMinutesAgo) continue;
 
-          await this.updateClockOutRecord(record.id, true);
+          recordsToUpdate.push(record.id);
+          recordsToNotify.push(record);
           autoCount++;
+        }
 
-          await notificationService.sendPushNotification({
-            userId: record.user_id,
-            title: 'Auto Clock-out',
-            body: 'You were clocked out automatically after leaving the office.',
-            data: {
-              type: 'attendance',
-              action: 'auto_clockout',
-            }
-          });
+        // Bulk update early departure
+        if (earlyDepartureUpdates.length > 0) {
+            await pool.query(
+                `UPDATE attendance_records 
+                 SET early_departure_notified = true, updated_at = NOW()
+                 WHERE id = ANY($1::uuid[]) AND early_departure_notified IS NOT TRUE`,
+                [earlyDepartureUpdates]
+            );
+        }
+
+        // Bulk update clock-out
+        if (recordsToUpdate.length > 0) {
+           await this.bulkUpdateClockOutRecords(recordsToUpdate, true);
+           
+           // Send notifications in parallel chunks
+           const chunkSize = 50;
+           for (let i = 0; i < recordsToNotify.length; i += chunkSize) {
+              const chunk = recordsToNotify.slice(i, i + chunkSize);
+              await Promise.all(chunk.map((record: any) => 
+                notificationService.sendPushNotification({
+                    userId: record.user_id,
+                    title: 'Auto Clock-out',
+                    body: 'You were clocked out automatically after leaving the office.',
+                    data: {
+                      type: 'attendance',
+                      action: 'auto_clockout',
+                    }
+                }).catch(err => logger.error({ err, userId: record.user_id }, 'Failed to send auto-clockout notification'))
+              ));
+           }
         }
 
         if (autoCount > 0) {
@@ -368,6 +393,46 @@ export class AutoAttendanceService {
   }
 
   /**
+   * Bulk Create clock-in records
+   */
+  private async bulkCreateClockInRecords(
+    userIds: string[], 
+    companyId: string, 
+    isAuto: boolean
+  ): Promise<void> {
+    if (userIds.length === 0) return;
+
+    const values: any[] = [];
+    const placeholders: string[] = [];
+    const notes = isAuto ? 'Auto clock-in' : null;
+    let paramIndex = 1;
+
+    // We can just reuse companyId and notes parameters to save binding slots, 
+    // but building the full value set is safer for bulk inserts logic.
+    // Optimization: company_id and notes are same for all.
+    // Query: INSERT INTO ... VALUES ($1, $2, NOW(), 'present', $3), ($1, $4, NOW(), 'present', $3)...
+    
+    // Actually, let's just pass userIds as an array and UNNEST it in SQL for maximum efficiency
+    const query = `
+      INSERT INTO attendance_records (
+        company_id,
+        user_id,
+        clock_in_time,
+        status,
+        notes
+      )
+      SELECT 
+        $1, 
+        unnest($2::uuid[]), 
+        NOW(), 
+        'present', 
+        $3
+    `;
+
+    await pool.query(query, [companyId, userIds, notes]);
+  }
+
+  /**
    * Create a clock-in record
    */
   private async createClockInRecord(
@@ -387,6 +452,28 @@ export class AutoAttendanceService {
 
     const notes = isAuto ? 'Auto clock-in' : null;
     await pool.query(query, [companyId, userId, notes]);
+  }
+
+  /**
+   * Bulk Update clock-out records
+   */
+  private async bulkUpdateClockOutRecords(recordIds: string[], isAuto: boolean): Promise<void> {
+    if (recordIds.length === 0) return;
+
+    const query = `
+      UPDATE attendance_records
+      SET 
+        clock_out_time = NOW(),
+        notes = CASE 
+          WHEN notes IS NULL THEN $2
+          ELSE notes || ' | Auto clock-out'
+        END,
+        updated_at = NOW()
+      WHERE id = ANY($1::uuid[])
+    `;
+
+    const notes = isAuto ? 'Auto clock-out' : null;
+    await pool.query(query, [recordIds, notes]);
   }
 
   /**

@@ -197,36 +197,50 @@ export class OnboardingService {
 
     // If owner email is different, create owner user and send invitation
     if (ownerEmail !== registrant.email) {
+      // Check if user already exists
+      const existingUser = await this.db.findOne('users', { email: ownerEmail });
+      
+      if (existingUser) {
+        if (existingUser.company_id === companyId) {
+          // User exists in this company, promote to owner
+          await this.db.update('users', { role: 'owner' }, { id: existingUser.id });
+          
+          // Demote registrant to admin
+          await this.db.update('users', { role: 'admin' }, { id: registrantUserId });
+          
+          logger.info(`Existing user ${ownerEmail} promoted to owner`);
+          return;
+        } else {
+          throw new Error(`User with email ${ownerEmail} is already registered with another company.`);
+        }
+      }
+
       // Change registrant role to admin
       await this.db.update('users', {
         role: 'admin',
       }, { id: registrantUserId });
 
-      // Create owner user (pending verification)
-      const ownerId = randomUUID();
-      await this.db.insert('users', {
-        id: ownerId,
-        company_id: companyId,
-        email: ownerEmail,
-        first_name: ownerFirstName,
-        last_name: ownerLastName,
-        phone_number: ownerPhone,
-        date_of_birth: ownerDateOfBirth,
-        role: 'owner',
-        is_active: false,
-        email_verified: false,
-      });
-
-      // Update employee count to 2
-      await this.db.update('companies', {
-        employee_count: 2,
-      }, { id: companyId });
-
-      // Send invitation email (non-blocking) - TODO: Implement owner invitation email
-      const company = await this.db.findOne('companies', { id: companyId });
-      logger.info({ ownerEmail, companyName: company?.name }, 'Owner invitation email queued');
-
-      logger.info(`Owner user created and invitation sent to ${ownerEmail}`);
+      // Use Invitation Service to invite the new owner
+      // Dynamic import to avoid circular dependency if any
+      const { employeeInvitationService } = await import('./EmployeeInvitationService');
+      
+      try {
+        await employeeInvitationService.sendInvitation(
+          companyId,
+          registrantUserId,
+          {
+            email: ownerEmail,
+            firstName: ownerFirstName,
+            lastName: ownerLastName,
+            role: 'owner' as any, // Cast to any or UserRole if imported
+          }
+        );
+        logger.info(`Owner invitation sent to ${ownerEmail}`);
+      } catch (error: any) {
+        logger.error({ err: error, ownerEmail }, 'Failed to send owner invitation');
+        // We don't rollback the registrant demotion here as the UI can retry
+        throw new Error(`Failed to invite owner: ${error.message}`);
+      }
     }
 
     logger.info(`Owner details saved for company ${companyId}`);

@@ -538,13 +538,17 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Attendance trend</h3>
             <p className="mt-1 text-xs text-gray-500">On-time vs late over time</p>
           </div>
-          <div className="h-[320px] w-full -mx-2 relative">
+          <div className="h-[320px] w-full -mx-2 relative flex items-center justify-center">
             {attendanceTrendEmpty && (
-              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
-                No attendance activity in this range
+              <div className="absolute z-10 flex flex-col items-center justify-center text-center p-4">
+                <div className="rounded-full bg-gray-50 p-3 mb-2">
+                  <CalendarDays className="h-6 w-6 text-gray-400" />
+                </div>
+                <p className="text-sm font-medium text-gray-900">No attendance data</p>
+                <p className="text-xs text-gray-500">No clock-ins recorded for this period</p>
               </div>
             )}
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" className={attendanceTrendEmpty ? 'opacity-25 grayscale' : ''}>
               <AreaChart data={dashboard.attendance.trend} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="onTimeFill" x1="0" y1="0" x2="0" y2="1">
@@ -590,13 +594,17 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Task delivery trend</h3>
             <p className="mt-1 text-xs text-gray-500">Completed on time vs late vs overdue</p>
           </div>
-          <div className="h-[320px] w-full -mx-2 relative">
+          <div className="h-[320px] w-full -mx-2 relative flex items-center justify-center">
             {taskTrendEmpty && (
-              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
-                No task activity in this range
+              <div className="absolute z-10 flex flex-col items-center justify-center text-center p-4">
+                 <div className="rounded-full bg-gray-50 p-3 mb-2">
+                   <CheckCircle2 className="h-6 w-6 text-gray-400" />
+                 </div>
+                 <p className="text-sm font-medium text-gray-900">No task activity</p>
+                 <p className="text-xs text-gray-500">No tasks due or completed in this period</p>
               </div>
             )}
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" className={taskTrendEmpty ? 'opacity-25 grayscale' : ''}>
               <BarChart data={dashboard.tasks.trend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis

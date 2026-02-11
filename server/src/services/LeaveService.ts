@@ -190,32 +190,66 @@ export class LeaveService {
       days_requested, reason, attachments
     } = data;
 
-    // Check balance
-    const balanceRes = await this.db.query(
-      `SELECT * FROM leave_balances 
-       WHERE company_id = $1 AND employee_id = $2 AND leave_type_id = $3`,
-      [companyId, employeeId, leave_type_id]
-    );
-
-    if (balanceRes.rows.length === 0) {
-      // Auto-create balance if missing (fallback)
-      await this.initializeBalances(companyId, employeeId);
-      // Re-fetch? Or just fail for now to be safe
-      throw new Error('Leave balance not found for this type.');
-    }
-
-    const balance = balanceRes.rows[0];
-    const available = Number(balance.total_allocated) - Number(balance.used) - Number(balance.pending);
-
-    if (available < days_requested) {
-      throw new Error(`Insufficient leave balance. Available: ${available}, Requested: ${days_requested}`);
-    }
-
     // Begin transaction
     // Explicitly cast to any to access getPool until IDatabase is updated
     const client = await (this.db as any).getPool().connect();
     try {
       await client.query('BEGIN');
+
+      // 1. Check for overlapping requests (Double Booking Prevention)
+      const overlapRes = await client.query(
+        `SELECT id FROM leave_requests 
+         WHERE employee_id = $1 
+         AND status IN ('pending', 'approved')
+         AND (($2 <= end_date) AND ($3 >= start_date))
+         FOR UPDATE`, // Lock these rows to prevent concurrent modifications
+        [employeeId, start_date, end_date]
+      );
+
+      if (overlapRes.rows.length > 0) {
+        throw new Error('You already have a pending or approved leave request for this period.');
+      }
+
+      // 2. Check and Lock Balance (Race Condition Prevention)
+      const balanceRes = await client.query(
+        `SELECT * FROM leave_balances 
+         WHERE company_id = $1 AND employee_id = $2 AND leave_type_id = $3
+         FOR UPDATE`, // Critical: Lock the balance row
+        [companyId, employeeId, leave_type_id]
+      );
+
+      let balance;
+      if (balanceRes.rows.length === 0) {
+        // If no balance exists, we can try to initialize it, but we need to do it within this transaction context
+        // OR release, init, and restart. For safety, let's fail and ask admin to init, or auto-init via separate logic.
+        // However, existing logic allowed auto-init. Let's support it safely.
+        
+        // We can't easily call this.initializeBalances() here because it uses a different client/pool connection.
+        // We'll throw for now to ensure data integrity, or insert explicitly.
+        // Let's Insert with ON CONFLICT DO NOTHING to be safe, then select again.
+        
+        // Get leave type details for default days
+        const typeRes = await client.query('SELECT days_allowed FROM leave_types WHERE id = $1', [leave_type_id]);
+        if (typeRes.rows.length === 0) throw new Error('Invalid leave type');
+        const defaultDays = typeRes.rows[0].days_allowed;
+
+        const initRes = await client.query(
+            `INSERT INTO leave_balances (company_id, employee_id, leave_type_id, total_allocated)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (company_id, employee_id, leave_type_id) DO UPDATE SET updated_at = NOW()
+             RETURNING *`,
+            [companyId, employeeId, leave_type_id, defaultDays]
+        );
+        balance = initRes.rows[0];
+      } else {
+        balance = balanceRes.rows[0];
+      }
+
+      const available = Number(balance.total_allocated) - Number(balance.used) - Number(balance.pending);
+
+      if (available < days_requested) {
+        throw new Error(`Insufficient leave balance. Available: ${available}, Requested: ${days_requested}`);
+      }
 
       // Auto-assign department_id from user profile
       const userDeptRes = await client.query('SELECT department_id FROM users WHERE id = $1', [employeeId]);

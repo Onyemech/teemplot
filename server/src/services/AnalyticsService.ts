@@ -767,9 +767,9 @@ export class AnalyticsService {
             const wAtt = kpiWeights.attendanceWeight || 40;
             const wTask = kpiWeights.taskCompletionWeight || 60;
             const totalWeight = wAtt + wTask;
-            const overallScore = taskStats.dueTotal === 0 
-              ? attScore 
-              : ((attScore * wAtt) + (taskScore * wTask)) / totalWeight;
+            const overallScore = totalWeight > 0
+              ? ((attScore * wAtt) + (taskScore * wTask)) / totalWeight
+              : 0; // Prevent NaN if weights sum to 0
 
             return {
               user: {
