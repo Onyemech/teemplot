@@ -33,7 +33,10 @@ export default function TaskVerifyPage({ isEmbedded = false }: TaskVerifyPagePro
   }, [])
 
   const review = async (taskId: string, approved: boolean) => {
-    setVerifying(taskId)
+    // Unique state for each button action
+    const actionId = `${taskId}-${approved ? 'approve' : 'reject'}`;
+    setVerifying(actionId)
+    
     try {
       const res = await apiClient.post(`/api/tasks/${taskId}/review`, {
         approved,
@@ -161,7 +164,8 @@ export default function TaskVerifyPage({ isEmbedded = false }: TaskVerifyPagePro
                         variant="primary"
                         className="flex-1 bg-[#0F5D5D] hover:bg-[#0D4D4D] text-white"
                         onClick={() => review(t.id, true)}
-                        loading={verifying === t.id}
+                        loading={verifying === `${t.id}-approve`}
+                        disabled={!!verifying} // Disable if any action is processing
                         icon={<CheckCircle className="w-4 h-4" />}
                       >
                         Approve
@@ -170,7 +174,8 @@ export default function TaskVerifyPage({ isEmbedded = false }: TaskVerifyPagePro
                         variant="secondary"
                         className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
                         onClick={() => review(t.id, false)}
-                        loading={verifying === t.id}
+                        loading={verifying === `${t.id}-reject`}
+                        disabled={!!verifying} // Disable if any action is processing
                         icon={<XCircle className="w-4 h-4" />}
                       >
                         Reject

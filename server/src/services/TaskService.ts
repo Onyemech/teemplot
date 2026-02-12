@@ -725,6 +725,25 @@ export class TaskService {
 
     logger.info({ taskId, userId }, 'Task marked as complete');
 
+    // Notify the assigner (if they are not the one completing it)
+    if (task.created_by && task.created_by !== userId) {
+      try {
+        const userRes = await this.db.query('SELECT first_name, last_name FROM users WHERE id = $1', [userId]);
+        const assigneeName = userRes.rows[0]
+          ? `${userRes.rows[0].first_name} ${userRes.rows[0].last_name}`
+          : 'Employee';
+
+        await notificationService.notifyTaskCompleted({
+          assignerId: task.created_by,
+          assigneeName,
+          taskTitle: task.title,
+          taskId: task.id
+        });
+      } catch (error) {
+        logger.error({ error, taskId }, 'Failed to notify assigner of task completion');
+      }
+    }
+
     return result.rows[0];
   }
 
@@ -798,16 +817,17 @@ export class TaskService {
       reviewStatus = 'rejected';
     }
 
+    // 4. Update task status and review status
     const result = await this.db.query(
       `UPDATE tasks 
-       SET status = $1,
-           review_status = $2,
+       SET status = $1::varchar,
+           review_status = $2::varchar,
            reviewed_at = NOW(),
-           reviewed_by = $3,
+           reviewed_by = $3::uuid,
            completed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE NULL END,
-           rejection_reason = $4,
+           rejection_reason = $4::text,
            metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('review_notes', $5::text)
-       WHERE id = $6 AND company_id = $7
+       WHERE id = $6::uuid AND company_id = $7::uuid
        RETURNING *`,
       [newStatus, reviewStatus, userId, rejectionReason, reviewNotes, taskId, companyId]
     );
@@ -825,6 +845,28 @@ export class TaskService {
     );
 
     logger.info({ taskId, approved, reviewedBy: userId }, 'Task reviewed');
+
+    // 6. Notify the user of the review decision
+    if (task.assigned_to) {
+      try {
+        const action = approved ? 'approved' : 'rejected';
+        const title = approved ? 'Task Approved ✅' : 'Task Rejected ❌';
+        
+        await notificationService.sendPushNotification({
+          userId: task.assigned_to,
+          title,
+          body: `Your task "${task.title}" has been ${action} by reviewer.`,
+          data: {
+            type: 'task_review',
+            taskId: task.id,
+            status: action,
+            link: `/dashboard/tasks/status?task=${task.id}`
+          }
+        });
+      } catch (error) {
+        logger.error({ error, taskId: task.id }, 'Failed to send review notification');
+      }
+    }
 
     return result.rows[0];
   }
