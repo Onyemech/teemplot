@@ -196,6 +196,22 @@ export class LeaveService {
     try {
       await client.query('BEGIN');
 
+      // 0. Validate Dates (Start Date <= End Date)
+      const startDateObj = new Date(start_date);
+      const endDateObj = new Date(end_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+      if (endDateObj < startDateObj) {
+        throw new Error('End date cannot be before start date.');
+      }
+
+      // Optional: Prevent booking in the past (unless backdating is allowed policy)
+      // For now, let's strictly prevent end_date being in the past
+      if (endDateObj < today) {
+         throw new Error('Cannot request leave for past dates.');
+      }
+
       // 1. Check for overlapping requests (Double Booking Prevention)
       const overlapRes = await client.query(
         `SELECT id FROM leave_requests 

@@ -556,10 +556,28 @@ class EnhancedAttendanceService {
 
   /**
    * Get current attendance status for user
+   * Returns the *most relevant* active session, or the latest closed session for today.
    */
   async getCurrentAttendance(userId: string, companyId: string): Promise<AttendanceRecord | null> {
     try {
-      const result = await query(
+      // PRIORITY 1: Check for ANY open session (Clocked In)
+      // This matches the "phantom" check in checkIn(), ensuring UI sees what backend sees.
+      const openSession = await query(
+        `SELECT * FROM attendance_records 
+         WHERE user_id = $1 
+           AND company_id = $2
+           AND clock_out_time IS NULL
+         ORDER BY clock_in_time DESC 
+         LIMIT 1`,
+        [userId, companyId]
+      );
+
+      if (openSession.rows.length > 0) {
+        return this.mapAttendanceRecord(openSession.rows[0], true);
+      }
+
+      // PRIORITY 2: If no open session, get the latest closed session for TODAY
+      const closedSessionToday = await query(
         `SELECT * FROM attendance_records 
          WHERE user_id = $1 
            AND company_id = $2
@@ -569,11 +587,11 @@ class EnhancedAttendanceService {
         [userId, companyId]
       );
 
-      if (result.rows.length === 0) {
-        return null;
+      if (closedSessionToday.rows.length > 0) {
+         return this.mapAttendanceRecord(closedSessionToday.rows[0], true);
       }
 
-      return this.mapAttendanceRecord(result.rows[0], true);
+      return null;
     } catch (error: any) {
       logger.error({ error, userId }, 'Failed to get current attendance');
       throw error;

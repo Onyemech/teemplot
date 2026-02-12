@@ -8,6 +8,7 @@ import { useUser } from '@/contexts/UserContext'
 import { Clock, AlertCircle, Calendar, User, X, Paperclip, FileText, Loader2 } from 'lucide-react'
 import { uploadToCloudflare } from '@/lib/integrations/cloudflare'
 import { useNavigate } from 'react-router-dom'
+import PageSkeleton from '@/components/skeletons/PageSkeleton'
 
 interface TaskStatusPageProps {
   view?: 'my_tasks' | 'created_by_me' | 'department'
@@ -110,13 +111,25 @@ export default function TaskStatusPage({
         toast.error('Please attach at least one file as proof of work')
         return
       }
+
+      // Calculate actual hours automatically from started_at to now
+      let calculatedHours = actualHours; // Fallback to manual input if calculation fails
+      
+      if (selectedTask.started_at) {
+        const startTime = new Date(selectedTask.started_at);
+        const endTime = new Date();
+        const diffMs = endTime.getTime() - startTime.getTime();
+        // Convert milliseconds to hours (with 1 decimal place)
+        calculatedHours = Math.max(0.1, parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1)));
+      }
+
       const res = await apiClient.post(`/api/tasks/${selectedTask.id}/complete`, {
-        actualHours,
+        actualHours: calculatedHours,
         completionNotes,
         attachments
       })
       if (res.data.success) {
-        toast.success('Task marked as complete!')
+        toast.success(`Task completed! Logged: ${calculatedHours} hours`)
         setShowCompleteModal(false)
         setSelectedTask(null)
         setCompletionNotes('')
@@ -148,6 +161,10 @@ export default function TaskStatusPage({
       case 'medium': return <Clock className="w-4 h-4 text-blue-500" />
       default: return <Clock className="w-4 h-4 text-gray-400" />
     }
+  }
+
+  if (loading) {
+    return <PageSkeleton />
   }
 
   return (
@@ -352,15 +369,23 @@ export default function TaskStatusPage({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Actual Hours Worked
+                  Estimated Hours (Auto-calculated from Start Time)
                 </label>
+                <div className="text-sm text-gray-500 mb-2 bg-gray-50 p-2 rounded border">
+                   {selectedTask.started_at ? (
+                      <span>Started: {new Date(selectedTask.started_at).toLocaleString()}</span>
+                   ) : (
+                      <span>Not started officially. Using manual input.</span>
+                   )}
+                </div>
                 <input
                   type="number"
-                  min={0.5}
-                  step={0.5}
+                  min={0.1}
+                  step={0.1}
                   value={actualHours}
+                  disabled={!!selectedTask.started_at} // Disable if auto-calculated
                   onChange={(e) => setActualHours(parseFloat(e.target.value) || 1)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg outline-none ${!!selectedTask.started_at ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-primary-500'}`}
                 />
               </div>
                 <div>
