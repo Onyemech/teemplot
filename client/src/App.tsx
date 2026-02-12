@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import FeatureRoute from './components/FeatureRoute'
 import { UserProvider } from './contexts/UserContext'
 import { ToastProvider } from './contexts/ToastContext'
+import PwaUpdate from './components/PwaUpdate'
 import { NotificationProvider } from './contexts/NotificationContext'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
@@ -85,6 +86,7 @@ function App() {
       <ToastProvider position="top-right">
         <UserProvider>
           <NotificationProvider>
+            <PwaUpdate />
             <ServiceWorkerErrorHandler />
             <ReloadPrompt />
             <IOSInstallPrompt />

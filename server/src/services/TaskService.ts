@@ -217,6 +217,14 @@ export class TaskService {
       if (isNaN(date.getTime())) {
         throw new Error('Invalid due date format');
       }
+      
+      const now = new Date();
+      // Set to midnight to allow tasks due later today
+      now.setHours(0, 0, 0, 0);
+      
+      if (date < now) {
+        throw new Error('Due date cannot be in the past');
+      }
     }
 
     // Validate assignee and role hierarchy constraints
