@@ -61,6 +61,39 @@ class EnhancedAttendanceService {
     try {
       const { userId, companyId, location, method, biometricsProof } = request;
 
+      // 1. Check for ANY active session (Prevent double clock-in)
+      const activeSession = await query(
+        'SELECT id, clock_in_time FROM attendance_records WHERE user_id = $1 AND clock_out_time IS NULL',
+        [userId]
+      );
+
+      if (activeSession.rows.length > 0) {
+        const sessionDate = new Date(activeSession.rows[0].clock_in_time).toLocaleDateString();
+        throw new Error(`You are already clocked in (Session started: ${sessionDate}). Please clock out first.`);
+      }
+
+      // 2. Check Multiple Clock-in Policy
+      // If user has already clocked in today (and clocked out), check if they are allowed to clock in again
+      const todaySessions = await query(
+        `SELECT id FROM attendance_records 
+         WHERE user_id = $1 AND company_id = $2 
+         AND clock_in_time >= CURRENT_DATE 
+         AND clock_in_time < CURRENT_DATE + INTERVAL '1 day'`,
+        [userId, companyId]
+      );
+
+      if (todaySessions.rows.length > 0) {
+        // Fetch user setting for multi-clockin
+        const userMultiCheck = await query(
+          'SELECT allow_multi_location_clockin FROM users WHERE id = $1',
+          [userId]
+        );
+        
+        if (!userMultiCheck.rows[0]?.allow_multi_location_clockin) {
+           throw new Error('Multiple clock-ins per day are not enabled for your account.');
+        }
+      }
+
       // Get company settings
       const companyResult = await query(
         `SELECT 
