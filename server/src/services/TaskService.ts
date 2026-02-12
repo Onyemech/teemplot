@@ -1,5 +1,6 @@
 import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 import { logger } from '../utils/logger';
+import { notificationService } from './NotificationService';
 
 interface CreateTaskData {
   title: string;
@@ -314,17 +315,15 @@ export class TaskService {
         ? `${assignerResult.rows[0].first_name} ${assignerResult.rows[0].last_name}`
         : 'Manager';
 
-      await this.db.query(
-        `INSERT INTO notifications (user_id, company_id, type, title, message, link, read)
-         VALUES ($1, $2, 'task', $3, $4, $5, false)`,
-        [
-          assignedTo,
-          companyId,
-          'New Task Assigned',
-          `${assignerName} assigned you a task: "${title}"`,
-          `/dashboard/tasks/status?task=${task.id}`,
-        ]
-      );
+      // Use NotificationService to handle both Push and In-App notifications
+      await notificationService.notifyTaskAssigned({
+        userId: assignedTo,
+        assignerName,
+        taskTitle: title,
+        dueDate: dueDate ? new Date(dueDate) : new Date(), // Fallback to now if no due date
+        taskId: task.id
+      });
+
     } catch (notifError) {
       logger.error({ error: notifError, taskId: task.id }, 'Failed to create task notification');
       // Don't fail the task creation if notification fails

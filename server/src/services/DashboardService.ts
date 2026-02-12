@@ -3,7 +3,7 @@ import { DatabaseFactory } from '../infrastructure/database/DatabaseFactory';
 export class DashboardService {
   private db = DatabaseFactory.getPrimaryDatabase();
 
-  async getDashboardStats(userId: string, companyId: string) {
+  async getDashboardStats(userId: string, companyId: string, filters: { startDate?: string; endDate?: string; employeeId?: string } = {}) {
     try {
       const userQuery = await this.db.query('SELECT role FROM users WHERE id = $1 AND company_id = $2', [
         userId,
@@ -30,6 +30,23 @@ export class DashboardService {
 
       const company = companyQuery.rows[0];
 
+      // Build filter clauses
+      const dateFilter = filters.startDate && filters.endDate 
+        ? `AND clock_in_time BETWEEN '${filters.startDate}' AND '${filters.endDate}'` 
+        : `AND DATE(clock_in_time) = CURRENT_DATE`;
+      
+      const userFilter = filters.employeeId && filters.employeeId !== 'all'
+        ? `AND user_id = '${filters.employeeId}'`
+        : '';
+
+      const baseAttendanceQuery = `
+        SELECT DISTINCT user_id 
+        FROM attendance_records 
+        WHERE company_id = $1 
+        ${dateFilter}
+        ${userFilter}
+      `;
+
       // Get counts using raw SQL for better performance
       const statsQuery = `
         SELECT 
@@ -40,19 +57,21 @@ export class DashboardService {
           (SELECT COUNT(*) FROM employee_invitations WHERE company_id = $1 AND status = 'expired') as expired_invitations,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
-           AND DATE(clock_in_time) = CURRENT_DATE 
+           ${dateFilter}
+           ${userFilter}
            AND clock_in_time IS NOT NULL) as present_today,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
-           AND DATE(clock_in_time) = CURRENT_DATE 
+           ${dateFilter}
+           ${userFilter}
            AND is_late_arrival = true) as late_today,
           (SELECT COUNT(*) FROM users 
            WHERE company_id = $1 
            AND deleted_at IS NULL
+           AND is_active = true
+           ${filters.employeeId && filters.employeeId !== 'all' ? `AND id = '${filters.employeeId}'` : ''}
            AND id NOT IN (
-             SELECT DISTINCT user_id FROM attendance_records 
-             WHERE company_id = $1 
-             AND DATE(clock_in_time) = CURRENT_DATE
+             ${baseAttendanceQuery}
            )) as absent_today,
           (SELECT COUNT(*) FROM tasks 
            WHERE company_id = $1 
@@ -72,16 +91,19 @@ export class DashboardService {
            AND status = 'pending') as pending_leave_requests,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
-           AND DATE(clock_in_time) = CURRENT_DATE 
+           ${dateFilter}
+           ${userFilter}
            AND is_within_geofence = true) as on_site_today,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
-           AND DATE(clock_in_time) = CURRENT_DATE 
+           ${dateFilter}
+           ${userFilter}
            AND is_within_geofence = false 
            AND clock_in_location IS NOT NULL) as remote_today,
           (SELECT COUNT(DISTINCT user_id) FROM attendance_records 
            WHERE company_id = $1 
-           AND DATE(clock_in_time) = CURRENT_DATE 
+           ${dateFilter}
+           ${userFilter}
            AND overtime_minutes > 0) as overtime_today_count
       `;
 

@@ -6,14 +6,21 @@ const dashboardService = new DashboardService();
 
 export default async function dashboardRoutes(fastify: FastifyInstance) {
   // Get dashboard statistics
-  fastify.get('/stats', {
+  fastify.get<{ Querystring: { startDate?: string; endDate?: string; employeeId?: string } }>('/stats', {
     onRequest: [fastify.authenticate],
     preHandler: [requireOnboarding]
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request, reply: FastifyReply) => {
     try {
       const userId = (request.user as any).userId;
       const companyId = (request.user as any).companyId;
-      const stats = await dashboardService.getDashboardStats(userId, companyId);
+      const { startDate, endDate, employeeId } = request.query;
+      
+      const stats = await dashboardService.getDashboardStats(userId, companyId, {
+        startDate,
+        endDate,
+        employeeId
+      });
+      
       return reply.code(200).send({ success: true, data: stats });
     } catch (error: any) {
       fastify.log.error('Error fetching dashboard stats:', error);

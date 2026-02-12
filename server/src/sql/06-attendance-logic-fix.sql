@@ -16,8 +16,8 @@ WITH duplicates AS (
 UPDATE attendance_records
 SET 
     clock_out_time = clock_in_time::DATE + TIME '23:59:59',
-    status = 'system_cleanup',
-    notes = COALESCE(notes, '') || ' | Auto-closed duplicate open session',
+    status = 'present', -- Change to 'present' instead of 'system_cleanup' to satisfy constraint
+    notes = COALESCE(notes, '') || ' | Auto-closed duplicate open session (system_cleanup)',
     updated_at = NOW()
 WHERE id IN (SELECT id FROM duplicates);
 
@@ -47,7 +47,7 @@ BEGIN
         UPDATE attendance_records ar
         SET 
             clock_out_time = ar.clock_in_time::DATE + TIME '23:59:59', -- Set to end of THAT day
-            status = 'system_force_out', -- Special status flag
+            status = 'present', -- Change to 'present' instead of 'system_force_out' to satisfy constraint
             notes = COALESCE(notes, '') || ' | System force clock-out (Forgot to clock out)',
             updated_at = NOW()
         FROM stale_sessions ss

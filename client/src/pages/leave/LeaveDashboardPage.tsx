@@ -114,18 +114,6 @@ export default function LeaveDashboardPage() {
 
   const loading = isTypesLoading || isRequestsLoading || (isBalancesLoading && !isOwner);
 
-  if (loading && !leaveTypes.length && !requests.length) {
-    return (
-      <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           {[...Array(3)].map((_, i) => (
-             <Skeleton key={i} className="h-64 rounded-xl" />
-           ))}
-        </div>
-      </div>
-    )
-  }
-
   useEffect(() => {
     if (form.startDate && form.endDate) {
       const start = new Date(form.startDate)
@@ -155,6 +143,18 @@ export default function LeaveDashboardPage() {
       setCalculatedDays(0)
     }
   }, [form.startDate, form.endDate, form.halfDay])
+
+  if (loading && !leaveTypes.length && !requests.length) {
+    return (
+      <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           {[...Array(3)].map((_, i) => (
+             <Skeleton key={i} className="h-64 rounded-xl" />
+           ))}
+        </div>
+      </div>
+    )
+  }
 
   const submitRequest = async () => {
     if (!form.leave_type_id || !form.startDate || !form.endDate || !form.reason) {

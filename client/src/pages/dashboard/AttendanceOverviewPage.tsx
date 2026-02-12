@@ -113,9 +113,19 @@ export default function AttendanceOverviewPage() {
     remoteToday: 0,
     overtimeToday: 0
   }, isLoading: isStatsLoading } = useQuery({
-    queryKey: ['attendance-dashboard-stats'],
+    queryKey: ['attendance-dashboard-stats', selectedDate, rangeStart, rangeEnd, selectedEmployeeId],
     queryFn: async () => {
-      const statsRes = await apiClient.get('/api/dashboard/stats')
+      const params = new URLSearchParams()
+      const start = rangeStart ? startOfDay(rangeStart) : startOfDay(selectedDate)
+      const end = rangeEnd ? endOfDay(rangeEnd) : endOfDay(selectedDate)
+      params.append('startDate', start.toISOString())
+      params.append('endDate', end.toISOString())
+      
+      if (selectedEmployeeId !== 'all') {
+        params.append('employeeId', selectedEmployeeId)
+      }
+
+      const statsRes = await apiClient.get(`/api/dashboard/stats?${params.toString()}`)
       if (statsRes.data.success) {
         const d = statsRes.data.data
         return {
@@ -414,7 +424,11 @@ export default function AttendanceOverviewPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Attendance Overview</h1>
-          <p className="text-sm text-gray-500">Track and manage employee attendance</p>
+          <p className="text-sm text-gray-500">
+            {rangeStart && rangeEnd
+              ? `Overview: ${format(rangeStart, 'MMM dd')} - ${format(rangeEnd, 'MMM dd, yyyy')}`
+              : `Overview: ${format(selectedDate, 'MMM dd, yyyy')}`}
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
