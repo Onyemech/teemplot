@@ -4,12 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock,
   LogOut,
-  Send,
   Scale,
   Coffee,
   AlertTriangle,
   CheckCircle,
-  Fingerprint
+  Fingerprint,
+  User
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import StatCard from '@/components/dashboard/StatCard';
@@ -483,17 +483,17 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
-          {/* Send Requests Card */}
+          {/* Profile Management Card */}
           <div
-            onClick={() => navigate('/dashboard/requests')}
+            onClick={() => navigate('/dashboard/profile')}
             className="bg-[#ffece380] p-5 rounded-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all duration-200 border border-transparent active:border-[#E65100]/20"
           >
             <div>
-              <h3 className="font-bold text-[#E65100] text-lg">Send Requests</h3>
-              <p className="text-[11px] text-[#E65100]/70 mt-1 font-medium">Need approval? Send your request instantly</p>
+              <h3 className="font-bold text-[#E65100] text-lg">My Profile</h3>
+              <p className="text-[11px] text-[#E65100]/70 mt-1 font-medium">Manage your personal information and settings</p>
             </div>
             <div className="bg-white p-3 rounded-full shadow-sm">
-              <Send className="h-6 w-6 text-[#E65100]" />
+              <User className="h-6 w-6 text-[#E65100]" />
             </div>
           </div>
 

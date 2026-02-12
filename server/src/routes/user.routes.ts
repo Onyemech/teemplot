@@ -66,6 +66,12 @@ export default async function userRoutes(fastify: FastifyInstance) {
       const { firstName, lastName, phoneNumber, jobTitle, bio, dateOfBirth } = request.body as any;
       const userId = request.user.userId;
 
+      // Validate and format dateOfBirth
+      let formattedDob = dateOfBirth;
+      if (dateOfBirth === '') {
+        formattedDob = null;
+      }
+
       // Update user record with provided fields
       const result = await db.query(
         `UPDATE users 
@@ -74,11 +80,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
              phone_number = COALESCE($3, phone_number),
              job_title = COALESCE($4, job_title),
              bio = COALESCE($5, bio),
-             date_of_birth = COALESCE($6, date_of_birth),
+             date_of_birth = CASE WHEN $6::text IS NULL THEN date_of_birth ELSE $6::date END,
              updated_at = NOW() 
          WHERE id = $7
          RETURNING *`,
-        [firstName, lastName, phoneNumber, jobTitle, bio, dateOfBirth, userId]
+        [firstName, lastName, phoneNumber, jobTitle, bio, formattedDob, userId]
       );
 
       if (result.rowCount === 0) {
