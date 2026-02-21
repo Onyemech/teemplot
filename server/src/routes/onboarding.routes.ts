@@ -637,7 +637,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // If user is authenticated, verify they're saving their own progress
+      // Enforce authentication to prevent IDOR
       try {
         await request.jwtVerify();
         // If we get here, user is authenticated
@@ -648,8 +648,10 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
           });
         }
       } catch (authError) {
-        // User is not authenticated, but that's okay for initial onboarding
-        // Just continue without authentication check
+        return reply.code(401).send({
+          success: false,
+          message: 'Authentication required to save progress',
+        });
       }
 
       const { onboardingProgressService } = await import('../services/OnboardingProgressService');
@@ -678,10 +680,9 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     try {
       const { userId } = request.params as any;
 
-      // If user is authenticated, verify they're accessing their own progress
+      // Enforce authentication to prevent IDOR
       try {
         await request.jwtVerify();
-        // If we get here, user is authenticated
         if (request.user.userId && request.user.userId !== userId) {
           return reply.code(403).send({
             success: false,
@@ -689,8 +690,10 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
           });
         }
       } catch (authError) {
-        // User is not authenticated, but that's okay for initial onboarding
-        // Just continue without authentication check
+        return reply.code(401).send({
+          success: false,
+          message: 'Authentication required to view progress',
+        });
       }
 
       const { onboardingProgressService } = await import('../services/OnboardingProgressService');

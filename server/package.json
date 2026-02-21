@@ -22,7 +22,8 @@
     "test:migration": "psql $DATABASE_URL -f migrations/test_001_migration.sql",
     "test:registration": "tsx scripts/test-registration.ts",
     "lint": "eslint src --ext .ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "vapid:generate": "npx web-push generate-vapid-keys"
   },
   "keywords": [
     "fastify",
@@ -33,7 +34,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@sentry/node": "^8.29.0",
     "@fastify/cookie": "^10.0.1",
     "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^13.0.2",
@@ -41,6 +41,7 @@
     "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
     "@googlemaps/google-maps-services-js": "^3.4.2",
+    "@sentry/node": "^8.29.0",
     "@simplewebauthn/browser": "^13.2.2",
     "@simplewebauthn/server": "^13.2.2",
     "@supabase/supabase-js": "^2.46.2",
@@ -63,6 +64,7 @@
     "pino-pretty": "^13.0.0",
     "slugify": "^1.6.6",
     "uuid": "^13.0.0",
+    "web-push": "^3.6.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -73,6 +75,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.15.6",
     "@types/supertest": "^6.0.2",
+    "@types/web-push": "^3.6.4",
     "@typescript-eslint/eslint-plugin": "^8.19.1",
     "@typescript-eslint/parser": "^8.19.1",
     "@vercel/node": "^5.5.13",

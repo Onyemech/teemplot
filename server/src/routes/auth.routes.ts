@@ -13,6 +13,7 @@ import {
   validateEmail,
   logSecurityEvent,
   detectSuspiciousActivity,
+  rateLimitConfig,
 } from '../middleware/security.middleware';
 import { setAuthCookies, clearAuthCookies, createAccessTokenPayload, createRefreshTokenPayload } from '../utils/jwt';
 
@@ -72,10 +73,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Register new company and admin
   fastify.post('/register', {
     config: {
-      rateLimit: {
-        max: 3,
-        timeWindow: '1 hour'
-      }
+      rateLimit: rateLimitConfig.registration
     }
   }, async (request, reply) => {
     try {
@@ -135,7 +133,11 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Verify email
-  fastify.post('/verify-email', async (request, reply) => {
+  fastify.post('/verify-email', {
+    config: {
+      rateLimit: rateLimitConfig.verifyEmail
+    }
+  }, async (request, reply) => {
     try {
       const { email, code } = VerifyEmailSchema.parse(request.body);
 
@@ -200,7 +202,11 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Resend verification code
-  fastify.post('/resend-verification', async (request, reply) => {
+  fastify.post('/resend-verification', {
+    config: {
+      rateLimit: rateLimitConfig.verifyEmail // Reuse verify email limit
+    }
+  }, async (request, reply) => {
     try {
       const { email } = z.object({ email: z.string().email() }).parse(request.body);
 
@@ -221,10 +227,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Login endpoint with rate limit
   fastify.post('/login', {
     config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: '15 minutes'
-      }
+      rateLimit: rateLimitConfig.login
     }
   }, async (request, reply) => {
     try {
@@ -482,10 +485,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Forgot password - Send verification code
   fastify.post('/forgot-password', {
     config: {
-      rateLimit: {
-        max: 3,
-        timeWindow: '15 minutes'
-      }
+      rateLimit: rateLimitConfig.passwordReset
     }
   }, async (request, reply) => {
     try {
@@ -516,7 +516,11 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Verify reset code
-  fastify.post('/verify-reset-code', async (request, reply) => {
+  fastify.post('/verify-reset-code', {
+    config: {
+      rateLimit: rateLimitConfig.passwordReset // Reuse password reset limit
+    }
+  }, async (request, reply) => {
     try {
       const rawData = VerifyEmailSchema.parse(request.body);
       const sanitizedData = sanitizeInput(rawData);
@@ -545,7 +549,11 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Reset password
-  fastify.post('/reset-password', async (request, reply) => {
+  fastify.post('/reset-password', {
+    config: {
+      rateLimit: rateLimitConfig.passwordReset
+    }
+  }, async (request, reply) => {
     try {
       const rawData = z.object({
         email: z.string().email(),

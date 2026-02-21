@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import webPush from 'web-push';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 import { realtimeService } from './RealtimeService';
@@ -46,6 +47,26 @@ export class NotificationService {
 
   constructor() {
     this.initializeEmailTransporter();
+    this.initializePushNotifications();
+  }
+
+  private initializePushNotifications(): void {
+    if (
+      !process.env.VAPID_PUBLIC_KEY ||
+      !process.env.VAPID_PRIVATE_KEY ||
+      !process.env.VAPID_SUBJECT
+    ) {
+      logger.warn('VAPID keys not configured. Push notifications disabled.');
+      return;
+    }
+
+    webPush.setVapidDetails(
+      process.env.VAPID_SUBJECT,
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    );
+
+    logger.info('Push notifications initialized');
   }
 
   private async getNotificationSchema() {
@@ -242,7 +263,67 @@ export class NotificationService {
     // Store notification in database and send real-time update
     await this.storeInAppNotification(notification);
 
+    // Send to push service
+    this.sendPushNotificationToSubscriptions(notification);
+
     return true;
+  }
+
+  private async sendPushNotificationToSubscriptions(notification: PushNotification): Promise<void> {
+    try {
+      const subscriptions = await this.getPushSubscriptions(notification.userId);
+      if (subscriptions.length === 0) {
+        return;
+      }
+
+      const payload = JSON.stringify({
+        title: notification.title,
+        body: notification.body,
+        data: notification.data,
+      });
+
+      for (const sub of subscriptions) {
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth,
+          },
+        };
+
+        try {
+          await webPush.sendNotification(pushSubscription, payload);
+          logger.info({ endpoint: sub.endpoint }, `Push notification sent to subscription`);
+        } catch (error: any) {
+          logger.error({ error, endpoint: sub.endpoint }, 'Failed to send push notification');
+          if (error.statusCode === 410) {
+            // Subscription is no longer valid, remove it from the database
+            await this.removePushSubscription(sub.endpoint);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error({ error, userId: notification.userId }, 'Failed to send push notification to subscriptions');
+    }
+  }
+
+  private async removePushSubscription(endpoint: string): Promise<void> {
+    try {
+      await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+      logger.info({ endpoint }, 'Removed invalid push subscription');
+    } catch (error) {
+      logger.error({ error, endpoint }, 'Failed to remove push subscription');
+    }
+  }
+
+  private async getPushSubscriptions(userId: string): Promise<any[]> {
+    try {
+      const res = await pool.query('SELECT * FROM push_subscriptions WHERE user_id = $1', [userId]);
+      return res.rows;
+    } catch (error) {
+      logger.error({ error, userId }, 'Failed to get push subscriptions');
+      return [];
+    }
   }
 
   /**

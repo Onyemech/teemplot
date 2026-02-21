@@ -246,6 +246,15 @@ class EnhancedAttendanceService {
         // If remote is allowed and they are outside, we still record the distance but set isWithinGeofence to true for record keeping?
         // Actually, let's keep isWithinGeofence as the physical reality, but the enforcement is what changes.
         // The attendance record field 'is_within_geofence' should show if they WERE physically within.
+      } else {
+        // No location provided
+        if (method === 'manual' && company.require_geofence_for_clockin && !remoteAllowed) {
+          throw new Error('Location access is required to check in. Please enable location services.');
+        }
+        
+        if (requiresRemoteOnNonWorkingDay) {
+           throw new Error('Location is required to verify remote clock-in eligibility.');
+        }
       }
 
       // Create attendance record

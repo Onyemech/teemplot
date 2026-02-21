@@ -277,13 +277,9 @@ export default function EmployeePerformancePage() {
                  </div>
                </div>
               <div className="h-[300px] w-full md:flex-1 -mx-2 md:mx-0 relative">
-                {trendData.length < 2 && (
-                  <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
-                    Not enough history yet — showing today only
-                  </div>
-                )}
+                 {/* Removed "Not enough history yet" warning per user request */}
                  <ResponsiveContainer width="100%" height="100%">
-                   <AreaChart data={trendData} margin={{ left: 28, right: 8, top: 8, bottom: 32 }}>
+                   <AreaChart data={trendData} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                    <defs>
                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                        <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.20}/>

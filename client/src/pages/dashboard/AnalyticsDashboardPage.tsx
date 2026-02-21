@@ -605,7 +605,7 @@ export default function AnalyticsDashboardPage() {
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%" className={taskTrendEmpty ? 'opacity-25 grayscale' : ''}>
-              <BarChart data={dashboard.tasks.trend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
+              <BarChart data={dashboard.tasks.trend} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis
                   dataKey="date"
@@ -620,15 +620,15 @@ export default function AnalyticsDashboardPage() {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickMargin={12}
-                  width={44}
+                  tickMargin={8}
+                  width={30}
                   allowDecimals={false}
                   domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
                 />
                 <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e5e7eb' }} />
-                <Bar dataKey="completedOnTime" stackId="a" fill={BRAND.indigo} radius={[6, 6, 0, 0]} />
-                <Bar dataKey="completedLate" stackId="a" fill="#F59E0B" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="overdue" stackId="a" fill="#F43F5E" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="completedOnTime" stackId="a" fill={BRAND.indigo} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="completedLate" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="overdue" stackId="a" fill="#F43F5E" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -642,13 +642,9 @@ export default function AnalyticsDashboardPage() {
             <p className="mt-1 text-xs text-gray-500">Overall score trend for the company</p>
           </div>
           <div className="h-[320px] w-full -mx-2 relative">
-            {dashboard.scoreTrend.length < 2 && (
-              <div className="absolute left-3 top-3 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
-                Not enough history yet — showing latest only
-              </div>
-            )}
+            {/* Removed "Not enough history yet" warning per user request */}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.scoreTrend} margin={{ left: 28, right: 8, top: 8, bottom: 24 }}>
+              <AreaChart data={dashboard.scoreTrend} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="overallFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="10%" stopColor={BRAND.purple} stopOpacity={0.18} />
@@ -704,9 +700,9 @@ export default function AnalyticsDashboardPage() {
             <h3 className="text-sm font-semibold text-gray-900">Company growth</h3>
             <p className="mt-1 text-xs text-gray-500">Employee growth over the last 12 months</p>
           </div>
-          <div className="h-[320px] w-full">
+          <div className="h-[320px] w-full -mx-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.growth.trend}>
+              <AreaChart data={dashboard.growth.trend} margin={{ left: -10, right: 0, top: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="10%" stopColor={BRAND.blue} stopOpacity={0.12} />

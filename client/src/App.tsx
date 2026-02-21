@@ -69,6 +69,8 @@ import OnboardingCompanySetupPage from './pages/onboarding/CompanySetupPage'
 import OnboardingCompletePage from './pages/onboarding/CompletePage'
 
 import { useUser } from './contexts/UserContext'
+import { playNotificationSound } from './utils/sound'
+import { useEffect } from 'react'
 
 function RoleBasedRedirect() {
   const { user } = useUser()
@@ -81,6 +83,20 @@ function RoleBasedRedirect() {
 }
 
 function App() {
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+        playNotificationSound();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <ToastProvider position="top-right">

@@ -81,12 +81,11 @@ export default defineConfig({
             }
           }
         ],
-        // Don't skip waiting automatically - wait for user confirmation
-        skipWaiting: false,
-        clientsClaim: true
       },
-      // Inject custom service worker code
-      injectRegister: 'auto',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
+      injectRegister: null,
       devOptions: {
         enabled: true
       }

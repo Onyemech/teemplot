@@ -17,8 +17,8 @@ export interface NotificationPermissionResult {
 }
 
 export const requestNotificationPermission = async (): Promise<NotificationPermissionResult> => {
-  if (!('Notification' in window)) {
-    return { granted: false, error: 'Notifications not supported' };
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return { granted: false, error: 'Push notifications not supported' };
   }
 
   try {
@@ -28,12 +28,62 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
       return { granted: false, error: 'Permission denied' };
     }
 
+    await subscribeToPushNotifications();
+
     return { granted: true };
   } catch (error: any) {
     console.error('Notification permission error:', error);
     return { granted: false, error: error.message };
   }
 };
+
+async function subscribeToPushNotifications() {
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+
+  if (subscription) {
+    return subscription;
+  }
+
+  const vapidPublicKey = await getVapidPublicKey();
+  const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+  const newSubscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: convertedVapidKey,
+  });
+
+  await sendSubscriptionToServer(newSubscription);
+
+  return newSubscription;
+}
+
+async function getVapidPublicKey(): Promise<string> {
+  const response = await fetch('/api/push/vapidPublicKey');
+  const data = await response.json();
+  return data.publicKey;
+}
+
+async function sendSubscriptionToServer(subscription: PushSubscription) {
+  await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(subscription),
+  });
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // Geolocation - NO CACHING OF LOCATION DATA
 export interface GeolocationResult {
