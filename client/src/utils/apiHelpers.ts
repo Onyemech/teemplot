@@ -112,10 +112,11 @@ export const API_ENDPOINTS = {
     REPORT: '/attendance/report',
   },
 
-  // Dashboard
+  // Dashboard - Using centralized constants
   DASHBOARD: {
     STATS: '/dashboard/stats',
     EMPLOYEE_STATS: '/dashboard/employee-stats',
+    RECENT_ACTIVITY: '/dashboard/recent-activity',
   },
 
   // Company

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 // import { useUser } from '@/contexts/UserContext';
 import { apiClient } from '@/lib/api';
+import { API_ENDPOINTS } from '@/utils/apiHelpers';
 import DepartmentTaskOverview from '@/components/dashboard/DepartmentTaskOverview';
 import StatCard from '@/components/dashboard/StatCard';
 import { UserRoles } from '@/constants/roles';
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await apiClient.get('/api/dashboard/stats');
+      const response = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
       const data = response.data;
 
       if (data.success) {

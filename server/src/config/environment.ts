@@ -89,6 +89,7 @@ function getAllowedOrigins(): string[] {
     return [
       'https://teemplot.com',
       'https://www.teemplot.com',
+      'https://dashboard.teemplot.com',
       'https://teemplot.vercel.app',
       'https://teemplot-frontend.vercel.app',
     ];

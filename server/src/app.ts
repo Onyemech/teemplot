@@ -52,10 +52,11 @@ export async function buildApp() {
         ...config_env.allowedOrigins,
         'https://teemplot.com',
         'https://www.teemplot.com',
+        'https://dashboard.teemplot.com',
         'https://app.teemplot.com',
         'https://api.teemplot.com',
         'https://teemplot.vercel.app',
-        'https://teemplot-frontend.vercel.app'
+        'https://teemplot-frontend.vercel.app',
       ];
 
       // Allow requests with no origin (mobile apps, Postman, etc.)

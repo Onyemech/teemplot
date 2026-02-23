@@ -33,6 +33,7 @@ import { apiClient } from '@/lib/api'
 import { formatDuration } from '@/utils/attendanceFormatter'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { API_ENDPOINTS } from '@/utils/apiHelpers'
 
 export interface AttendanceStats {
   totalEmployees: number
@@ -125,7 +126,7 @@ export default function AttendanceOverviewPage() {
         params.append('employeeId', selectedEmployeeId)
       }
 
-      const statsRes = await apiClient.get(`/api/dashboard/stats?${params.toString()}`)
+      const statsRes = await apiClient.get(`${API_ENDPOINTS.DASHBOARD.STATS}?${params.toString()}`)
       if (statsRes.data.success) {
         const d = statsRes.data.data
         return {

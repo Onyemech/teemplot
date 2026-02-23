@@ -42,6 +42,7 @@ export async function buildServerlessApp() {
       const allowedOrigins = [
         'https://teemplot.com',
         'https://www.teemplot.com',
+        'https://dashboard.teemplot.com',
         'https://app.teemplot.com',
         'https://api.teemplot.com',
         'https://teemplot.vercel.app',

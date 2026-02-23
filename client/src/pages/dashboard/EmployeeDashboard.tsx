@@ -19,6 +19,7 @@ import { permissionManager, type PermissionError } from '@/utils/PermissionManag
 import PermissionModal from '@/components/common/PermissionModal';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getTimeBasedGreeting } from '@/utils/dateUtils';
+import { API_ENDPOINTS } from '@/utils/apiHelpers';
 
 interface AttendanceStatus {
   isClockedIn: boolean;
@@ -70,7 +71,7 @@ export default function EmployeeDashboard() {
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: ['employee-stats'],
     queryFn: async () => {
-      const res = await apiClient.get('/api/dashboard/employee-stats');
+      const res = await apiClient.get(API_ENDPOINTS.DASHBOARD.EMPLOYEE_STATS);
       return res.data.success ? res.data.data : { present: 0, late: 0, absent: 0 };
     }
   });

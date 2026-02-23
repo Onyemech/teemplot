@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 // import { useUser } from '@/contexts/UserContext';
 import { apiClient } from '@/lib/api';
+import { API_ENDPOINTS } from '@/utils/apiHelpers';
 import StatCard from '@/components/dashboard/StatCard';
 import LeaveSettingsModal from '@/components/leave/LeaveSettingsModal';
 
@@ -61,7 +62,7 @@ export default function OwnerDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch dashboard stats
-      const statsResponse = await apiClient.get('/api/dashboard/stats');
+      const statsResponse = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
       const statsData = statsResponse.data;
 
       if (statsData.success && statsData.data) {
@@ -77,7 +78,7 @@ export default function OwnerDashboard() {
       }
 
       // Fetch recent activity
-      const activityResponse = await apiClient.get('/api/dashboard/recent-activity');
+      const activityResponse = await apiClient.get(API_ENDPOINTS.DASHBOARD.RECENT_ACTIVITY);
       const activityData = activityResponse.data;
 
       if (activityData.success) {
