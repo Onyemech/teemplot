@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { UserPlus, Mail, Clock, CheckCircle } from 'lucide-react'
+import { UserPlus, Mail, Clock, CheckCircle, Gift } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
@@ -50,7 +50,7 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
     const raw = params.get('highlight') || ''
     return raw ? raw.split(',').filter(Boolean) : []
   }, [location.search])
-  
+
   // State for Employee Details Modal
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -105,6 +105,39 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
     }
   }, [employees, highlightIds])
 
+  const upcomingBirthdays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentYear = today.getFullYear();
+
+    return employees
+      .filter(emp => emp.dateOfBirth && emp.status === 'active')
+      .map(emp => {
+        const dob = new Date(emp.dateOfBirth!);
+        if (isNaN(dob.getTime())) return null;
+
+        let nextBirthday = new Date(dob);
+        nextBirthday.setFullYear(currentYear);
+        nextBirthday.setHours(0, 0, 0, 0);
+
+        if (nextBirthday.getTime() < today.getTime()) {
+          nextBirthday.setFullYear(currentYear + 1);
+        }
+
+        const diffTime = nextBirthday.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return {
+          ...emp,
+          daysUntilBirthday: diffDays,
+          nextBirthday
+        };
+      })
+      .filter((emp): emp is (Employee & { daysUntilBirthday: number, nextBirthday: Date }) => emp !== null)
+      .sort((a, b) => a.daysUntilBirthday - b.daysUntilBirthday)
+      .slice(0, 4);
+  }, [employees]);
+
   return (
     <div className="h-full bg-gray-50 p-3 md:p-6 lg:p-8">
       {/* Header */}
@@ -113,7 +146,7 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Team Management</h1>
           <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">Manage your employees and invitations</p>
         </div>
-        
+
         <button
           onClick={() => setShowInviteModal(true)}
           className="bg-primary hover:bg-primary/90 text-white px-4 py-2.5 md:px-6 md:py-3 text-sm md:text-base rounded-xl font-medium flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg w-full md:w-auto"
@@ -140,26 +173,75 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
         />
       </div>
 
+      {/* Upcoming Birthdays Section */}
+      {upcomingBirthdays.length > 0 && (
+        <div className="bg-white rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-purple-100 mb-8 overflow-hidden flex flex-col transition-all">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-4 border-b border-purple-100 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+              <Gift className="w-5 h-5 text-purple-600" />
+              Upcoming Birthdays
+            </h2>
+          </div>
+          <div className="p-5 overflow-x-auto">
+            <div className="flex flex-nowrap gap-4 pb-2 min-w-min">
+              {upcomingBirthdays.map((emp) => (
+                <div key={emp.id} className="min-w-[200px] flex-1 bg-white border border-gray-100 rounded-lg p-4 shadow-sm hover:shadow-md hover:border-purple-200 transition-all relative">
+                  <div className="flex items-start justify-between mb-3">
+                    {emp.avatar ? (
+                      <img
+                        src={emp.avatar}
+                        alt={`${emp.firstName} ${emp.lastName}`}
+                        className="w-10 h-10 rounded-full object-cover border border-purple-100"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center text-purple-700 font-semibold text-lg border border-purple-200">
+                        {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
+                      </div>
+                    )}
+
+                    {emp.daysUntilBirthday === 0 ? (
+                      <span className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap border border-purple-200 shadow-sm animate-pulse">
+                        Today! 🎉
+                      </span>
+                    ) : (
+                      <span className="bg-gray-50 text-gray-600 text-[10px] font-semibold px-2 py-1 rounded-full whitespace-nowrap border border-gray-200">
+                        In {emp.daysUntilBirthday} day{emp.daysUntilBirthday !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 truncate text-sm">
+                      {emp.firstName} {emp.lastName}
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {format(new Date(emp.dateOfBirth!), 'MMMM do')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-md border border-gray-100 mb-6">
         <div className="flex flex-col sm:flex-row border-b border-gray-200">
           <button
             onClick={() => setActiveTab('employees')}
-            className={`flex-1 px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold transition-all duration-300 sm:rounded-tl-xl ${
-              activeTab === 'employees'
-                ? 'text-primary border-b-2 border-primary bg-primary/5'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
+            className={`flex-1 px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold transition-all duration-300 sm:rounded-tl-xl ${activeTab === 'employees'
+              ? 'text-primary border-b-2 border-primary bg-primary/5'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
           >
             Employees ({employees.length})
           </button>
           <button
             onClick={() => setActiveTab('invitations')}
-            className={`flex-1 px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold transition-all duration-300 sm:rounded-tr-xl ${
-              activeTab === 'invitations'
-                ? 'text-primary border-b-2 border-primary bg-primary/5'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
+            className={`flex-1 px-4 py-3 sm:px-6 sm:py-4 text-sm font-semibold transition-all duration-300 sm:rounded-tr-xl ${activeTab === 'invitations'
+              ? 'text-primary border-b-2 border-primary bg-primary/5'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
           >
             Pending Invitations ({invitations.filter(i => i.status === 'pending').length})
           </button>
@@ -189,11 +271,10 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                       key={employee.id}
                       onClick={() => handleEmployeeClick(employee)}
                       id={`employee-card-${employee.id}`}
-                      className={`flex items-center justify-between p-4 md:p-5 rounded-xl border transition-all duration-300 cursor-pointer group ${
-                        highlightIds.includes(employee.id)
-                          ? 'bg-gray-100 border-gray-300'
-                          : 'bg-white border-gray-200 hover:border-primary/50 hover:shadow-lg hover:bg-gray-50'
-                      }`}
+                      className={`flex items-center justify-between p-4 md:p-5 rounded-xl border transition-all duration-300 cursor-pointer group ${highlightIds.includes(employee.id)
+                        ? 'bg-gray-100 border-gray-300'
+                        : 'bg-white border-gray-200 hover:border-primary/50 hover:shadow-lg hover:bg-gray-50'
+                        }`}
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
                         {employee.avatar ? (
@@ -230,11 +311,10 @@ export default function EmployeesPage({ initialTab = 'employees' }: { initialTab
                         </div>
                       </div>
                       <div className="mt-3 sm:mt-0 sm:ml-2 self-start sm:self-auto">
-                        <span className={`flex-shrink-0 px-2 py-1 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-semibold shadow-sm whitespace-nowrap ${
-                          employee.status === 'active'
-                            ? 'bg-gradient-to-r from-success/10 to-success/20 text-success border border-success/20'
-                            : 'bg-gray-100 text-gray-700 border border-gray-200'
-                        }`}>
+                        <span className={`flex-shrink-0 px-2 py-1 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-semibold shadow-sm whitespace-nowrap ${employee.status === 'active'
+                          ? 'bg-gradient-to-r from-success/10 to-success/20 text-success border border-success/20'
+                          : 'bg-gray-100 text-gray-700 border border-gray-200'
+                          }`}>
                           {employee.status}
                         </span>
                       </div>
