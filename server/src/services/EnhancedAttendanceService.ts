@@ -61,42 +61,10 @@ class EnhancedAttendanceService {
     try {
       const { userId, companyId, location, method, biometricsProof } = request;
 
-      // 1. Check for ANY active session (Prevent double clock-in)
-      const activeSession = await query(
-        'SELECT id, clock_in_time FROM attendance_records WHERE user_id = $1 AND clock_out_time IS NULL',
-        [userId]
-      );
-
-      if (activeSession.rows.length > 0) {
-        const sessionDate = new Date(activeSession.rows[0].clock_in_time).toLocaleDateString();
-        throw new Error(`You are already clocked in (Session started: ${sessionDate}). Please clock out first.`);
-      }
-
-      // 2. Check Multiple Clock-in Policy
-      // If user has already clocked in today (and clocked out), check if they are allowed to clock in again
-      const todaySessions = await query(
-        `SELECT id FROM attendance_records 
-         WHERE user_id = $1 AND company_id = $2 
-         AND clock_in_time >= CURRENT_DATE 
-         AND clock_in_time < CURRENT_DATE + INTERVAL '1 day'`,
-        [userId, companyId]
-      );
-
-      if (todaySessions.rows.length > 0) {
-        // Fetch user setting for multi-clockin
-        const userMultiCheck = await query(
-          'SELECT allow_multi_location_clockin FROM users WHERE id = $1',
-          [userId]
-        );
-        
-        if (!userMultiCheck.rows[0]?.allow_multi_location_clockin) {
-           throw new Error('Multiple clock-ins per day are not enabled for your account.');
-        }
-      }
-
-      // Get company settings
+      // 1. Get company settings first (needed for timezone and rules)
       const companyResult = await query(
         `SELECT 
+          c.id,
           c.auto_clockin_enabled,
           c.require_geofence_for_clockin,
           c.office_latitude,
@@ -122,21 +90,83 @@ class EnhancedAttendanceService {
       }
 
       const company = companyResult.rows[0];
+      const tz = company.timezone || 'UTC';
 
-      // Check biometrics if required
+      // 2. Check for ANY active session and handle "stale" ones
+      const activeSession = await query(
+        `SELECT id, clock_in_time 
+         FROM attendance_records 
+         WHERE user_id = $1 AND clock_out_time IS NULL
+         ORDER BY clock_in_time DESC`,
+        [userId]
+      );
+
+      if (activeSession.rows.length > 0) {
+        const lastSession = activeSession.rows[0];
+        const clockInTime = new Date(lastSession.clock_in_time);
+
+        // Calculate difference in hours
+        const diffHours = (Date.now() - clockInTime.getTime()) / (1000 * 60 * 60);
+
+        // Check if it's from a previous day in company timezone
+        const isPersistentDay = await query(
+          `SELECT (DATE($1 AT TIME ZONE $2) = DATE(NOW() AT TIME ZONE $2)) as is_same_day`,
+          [lastSession.clock_in_time, tz]
+        );
+
+        const isSameDay = isPersistentDay.rows[0]?.is_same_day;
+
+        // Auto-close if stale (usually > 16 hours or from previous day)
+        if (!isSameDay || diffHours > 18) {
+          const formattedDate = clockInTime.toLocaleDateString();
+          await query(
+            `UPDATE attendance_records 
+             SET clock_out_time = NOW(),
+                 check_out_method = 'auto',
+                 departure_reason = $2,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [lastSession.id, `System auto-close: Stale session from ${formattedDate}`]
+          );
+
+          logger.info({ userId, sessionId: lastSession.id, diffHours }, 'Stale session auto-closed by system');
+        } else {
+          // It's still today and not too old, block double clock-in
+          throw new Error(`You are already clocked in (Session started today at ${clockInTime.toLocaleTimeString()}). Please clock out first.`);
+        }
+      }
+
+      // 3. Check Multiple Clock-in Policy for TODAY
+      const todaySessions = await query(
+        `SELECT id FROM attendance_records 
+         WHERE user_id = $1 AND company_id = $2 
+         AND DATE(clock_in_time AT TIME ZONE $3) = DATE(NOW() AT TIME ZONE $3)`,
+        [userId, companyId, tz]
+      );
+
+      if (todaySessions.rows.length > 0) {
+        const userMultiCheck = await query(
+          'SELECT allow_multi_location_clockin FROM users WHERE id = $1',
+          [userId]
+        );
+
+        if (!userMultiCheck.rows[0]?.allow_multi_location_clockin) {
+          throw new Error('Multiple clock-ins per day are not enabled for your account.');
+        }
+      }
+
+      // 4. Continue with other validations...
       if (company.biometrics_required && method === 'manual') {
         if (!biometricsProof) {
           throw new Error('Biometric verification required');
         }
       }
 
-      // STRICT CHECK: Auto-Clockin
       if (method === 'auto' && !company.auto_clockin_enabled) {
         logger.warn({ userId, companyId }, 'Auto check-in attempted but disabled');
         throw new Error('Auto check-in is disabled for this company');
       }
 
-      // Get user settings (Remote Clock-in permission)
       const userResult = await query(
         'SELECT allow_remote_clockin, company_id, is_active FROM users WHERE id = $1 AND deleted_at IS NULL',
         [userId]
@@ -251,9 +281,9 @@ class EnhancedAttendanceService {
         if (method === 'manual' && company.require_geofence_for_clockin && !remoteAllowed) {
           throw new Error('Location access is required to check in. Please enable location services.');
         }
-        
+
         if (requiresRemoteOnNonWorkingDay) {
-           throw new Error('Location is required to verify remote clock-in eligibility.');
+          throw new Error('Location is required to verify remote clock-in eligibility.');
         }
       }
 
@@ -283,7 +313,7 @@ class EnhancedAttendanceService {
       // Notify admin if late arrival
       if (attendance.is_late_arrival && attendance.minutes_late > 0) {
         await this.notifyAdminLateArrival(companyId, userId, attendance);
-        
+
         // Audit log for late arrival
         await auditService.logAction({
           userId,
@@ -292,8 +322,8 @@ class EnhancedAttendanceService {
           entityType: 'attendance',
           entityId: attendance.id,
           metadata: {
-             minutesLate: attendance.minutes_late,
-             clockInTime: attendance.clock_in_time
+            minutesLate: attendance.minutes_late,
+            clockInTime: attendance.clock_in_time
           }
         });
       }
@@ -425,9 +455,9 @@ class EnhancedAttendanceService {
           entityType: 'attendance',
           entityId: attendanceId,
           metadata: {
-             minutesEarly: updatedAttendance.minutes_early,
-             clockOutTime: updatedAttendance.clock_out_time,
-             departureReason
+            minutesEarly: updatedAttendance.minutes_early,
+            clockOutTime: updatedAttendance.clock_out_time,
+            departureReason
           }
         });
       }
@@ -586,18 +616,21 @@ class EnhancedAttendanceService {
       }
 
       // PRIORITY 2: If no open session, get the latest closed session for TODAY
+      const companyRes = await query('SELECT timezone FROM companies WHERE id = $1', [companyId]);
+      const tz = companyRes.rows[0]?.timezone || 'UTC';
+
       const closedSessionToday = await query(
         `SELECT * FROM attendance_records 
          WHERE user_id = $1 
            AND company_id = $2
-           AND clock_in_time::DATE = CURRENT_DATE 
+           AND DATE(clock_in_time AT TIME ZONE $3) = DATE(NOW() AT TIME ZONE $3)
          ORDER BY clock_in_time DESC 
          LIMIT 1`,
-        [userId, companyId]
+        [userId, companyId, tz]
       );
 
       if (closedSessionToday.rows.length > 0) {
-         return this.mapAttendanceRecord(closedSessionToday.rows[0], true);
+        return this.mapAttendanceRecord(closedSessionToday.rows[0], true);
       }
 
       return null;

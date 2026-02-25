@@ -9,8 +9,8 @@ export class PostgresDatabase implements IDatabase {
   constructor() {
     // Prefer DEV_DATABASE_URL in development mode if available
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const connectionString = (isDevelopment && process.env.DEV_DATABASE_URL) 
-      ? process.env.DEV_DATABASE_URL 
+    const connectionString = (isDevelopment && process.env.DEV_DATABASE_URL)
+      ? process.env.DEV_DATABASE_URL
       : process.env.DATABASE_URL;
 
     if (!connectionString) {
@@ -20,7 +20,7 @@ export class PostgresDatabase implements IDatabase {
     this.pool = new Pool({
       connectionString,
       max: 20,
-      idleTimeoutMillis: 10000, 
+      idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 20000, // Increased to 20s for slow networks
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
@@ -53,17 +53,17 @@ export class PostgresDatabase implements IDatabase {
     } catch (error: any) {
       // Retry on connection errors (reset, timeout, dns)
       if (retries > 0 && (
-        error.code === 'ECONNRESET' || 
+        error.code === 'ECONNRESET' ||
         error.code === 'ETIMEDOUT' ||
         error.code === 'ENOTFOUND' ||
-        error.message?.includes('ECONNRESET') || 
+        error.message?.includes('ECONNRESET') ||
         error.code === '57P01'
       )) {
         logger.warn(`Retrying query due to connection error (${error.code || error.message})... (${retries} attempts left)`);
         await new Promise(res => setTimeout(res, 500)); // Increased delay for stability
         return this.query(sql, params, retries - 1);
       }
-      
+
       logger.error(`PostgreSQL query error: ${error?.message || 'Unknown error'} - SQL: ${sql}`);
       throw error;
     }
@@ -99,7 +99,7 @@ export class PostgresDatabase implements IDatabase {
 
     const sql = `
       UPDATE ${table}
-      SET ${setClause}, updated_at = NOW()
+      SET ${setClause}${dataKeys.includes('updated_at') ? '' : ', updated_at = NOW()'}
       WHERE ${whereClause}
       RETURNING *
     `;
@@ -210,7 +210,7 @@ export class PostgresDatabase implements IDatabase {
 
   async transaction<T>(callback: (db: IDatabase) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
-    
+
     // Create a wrapper that forces usage of this specific client
     const transactionDb: IDatabase = {
       getPool: () => this.pool, // Return main pool, though generally shouldn't be used inside tx for tx-bound ops
@@ -239,7 +239,7 @@ export class PostgresDatabase implements IDatabase {
         const whereKeys = Object.keys(where);
         const setClause = dataKeys.map((key, i) => `${key} = $${i + 1}`).join(', ');
         const whereClause = whereKeys.map((key, i) => `${key} = $${dataKeys.length + i + 1}`).join(' AND ');
-        const sql = `UPDATE ${table} SET ${setClause}, updated_at = NOW() WHERE ${whereClause} RETURNING *`;
+        const sql = `UPDATE ${table} SET ${setClause}${dataKeys.includes('updated_at') ? '' : ', updated_at = NOW()'} WHERE ${whereClause} RETURNING *`;
         const params = [...Object.values(data), ...Object.values(where)];
         const result = await client.query(sql, params);
         return result.rows;
@@ -307,7 +307,7 @@ export class PostgresDatabase implements IDatabase {
         return cb(transactionDb);
       },
       healthCheck: async () => true,
-      close: async () => {}, // No-op inside transaction
+      close: async () => { }, // No-op inside transaction
       getType: () => 'postgres',
     };
 

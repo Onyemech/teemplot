@@ -42,17 +42,16 @@ export function requireFeature(feature: Feature) {
         const trialEnd = new Date(company.trial_end_date);
         if (trialEnd < new Date()) {
           await db.update('companies', {
-            subscription_status: 'expired',
-            updated_at: new Date().toISOString()
+            subscription_status: 'expired'
           }, { id: company.id });
-          
+
           // Refresh company status in memory for this request
           company.subscription_status = 'expired';
         }
       }
 
       const currentPlan: SubscriptionPlan = determineCompanyPlan(company);
-      
+
       // 1. Check Feature Availability (Gold vs Silver)
       // This MUST happen regardless of subscription status.
       // If a Silver user tries to access a Gold feature, they should be blocked even if expired.
@@ -103,8 +102,8 @@ export function requireFeature(feature: Feature) {
             method: request.method
           }
         });
-        
-        const message = company.subscription_status === 'expired' 
+
+        const message = company.subscription_status === 'expired'
           ? 'Your subscription has expired. You can view your data, but cannot perform actions. Please renew to restore full access.'
           : 'Your subscription is not active. Please update your payment method.';
 
